@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fold-webapp"
+version = "0.1.0"
+description = "Streamlit webapp for running protein structure prediction jobs (AlphaFold3 and future models)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "BrineyLab" }]
+dependencies = [
+  "streamlit>=1.36",
+  "pandas>=2.0",
+  "py3Dmol>=2.0",
+  "stmol>=0.0.9",
+  "pydantic>=2.5",
+  "pydantic-settings>=2.1",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+  "ruff>=0.5",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+
