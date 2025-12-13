@@ -10,6 +10,7 @@ from enum import Enum
 from pathlib import Path
 
 from fold_webapp.config import Settings
+from fold_webapp.db import Job, PriorityGroup, User, UserRole, get_session
 from fold_webapp.models.base import PredictionModel
 
 
@@ -24,8 +25,20 @@ class JobStatus(str, Enum):
 class JobManager:
     settings: Settings
     model: PredictionModel
+    user: User
 
     def list_jobs(self) -> list[str]:
+        # Admins can see everything via list_all_jobs(); default to per-user.
+        session = get_session()
+        try:
+            rows = session.query(Job).filter(Job.owner_id == int(self.user.id)).all()
+            return sorted([j.dir_name for j in rows], reverse=True)
+        finally:
+            session.close()
+
+    def list_all_jobs(self) -> list[str]:
+        if self.user.role != UserRole.admin:
+            return self.list_jobs()
         base = Path(self.settings.base_dir)
         if not base.exists():
             return []
@@ -40,8 +53,24 @@ class JobManager:
     def create_job_dir(self, job_name: str) -> Path:
         clean = self.sanitize_job_name(job_name)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        job_dir = Path(self.settings.base_dir) / f"{ts}_{clean}"
+        dir_name = f"{ts}_{clean}"
+        job_dir = Path(self.settings.base_dir) / dir_name
         job_dir.mkdir(parents=True, exist_ok=True)
+
+        session = get_session()
+        try:
+            session.add(
+                Job(
+                    owner_id=int(self.user.id),
+                    dir_name=dir_name,
+                    job_name=str(job_name),
+                    slurm_job_id=None,
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
+
         return job_dir
 
     def write_input_json(self, job_dir: Path, payload: dict) -> Path:
@@ -49,10 +78,41 @@ class JobManager:
         input_path.write_text(json.dumps(payload, indent=2))
         return input_path
 
-    def submit_job_dir(self, job_dir: Path) -> None:
+    def submit_job_dir(self, job_dir: Path) -> str | None:
         input_path = job_dir / "input.json"
-        cmd = self.model.get_run_command(input_path=input_path, output_dir=job_dir)
-        subprocess.Popen(cmd)
+        job_id = self.model.submit_job(
+            input_path=input_path,
+            output_dir=job_dir,
+            nice=self._slurm_nice_value(),
+        )
+        if job_id:
+            session = get_session()
+            try:
+                row = session.query(Job).filter(Job.dir_name == job_dir.name).one_or_none()
+                if row is not None:
+                    row.slurm_job_id = str(job_id)
+                    session.commit()
+            finally:
+                session.close()
+        return job_id
+
+    def _slurm_nice_value(self) -> int:
+        mapping = {
+            PriorityGroup.normal: int(self.settings.slurm_priority_normal),
+            PriorityGroup.high: int(self.settings.slurm_priority_high),
+            PriorityGroup.urgent: int(self.settings.slurm_priority_urgent),
+        }
+        return mapping.get(self.user.priority_group, int(self.settings.slurm_priority_normal))
+
+    def can_access_job(self, *, dir_name: str) -> bool:
+        if self.user.role == UserRole.admin:
+            return True
+        session = get_session()
+        try:
+            row = session.query(Job).filter(Job.dir_name == dir_name).one_or_none()
+            return bool(row and row.owner_id == int(self.user.id))
+        finally:
+            session.close()
 
     def submit_new_job(self, *, job_name: str, model_seed: int, entities: list) -> Path:
         job_dir = self.create_job_dir(job_name)
@@ -66,16 +126,44 @@ class JobManager:
     def submit_uploaded_json(self, *, uploaded_name: str, data: dict) -> Path:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         name = os.path.splitext(uploaded_name)[0]
-        job_dir = Path(self.settings.base_dir) / f"{ts}_{name}"
+        dir_name = f"{ts}_{name}"
+        job_dir = Path(self.settings.base_dir) / dir_name
         job_dir.mkdir(parents=True, exist_ok=True)
+        session = get_session()
+        try:
+            session.add(
+                Job(
+                    owner_id=int(self.user.id),
+                    dir_name=dir_name,
+                    job_name=str(name),
+                    slurm_job_id=None,
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
         self.write_input_json(job_dir, data)
         self.submit_job_dir(job_dir)
         return job_dir
 
     def submit_batch_json_list(self, *, batch_name: str, json_list: list[dict]) -> Path:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        job_dir = Path(self.settings.base_dir) / f"{ts}_BATCH_{batch_name}"
+        dir_name = f"{ts}_BATCH_{batch_name}"
+        job_dir = Path(self.settings.base_dir) / dir_name
         job_dir.mkdir(parents=True, exist_ok=True)
+        session = get_session()
+        try:
+            session.add(
+                Job(
+                    owner_id=int(self.user.id),
+                    dir_name=dir_name,
+                    job_name=str(batch_name),
+                    slurm_job_id=None,
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
         self.write_input_json(job_dir, json_list)
         self.submit_job_dir(job_dir)
         return job_dir
@@ -112,12 +200,16 @@ class JobManager:
         return JobStatus.crashed
 
     def make_zip(self, job_dir: Path) -> Path:
+        if not self.can_access_job(dir_name=job_dir.name):
+            raise PermissionError("Not authorized to access this job.")
         # Streamlit download_button wants a file; match old behavior using /tmp
         zip_base = Path("/tmp") / job_dir.name
         archive = shutil.make_archive(str(zip_base), "zip", str(job_dir))
         return Path(archive)
 
     def resubmit(self, job_dir: Path) -> Path | None:
+        if not self.can_access_job(dir_name=job_dir.name):
+            raise PermissionError("Not authorized to access this job.")
         old_in = job_dir / "input.json"
         if not old_in.exists():
             return None
@@ -129,10 +221,32 @@ class JobManager:
         new_dir = Path(self.settings.base_dir) / f"{ts}_{nm}_Re"
         new_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy(old_in, new_dir / "input.json")
+        session = get_session()
+        try:
+            session.add(
+                Job(
+                    owner_id=int(self.user.id),
+                    dir_name=new_dir.name,
+                    job_name=str(nm),
+                    slurm_job_id=None,
+                )
+            )
+            session.commit()
+        finally:
+            session.close()
+
         self.submit_job_dir(new_dir)
         return new_dir
 
     def delete(self, job_dir: Path) -> None:
+        if not self.can_access_job(dir_name=job_dir.name):
+            raise PermissionError("Not authorized to access this job.")
         shutil.rmtree(job_dir, ignore_errors=True)
-
-
+        session = get_session()
+        try:
+            row = session.query(Job).filter(Job.dir_name == job_dir.name).one_or_none()
+            if row is not None:
+                session.delete(row)
+                session.commit()
+        finally:
+            session.close()

@@ -37,6 +37,8 @@ def render_my_jobs(*, job_manager: JobManager, slurm: SlurmClient) -> None:
     active_keys = slurm.get_snapshot().keys
 
     for job in jobs:
+        if not job_manager.can_access_job(dir_name=job):
+            continue
         job_dir = job_manager.get_job_dir(job)
         status = job_manager.get_status(job_dir, active_job_keys=active_keys)
         icon = (
@@ -55,11 +57,12 @@ def render_my_jobs(*, job_manager: JobManager, slurm: SlurmClient) -> None:
             with col_status:
                 st.write(f"**Status:** {status.value.upper()}")
                 if status == JobStatus.success:
-                    zip_path = job_manager.make_zip(job_dir)
-                    with open(zip_path, "rb") as f:
-                        st.download_button(
-                            "⬇️ ZIP", f, f"{job}.zip", use_container_width=True
-                        )
+                    try:
+                        zip_path = job_manager.make_zip(job_dir)
+                        with open(zip_path, "rb") as f:
+                            st.download_button("⬇️ ZIP", f, f"{job}.zip", use_container_width=True)
+                    except PermissionError:
+                        st.error("Not authorized to download this job.")
 
             with col_actions:
                 if status != JobStatus.running:
@@ -78,8 +81,11 @@ def render_my_jobs(*, job_manager: JobManager, slurm: SlurmClient) -> None:
                         type="secondary",
                         use_container_width=True,
                     ):
-                        job_manager.delete(job_dir)
-                        st.rerun()
+                        try:
+                            job_manager.delete(job_dir)
+                            st.rerun()
+                        except PermissionError:
+                            st.error("Not authorized to delete this job.")
                 else:
                     st.info("Active in Slurm")
 

@@ -19,15 +19,23 @@ class PredictionModel(ABC):
         """Stable identifier for the model (used for routing/selection)."""
 
     @abstractmethod
-    def prepare_input(self, *, job_name: str, model_seed: int, entities: list[Entity]) -> dict[str, Any]:
+    def prepare_input(
+        self, *, job_name: str, model_seed: int, entities: list[Entity]
+    ) -> dict[str, Any]:
         """Convert UI entities to model-specific input JSON."""
 
     @abstractmethod
-    def get_run_command(self, *, input_path: Path, output_dir: Path) -> list[str]:
-        """Return argv for starting the model run."""
+    def submit_job(self, *, input_path: Path, output_dir: Path, nice: int = 0) -> str | None:
+        """Submit a prediction job.
+
+        Returns:
+            The Slurm job ID if submitted to a scheduler, or None for synchronous execution.
+
+        Raises:
+            FileNotFoundError: If `input_path` does not exist.
+            RuntimeError: If job submission fails.
+        """
 
     @abstractmethod
     def find_primary_structure_file(self, *, job_dir: Path) -> Path | None:
         """Find the main structure file for visualization, if present."""
-
-
