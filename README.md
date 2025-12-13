@@ -107,10 +107,10 @@ Both the web container and SLURM compute nodes need access to job working direct
                    │
                    ▼
 ┌─────────────────────────────────────────────────┐
-│  SLURM Cluster                                  │
+│  SLURM Jobs                                     │
 │  ┌─────────────────────────────────────────┐    │
-│  │  Compute Nodes                          │    │
-│  │  (AlphaFold, Boltz, Chai containers)    │    │
+│  │  Model Runners                          │    │
+│  │  (AlphaFold, Boltz, Chai, etc)          │    │
 │  └─────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────┘
 ```
