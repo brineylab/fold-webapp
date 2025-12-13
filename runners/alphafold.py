@@ -5,7 +5,7 @@ from runners import Runner, register
 
 @register
 class AlphaFoldRunner(Runner):
-    key = "alphafold"
+    key = "alphafold3"
     name = "AlphaFold 3"
 
     def build_script(self, job) -> str:
@@ -28,5 +28,3 @@ echo "runner={self.key}" >> output/README.txt
 sleep 2
 echo "done" > output/status.txt
 """
-
-

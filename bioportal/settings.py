@@ -102,4 +102,6 @@ LOGOUT_REDIRECT_URL = "login"
 # repo-local directory for convenience.
 #
 JOB_BASE_DIR = Path(os.environ.get("JOB_BASE_DIR", str(BASE_DIR / "job_data")))
-FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "1"
+
+# set to "1" for normal use, "0" for development without SLURM (which means the runners won't actually launch SLURM jobs)
+FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "0"

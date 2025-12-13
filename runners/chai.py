@@ -5,8 +5,8 @@ from runners import Runner, register
 
 @register
 class ChaiRunner(Runner):
-    key = "chai"
-    name = "Chai"
+    key = "chai-1"
+    name = "Chai-1"
 
     def build_script(self, job) -> str:
         workdir = job.workdir
@@ -28,5 +28,3 @@ echo "runner={self.key}" >> output/README.txt
 sleep 2
 echo "done" > output/status.txt
 """
-
-
