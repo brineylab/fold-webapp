@@ -11,10 +11,11 @@ class JobForm(forms.Form):
         widget=forms.TextInput(
             attrs={
                 "class": "form-control",
-                "placeholder": "e.g., My first AF run",
+                # "placeholder": "e.g., My first AF run",
+                # "placeholder": "optional job name",
             }
         ),
-        help_text="Optional name for this run.",
+        # help_text="Optional name for this run.",
     )
     runner = forms.ChoiceField(
         choices=[],
@@ -28,7 +29,7 @@ class JobForm(forms.Form):
                 "placeholder": ">seq1\nMKTAYI...\n",
             }
         ),
-        help_text="Paste FASTA sequences (or plain sequence text).",
+        help_text="Paste one or more FASTA-formatted sequences.",
     )
 
     def __init__(self, *args, **kwargs):
