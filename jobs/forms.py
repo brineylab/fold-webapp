@@ -6,6 +6,16 @@ from runners import all_runners
 
 
 class JobForm(forms.Form):
+    name = forms.CharField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "e.g., My first AF run",
+            }
+        ),
+        help_text="Optional name for this run.",
+    )
     runner = forms.ChoiceField(
         choices=[],
         widget=forms.Select(attrs={"class": "form-select"}),

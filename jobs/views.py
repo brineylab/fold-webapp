@@ -15,7 +15,9 @@ from jobs.services import create_and_submit_job
 
 
 def _job_queryset_for(user):
-    return Job.objects.filter(owner=user, hidden_from_owner=False).select_related("owner")
+    return Job.objects.filter(owner=user, hidden_from_owner=False).select_related(
+        "owner"
+    )
 
 
 @login_required
@@ -32,6 +34,7 @@ def job_submit(request):
             try:
                 job = create_and_submit_job(
                     owner=request.user,
+                    name=form.cleaned_data.get("name", ""),
                     runner_key=form.cleaned_data["runner"],
                     sequences=form.cleaned_data["sequences"],
                     params={},
@@ -99,5 +102,3 @@ def job_delete(request, job_id):
     job.save(update_fields=["hidden_from_owner"])
 
     return redirect("job_list")
-
-

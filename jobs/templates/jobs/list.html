@@ -11,11 +11,11 @@
           <table class="table table-hover mb-0">
             <thead>
               <tr>
+                <th>Name</th>
                 <th>Created</th>
                 <th>Runner</th>
                 <th>Status</th>
                 <th>Owner</th>
-                <th>SLURM ID</th>
                 <th></th>
                 <th></th>
               </tr>
@@ -23,11 +23,11 @@
             <tbody>
               {% for job in jobs %}
                 <tr>
+                  <td>{{ job.name|default:"-" }}</td>
                   <td class="text-muted">{{ job.created_at|date:"Y-m-d H:i" }}</td>
                   <td>{{ job.runner }}</td>
                   <td><span class="fw-semibold status-{{ job.status }}">{{ job.status }}</span></td>
                   <td class="text-muted">{{ job.owner.username }}</td>
-                  <td class="text-muted">{{ job.slurm_job_id|default:"-" }}</td>
                   <td><a class="btn btn-outline-secondary btn-sm" href="{% url 'job_detail' job_id=job.id %}">View</a></td>
                   <td>
                     {% if job.status == "RUNNING" %}

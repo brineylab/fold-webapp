@@ -11,8 +11,9 @@ import slurm
 MAX_SEQUENCE_CHARS = 200_000  # coarse protection; refine later
 
 
-def create_and_submit_job(*, owner, runner_key: str, sequences: str, params: dict) -> Job:
+def create_and_submit_job(*, owner, name: str = "", runner_key: str, sequences: str, params: dict) -> Job:
     """Create a Job, create its workdir, write inputs, submit to SLURM."""
+    name = (name or "").strip()
     sequences = (sequences or "").strip()
     if not sequences:
         raise ValidationError("Sequences are required.")
@@ -26,6 +27,7 @@ def create_and_submit_job(*, owner, runner_key: str, sequences: str, params: dic
 
     job = Job.objects.create(
         owner=owner,
+        name=name,
         runner=runner_key,
         status=Job.Status.PENDING,
         sequences=sequences,
