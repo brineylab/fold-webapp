@@ -3,29 +3,29 @@
 {% block title %}New Job{% endblock %}
 
 {% block content %}
-  <h1>New Job</h1>
+  <h1 class="mb-4">New Job</h1>
   <div class="card">
-    <form method="post">
-      {% csrf_token %}
-      {{ form.non_field_errors }}
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
 
-      <div class="field">
-        <label for="{{ form.runner.id_for_label }}">Runner</label>
-        {{ form.runner }}
-        {{ form.runner.errors }}
-      </div>
+        <div class="mb-3">
+          <label for="{{ form.runner.id_for_label }}" class="form-label">Runner</label>
+          {{ form.runner }}
+          {{ form.runner.errors }}
+        </div>
 
-      <div class="field">
-        <label for="{{ form.sequences.id_for_label }}">Sequences</label>
-        {{ form.sequences }}
-        <div class="muted" style="margin-top:6px;">{{ form.sequences.help_text }}</div>
-        {{ form.sequences.errors }}
-      </div>
+        <div class="mb-3">
+          <label for="{{ form.sequences.id_for_label }}" class="form-label">Sequences</label>
+          {{ form.sequences }}
+          <div class="form-text">{{ form.sequences.help_text }}</div>
+          {{ form.sequences.errors }}
+        </div>
 
-      <button class="btn primary" type="submit">Submit</button>
-      <a class="btn" href="{% url 'job_list' %}">Cancel</a>
-    </form>
+        <button class="btn btn-primary" type="submit">Submit</button>
+        <a class="btn btn-outline-secondary" href="{% url 'job_list' %}">Cancel</a>
+      </form>
+    </div>
   </div>
 {% endblock %}
-
-

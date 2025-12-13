@@ -15,9 +15,7 @@ from jobs.services import create_and_submit_job
 
 
 def _job_queryset_for(user):
-    if user.is_staff:
-        return Job.objects.all().select_related("owner")
-    return Job.objects.filter(owner=user).select_related("owner")
+    return Job.objects.filter(owner=user, hidden_from_owner=False).select_related("owner")
 
 
 @login_required
@@ -85,5 +83,21 @@ def job_cancel(request, job_id):
         job.save(update_fields=["status", "error_message", "completed_at"])
 
     return redirect("job_detail", job_id=job.id)
+
+
+@login_required
+@require_POST
+def job_delete(request, job_id):
+    job = get_object_or_404(_job_queryset_for(request.user), id=job_id)
+
+    # For pending jobs, cancel the SLURM job first
+    if job.status == Job.Status.PENDING and job.slurm_job_id:
+        slurm.cancel(job.slurm_job_id)
+
+    # Soft delete: hide from owner but keep for admins
+    job.hidden_from_owner = True
+    job.save(update_fields=["hidden_from_owner"])
+
+    return redirect("job_list")
 
 

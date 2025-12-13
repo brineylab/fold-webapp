@@ -3,22 +3,21 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Optional .env loading (works if python-dotenv is installed)
-try:
-    from dotenv import load_dotenv  # type: ignore
+from dotenv import load_dotenv  # type: ignore
 
-    load_dotenv(BASE_DIR / ".env")
-except Exception:
-    pass
+load_dotenv(BASE_DIR / ".env")
 
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-key-change-in-production")
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h.strip()
+]
 
 
 INSTALLED_APPS = [
@@ -71,7 +70,9 @@ DATABASES = {
 
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -102,5 +103,3 @@ LOGOUT_REDIRECT_URL = "login"
 #
 JOB_BASE_DIR = Path(os.environ.get("JOB_BASE_DIR", str(BASE_DIR / "job_data")))
 FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "1"
-
-

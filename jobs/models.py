@@ -29,6 +29,8 @@ class Job(models.Model):
     submitted_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
+    hidden_from_owner = models.BooleanField(default=False)
+
     @property
     def workdir(self) -> Path:
         base = getattr(settings, "JOB_BASE_DIR", None)
