@@ -1,0 +1,40 @@
+{% extends "jobs/base.html" %}
+
+{% block title %}Jobs{% endblock %}
+
+{% block content %}
+  <h1>Jobs</h1>
+  <div class="card">
+    {% if jobs %}
+      <table>
+        <thead>
+          <tr>
+            <th>Created</th>
+            <th>Runner</th>
+            <th>Status</th>
+            <th>Owner</th>
+            <th>SLURM ID</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in jobs %}
+            <tr>
+              <td class="muted">{{ job.created_at|date:"Y-m-d H:i" }}</td>
+              <td>{{ job.runner }}</td>
+              <td><span class="status {{ job.status }}">{{ job.status }}</span></td>
+              <td class="muted">{{ job.owner.username }}</td>
+              <td class="muted">{{ job.slurm_job_id|default:"-" }}</td>
+              <td><a class="btn" href="{% url 'job_detail' job_id=job.id %}">View</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No jobs yet.</p>
+      <a class="btn primary" href="{% url 'job_submit' %}">Create your first job</a>
+    {% endif %}
+  </div>
+{% endblock %}
+
+

@@ -1,0 +1,31 @@
+{% extends "jobs/base.html" %}
+
+{% block title %}New Job{% endblock %}
+
+{% block content %}
+  <h1>New Job</h1>
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <div class="field">
+        <label for="{{ form.runner.id_for_label }}">Runner</label>
+        {{ form.runner }}
+        {{ form.runner.errors }}
+      </div>
+
+      <div class="field">
+        <label for="{{ form.sequences.id_for_label }}">Sequences</label>
+        {{ form.sequences }}
+        <div class="muted" style="margin-top:6px;">{{ form.sequences.help_text }}</div>
+        {{ form.sequences.errors }}
+      </div>
+
+      <button class="btn primary" type="submit">Submit</button>
+      <a class="btn" href="{% url 'job_list' %}">Cancel</a>
+    </form>
+  </div>
+{% endblock %}
+
+

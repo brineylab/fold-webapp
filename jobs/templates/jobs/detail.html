@@ -1,0 +1,81 @@
+{% extends "jobs/base.html" %}
+
+{% block title %}Job {{ job.id }}{% endblock %}
+
+{% block content %}
+  <h1>Job</h1>
+  <div class="card" style="margin-bottom: 14px;">
+    <div style="display:flex; flex-wrap: wrap; gap: 18px;">
+      <div>
+        <div class="muted">ID</div>
+        <div style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">{{ job.id }}</div>
+      </div>
+      <div>
+        <div class="muted">Runner</div>
+        <div>{{ job.runner }}</div>
+      </div>
+      <div>
+        <div class="muted">Status</div>
+        <div><span class="status {{ job.status }}">{{ job.status }}</span></div>
+      </div>
+      <div>
+        <div class="muted">SLURM ID</div>
+        <div class="muted">{{ job.slurm_job_id|default:"-" }}</div>
+      </div>
+      <div>
+        <div class="muted">Created</div>
+        <div class="muted">{{ job.created_at|date:"Y-m-d H:i" }}</div>
+      </div>
+      <div>
+        <div class="muted">Submitted</div>
+        <div class="muted">{% if job.submitted_at %}{{ job.submitted_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</div>
+      </div>
+      <div>
+        <div class="muted">Completed</div>
+        <div class="muted">{% if job.completed_at %}{{ job.completed_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</div>
+      </div>
+    </div>
+
+    {% if job.error_message %}
+      <div style="margin-top: 14px;">
+        <div class="muted">Error</div>
+        <div style="white-space: pre-wrap;">{{ job.error_message }}</div>
+      </div>
+    {% endif %}
+
+    {% if job.status == "PENDING" or job.status == "RUNNING" %}
+      <div style="margin-top: 14px;">
+        <form method="post" action="{% url 'job_cancel' job_id=job.id %}">
+          {% csrf_token %}
+          <button class="btn danger" type="submit">Cancel Job</button>
+        </form>
+      </div>
+    {% endif %}
+  </div>
+
+  <h2>Output Files</h2>
+  <div class="card">
+    {% if files %}
+      <table>
+        <thead>
+          <tr>
+            <th>File</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for name in files %}
+            <tr>
+              <td style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">{{ name }}</td>
+              <td><a class="btn" href="{% url 'download_file' job_id=job.id filename=name %}">Download</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No output files found yet. If the job is running, check back later.</p>
+    {% endif %}
+  </div>
+{% endblock %}
+
+
