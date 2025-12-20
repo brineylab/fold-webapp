@@ -14,7 +14,9 @@ DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
 ALLOWED_HOSTS = [
     h.strip()
-    for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    for h in os.environ.get(
+        "ALLOWED_HOSTS", "localhost,127.0.0.1,kraken.scripps.edu"
+    ).split(",")
     if h.strip()
 ]
 
