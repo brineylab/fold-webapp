@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from console.models import RunnerConfig, SiteSettings
 from console.services.quota import check_quota
 from jobs.models import Job
 from runners import get_runner
@@ -12,8 +13,49 @@ import slurm
 MAX_SEQUENCE_CHARS = 200_000  # coarse protection; refine later
 
 
+def check_maintenance_mode() -> tuple[bool, str | None]:
+    """
+    Check if site is in maintenance mode.
+    
+    Returns:
+        Tuple of (allowed, error_message).
+        If allowed is True (not in maintenance), error_message is None.
+        If allowed is False (in maintenance), error_message is the maintenance message.
+    """
+    site_settings = SiteSettings.get_settings()
+    if site_settings.maintenance_mode:
+        return False, site_settings.maintenance_message
+    return True, None
+
+
+def check_runner_enabled(runner_key: str) -> tuple[bool, str | None]:
+    """
+    Check if a specific runner is enabled.
+    
+    Returns:
+        Tuple of (allowed, error_message).
+        If allowed is True, error_message is None.
+        If allowed is False, error_message explains why.
+    """
+    if not RunnerConfig.is_runner_enabled(runner_key):
+        config = RunnerConfig.get_config(runner_key)
+        reason = config.disabled_reason or "This runner is temporarily unavailable."
+        return False, f"Runner is disabled: {reason}"
+    return True, None
+
+
 def create_and_submit_job(*, owner, name: str = "", runner_key: str, sequences: str, params: dict) -> Job:
     """Create a Job, create its workdir, write inputs, submit to SLURM."""
+    # Check maintenance mode first
+    allowed, error = check_maintenance_mode()
+    if not allowed:
+        raise ValidationError(error)
+    
+    # Check if runner is enabled
+    allowed, error = check_runner_enabled(runner_key)
+    if not allowed:
+        raise ValidationError(error)
+    
     # Check quota before proceeding
     allowed, error = check_quota(owner)
     if not allowed:

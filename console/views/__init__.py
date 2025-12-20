@@ -18,6 +18,13 @@ from console.views.cleanup import (
     delete_orphan,
     delete_all_orphans,
 )
+from console.views.settings import (
+    settings_page,
+    toggle_maintenance,
+    update_maintenance_message,
+    toggle_runner,
+    update_runner_reason,
+)
 
 __all__ = [
     "dashboard",
@@ -40,5 +47,10 @@ __all__ = [
     "run_cleanup",
     "delete_orphan",
     "delete_all_orphans",
+    "settings_page",
+    "toggle_maintenance",
+    "update_maintenance_message",
+    "toggle_runner",
+    "update_runner_reason",
 ]
 

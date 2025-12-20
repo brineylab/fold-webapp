@@ -9,7 +9,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 import slurm
-from jobs.forms import JobForm
+from console.models import SiteSettings
+from jobs.forms import JobForm, get_disabled_runners
 from jobs.models import Job
 from jobs.services import create_and_submit_job
 
@@ -28,23 +29,42 @@ def job_list(request):
 
 @login_required
 def job_submit(request):
+    # Check maintenance mode
+    site_settings = SiteSettings.get_settings()
+    maintenance_mode = site_settings.maintenance_mode
+    maintenance_message = site_settings.maintenance_message
+    
+    # Get list of disabled runners
+    disabled_runners = get_disabled_runners()
+    
     if request.method == "POST":
-        form = JobForm(request.POST)
-        if form.is_valid():
-            try:
-                job = create_and_submit_job(
-                    owner=request.user,
-                    name=form.cleaned_data.get("name", ""),
-                    runner_key=form.cleaned_data["runner"],
-                    sequences=form.cleaned_data["sequences"],
-                    params={},
-                )
-                return redirect("job_detail", job_id=job.id)
-            except Exception as e:
-                form.add_error(None, str(e))
+        # Block submission if in maintenance mode
+        if maintenance_mode:
+            form = JobForm(request.POST)
+            form.add_error(None, maintenance_message)
+        else:
+            form = JobForm(request.POST)
+            if form.is_valid():
+                try:
+                    job = create_and_submit_job(
+                        owner=request.user,
+                        name=form.cleaned_data.get("name", ""),
+                        runner_key=form.cleaned_data["runner"],
+                        sequences=form.cleaned_data["sequences"],
+                        params={},
+                    )
+                    return redirect("job_detail", job_id=job.id)
+                except Exception as e:
+                    form.add_error(None, str(e))
     else:
         form = JobForm()
-    return render(request, "jobs/submit.html", {"form": form})
+    
+    return render(request, "jobs/submit.html", {
+        "form": form,
+        "maintenance_mode": maintenance_mode,
+        "maintenance_message": maintenance_message,
+        "disabled_runners": disabled_runners,
+    })
 
 
 @login_required

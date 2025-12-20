@@ -38,5 +38,12 @@ urlpatterns = [
     
     # Audit log
     path("audit/", views.audit_log, name="audit_log"),
+    
+    # Settings
+    path("settings/", views.settings_page, name="settings"),
+    path("settings/maintenance/toggle/", views.toggle_maintenance, name="toggle_maintenance"),
+    path("settings/maintenance/message/", views.update_maintenance_message, name="update_maintenance_message"),
+    path("settings/runners/<str:runner_key>/toggle/", views.toggle_runner, name="toggle_runner"),
+    path("settings/runners/<str:runner_key>/reason/", views.update_runner_reason, name="update_runner_reason"),
 ]
 
