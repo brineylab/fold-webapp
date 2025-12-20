@@ -1,0 +1,185 @@
+{% extends "console/base.html" %}
+
+{% block title %}Job {{ job.id }} - Ops Console{% endblock %}
+
+{% block console_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h1 class="mb-1">Job Details</h1>
+    <code class="fs-5">{{ job.id }}</code>
+  </div>
+  <div class="btn-group">
+    <a href="{% url 'console:job_list' %}" class="btn btn-outline-secondary">Back to List</a>
+    {% if job.status == "PENDING" or job.status == "RUNNING" %}
+    <form method="post" action="{% url 'console:job_cancel' job_id=job.id %}" class="d-inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger" onclick="return confirm('Cancel this job?');">
+        Cancel Job
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row">
+  <!-- Main Info -->
+  <div class="col-md-8">
+    <div class="card mb-4">
+      <div class="card-header">
+        <strong>Job Information</strong>
+      </div>
+      <div class="card-body">
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Name</strong></div>
+          <div class="col-sm-9">{{ job.name|default:"(unnamed)" }}</div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Owner</strong></div>
+          <div class="col-sm-9">
+            {{ job.owner.username }}
+            <small class="text-muted">({{ job.owner.email|default:"no email" }})</small>
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Runner</strong></div>
+          <div class="col-sm-9"><span class="badge bg-secondary">{{ job.runner }}</span></div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Status</strong></div>
+          <div class="col-sm-9">
+            <span class="fw-bold status-{{ job.status }}">{{ job.status }}</span>
+            {% if job.hidden_from_owner %}
+            <span class="badge bg-warning ms-2">Hidden from owner</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>SLURM Job ID</strong></div>
+          <div class="col-sm-9"><code>{{ job.slurm_job_id|default:"-" }}</code></div>
+        </div>
+        {% if job.error_message %}
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Error</strong></div>
+          <div class="col-sm-9">
+            <div class="alert alert-danger mb-0 py-2">{{ job.error_message }}</div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Timestamps -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <strong>Timestamps</strong>
+      </div>
+      <div class="card-body">
+        <div class="row mb-2">
+          <div class="col-sm-3"><strong>Created</strong></div>
+          <div class="col-sm-9">{{ job.created_at|date:"Y-m-d H:i:s" }}</div>
+        </div>
+        <div class="row mb-2">
+          <div class="col-sm-3"><strong>Submitted</strong></div>
+          <div class="col-sm-9">{{ job.submitted_at|date:"Y-m-d H:i:s"|default:"-" }}</div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3"><strong>Completed</strong></div>
+          <div class="col-sm-9">{{ job.completed_at|date:"Y-m-d H:i:s"|default:"-" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sequences -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Sequences</strong>
+        <span class="badge bg-secondary">{{ job.sequences|length }} chars</span>
+      </div>
+      <div class="card-body">
+        <pre class="mb-0" style="max-height: 300px; overflow-y: auto;"><code>{{ job.sequences }}</code></pre>
+      </div>
+    </div>
+
+    <!-- Parameters -->
+    {% if job.params %}
+    <div class="card mb-4">
+      <div class="card-header">
+        <strong>Parameters</strong>
+      </div>
+      <div class="card-body">
+        <pre class="mb-0"><code>{{ job.params|pprint }}</code></pre>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Sidebar -->
+  <div class="col-md-4">
+    <!-- Input Files -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <strong>Input Files</strong>
+      </div>
+      <div class="card-body">
+        {% if input_files %}
+        <ul class="list-unstyled mb-0">
+          {% for f in input_files %}
+          <li class="mb-1">
+            <code>{{ f }}</code>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0">No input files</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Output Files -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <strong>Output Files</strong>
+      </div>
+      <div class="card-body">
+        {% if files %}
+        <ul class="list-unstyled mb-0">
+          {% for f in files %}
+          <li class="mb-1">
+            <code>{{ f }}</code>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0">No output files yet</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Working Directory -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <strong>Working Directory</strong>
+      </div>
+      <div class="card-body">
+        <code class="text-break">{{ job.workdir }}</code>
+      </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="card">
+      <div class="card-header">
+        <strong>Quick Links</strong>
+      </div>
+      <div class="list-group list-group-flush">
+        <a href="{% url 'admin:jobs_job_change' job.id %}" class="list-group-item list-group-item-action">
+          Edit in Django Admin
+        </a>
+        <a href="{% url 'console:audit_log' %}?job={{ job.id }}" class="list-group-item list-group-item-action">
+          View Audit History
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

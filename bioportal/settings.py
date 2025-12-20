@@ -26,17 +26,21 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "simple_history",
     "jobs.apps.JobsConfig",
+    "console.apps.ConsoleConfig",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "simple_history.middleware.HistoryRequestMiddleware",
 ]
 
 ROOT_URLCONF = "bioportal.urls"
@@ -86,6 +90,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -104,3 +109,13 @@ JOB_BASE_DIR = Path(os.environ.get("JOB_BASE_DIR", str(BASE_DIR / "job_data")))
 
 # set to "1" for normal use, "0" for development without SLURM (which means the runners won't actually launch SLURM jobs)
 FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "0"
+
+
+#
+# Default quota settings for new users.
+# Staff users (is_staff=True) are exempt from quotas.
+#
+DEFAULT_MAX_CONCURRENT_JOBS = int(os.environ.get("DEFAULT_MAX_CONCURRENT_JOBS", "1"))
+DEFAULT_MAX_QUEUED_JOBS = int(os.environ.get("DEFAULT_MAX_QUEUED_JOBS", "5"))
+DEFAULT_JOBS_PER_DAY = int(os.environ.get("DEFAULT_JOBS_PER_DAY", "10"))
+DEFAULT_RETENTION_DAYS = int(os.environ.get("DEFAULT_RETENTION_DAYS", "30"))

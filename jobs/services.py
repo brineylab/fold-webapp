@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from console.services.quota import check_quota
 from jobs.models import Job
 from runners import get_runner
 import slurm
@@ -13,6 +14,11 @@ MAX_SEQUENCE_CHARS = 200_000  # coarse protection; refine later
 
 def create_and_submit_job(*, owner, name: str = "", runner_key: str, sequences: str, params: dict) -> Job:
     """Create a Job, create its workdir, write inputs, submit to SLURM."""
+    # Check quota before proceeding
+    allowed, error = check_quota(owner)
+    if not allowed:
+        raise ValidationError(error)
+    
     name = (name or "").strip()
     sequences = (sequences or "").strip()
     if not sequences:

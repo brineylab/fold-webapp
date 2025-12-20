@@ -1,0 +1,186 @@
+{% extends "console/base.html" %}
+
+{% block title %}Dashboard - Ops Console{% endblock %}
+
+{% block console_content %}
+<h1 class="mb-4">Dashboard</h1>
+
+<!-- Status Counters -->
+<div class="row mb-4">
+  <div class="col-md-3">
+    <div class="card border-warning">
+      <div class="card-body text-center">
+        <h2 class="card-title text-warning mb-0">{{ stats.status_counts_all.pending }}</h2>
+        <p class="card-text text-muted mb-0">Pending</p>
+        <small class="text-muted">{{ stats.status_counts_24h.pending }} last 24h</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-info">
+      <div class="card-body text-center">
+        <h2 class="card-title text-info mb-0">{{ stats.status_counts_all.running }}</h2>
+        <p class="card-text text-muted mb-0">Running</p>
+        <small class="text-muted">{{ stats.status_counts_24h.running }} last 24h</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-success">
+      <div class="card-body text-center">
+        <h2 class="card-title text-success mb-0">{{ stats.status_counts_all.completed }}</h2>
+        <p class="card-text text-muted mb-0">Completed</p>
+        <small class="text-muted">{{ stats.status_counts_24h.completed }} last 24h</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-danger">
+      <div class="card-body text-center">
+        <h2 class="card-title text-danger mb-0">{{ stats.status_counts_all.failed }}</h2>
+        <p class="card-text text-muted mb-0">Failed</p>
+        <small class="text-muted">{{ stats.status_counts_24h.failed }} last 24h</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Queue Depth & Disk Usage -->
+  <div class="col-md-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <strong>System Status</strong>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+          <div>
+            <h6 class="mb-0">Queue Depth</h6>
+            <small class="text-muted">Jobs waiting to run</small>
+          </div>
+          <span class="badge bg-{% if stats.queue_depth > 10 %}warning{% elif stats.queue_depth > 0 %}info{% else %}secondary{% endif %} fs-5">{{ stats.queue_depth }}</span>
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+          <div>
+            <h6 class="mb-0">Total Jobs</h6>
+            <small class="text-muted">All time</small>
+          </div>
+          <span class="badge bg-secondary fs-5">{{ stats.total_jobs }}</span>
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+          <div>
+            <h6 class="mb-0">Jobs (24h)</h6>
+            <small class="text-muted">Created in last 24 hours</small>
+          </div>
+          <span class="badge bg-primary fs-5">{{ stats.jobs_24h }}</span>
+        </div>
+        
+        {% if stats.disk_usage.configured and stats.disk_usage.exists %}
+        <div>
+          <h6 class="mb-2">Disk Usage</h6>
+          <div class="progress mb-2" style="height: 20px;">
+            <div class="progress-bar {% if stats.disk_usage.percent_used > 90 %}bg-danger{% elif stats.disk_usage.percent_used > 75 %}bg-warning{% else %}bg-success{% endif %}" 
+                 role="progressbar" 
+                 style="width: {{ stats.disk_usage.percent_used }}%;" 
+                 aria-valuenow="{{ stats.disk_usage.percent_used }}" 
+                 aria-valuemin="0" 
+                 aria-valuemax="100">
+              {{ stats.disk_usage.percent_used }}%
+            </div>
+          </div>
+          <small class="text-muted">
+            {{ stats.disk_usage.used_gb }} GB used of {{ stats.disk_usage.total_gb }} GB
+            ({{ stats.disk_usage.free_gb }} GB free)
+            &bull; {{ stats.disk_usage.job_directories }} job directories
+          </small>
+        </div>
+        {% elif stats.disk_usage.error %}
+        <div class="text-danger">
+          <small>Disk status error: {{ stats.disk_usage.error }}</small>
+        </div>
+        {% else %}
+        <div class="text-muted">
+          <small>Job directory not configured or doesn't exist</small>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Failures -->
+  <div class="col-md-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Recent Failures</strong>
+        <a href="{% url 'console:job_list' %}?status=FAILED" class="btn btn-outline-danger btn-sm">View All</a>
+      </div>
+      <div class="card-body">
+        {% if stats.recent_failures %}
+          <ul class="list-group list-group-flush">
+            {% for failure in stats.recent_failures %}
+            <li class="list-group-item px-0">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <a href="{% url 'console:job_detail' job_id=failure.id %}" class="text-decoration-none">
+                    <code class="text-danger">{{ failure.id|truncatechars:13 }}</code>
+                  </a>
+                  {% if failure.name %}
+                  <span class="ms-2">{{ failure.name }}</span>
+                  {% endif %}
+                  <br>
+                  <small class="text-muted">{{ failure.owner__username }}</small>
+                </div>
+                <small class="text-muted">{{ failure.completed_at|timesince }} ago</small>
+              </div>
+              {% if failure.error_message %}
+              <small class="text-danger d-block mt-1">{{ failure.error_message|truncatechars:80 }}</small>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted text-center mb-0 py-4">No recent failures</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Links -->
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <strong>Quick Actions</strong>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-3">
+            <a href="{% url 'console:job_list' %}?status=RUNNING" class="btn btn-outline-info w-100 mb-2">
+              View Running Jobs
+            </a>
+          </div>
+          <div class="col-md-3">
+            <a href="{% url 'console:job_list' %}?status=PENDING" class="btn btn-outline-warning w-100 mb-2">
+              View Pending Jobs
+            </a>
+          </div>
+          <div class="col-md-3">
+            <a href="{% url 'console:monitoring' %}" class="btn btn-outline-secondary w-100 mb-2">
+              System Monitoring
+            </a>
+          </div>
+          <div class="col-md-3">
+            <a href="{% url 'console:audit_log' %}" class="btn btn-outline-secondary w-100 mb-2">
+              View Audit Log
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

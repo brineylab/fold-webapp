@@ -5,6 +5,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class Job(models.Model):
@@ -31,6 +32,9 @@ class Job(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
 
     hidden_from_owner = models.BooleanField(default=False)
+
+    # Audit history tracking
+    history = HistoricalRecords()
 
     @property
     def workdir(self) -> Path:
