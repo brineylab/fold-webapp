@@ -10,9 +10,10 @@ from django.views.decorators.http import require_POST
 
 import slurm
 from console.models import SiteSettings
-from jobs.forms import JobForm, get_disabled_runners
+from jobs.forms import get_disabled_runners
 from jobs.models import Job
 from jobs.services import create_and_submit_job
+from model_types import get_default_model_type, get_model_type
 
 
 def _job_queryset_for(user):
@@ -37,30 +38,46 @@ def job_submit(request):
     # Get list of disabled runners
     disabled_runners = get_disabled_runners()
     
+    model_key = (
+        request.GET.get("model")
+        or request.POST.get("model")
+        or get_default_model_type().key
+    )
+    try:
+        model_type = get_model_type(model_key)
+    except KeyError as exc:
+        raise Http404 from exc
+
     if request.method == "POST":
         # Block submission if in maintenance mode
         if maintenance_mode:
-            form = JobForm(request.POST)
+            form = model_type.get_form(request.POST, request.FILES)
             form.add_error(None, maintenance_message)
         else:
-            form = JobForm(request.POST)
+            form = model_type.get_form(request.POST, request.FILES)
             if form.is_valid():
                 try:
+                    model_type.validate(form.cleaned_data)
+                    input_payload = model_type.normalize_inputs(form.cleaned_data)
+                    runner_key = model_type.resolve_runner_key(form.cleaned_data)
                     job = create_and_submit_job(
                         owner=request.user,
                         name=form.cleaned_data.get("name", ""),
-                        runner_key=form.cleaned_data["runner"],
-                        sequences=form.cleaned_data["sequences"],
-                        params={},
+                        runner_key=runner_key,
+                        sequences=input_payload.get("sequences", ""),
+                        params=input_payload.get("params", {}),
+                        model_key=model_type.key,
+                        input_payload=input_payload,
                     )
                     return redirect("job_detail", job_id=job.id)
                 except Exception as e:
                     form.add_error(None, str(e))
     else:
-        form = JobForm()
+        form = model_type.get_form()
     
-    return render(request, "jobs/submit.html", {
+    return render(request, model_type.template_name, {
         "form": form,
+        "model_key": model_key,
         "maintenance_mode": maintenance_mode,
         "maintenance_message": maintenance_message,
         "disabled_runners": disabled_runners,

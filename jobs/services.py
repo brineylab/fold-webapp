@@ -44,7 +44,16 @@ def check_runner_enabled(runner_key: str) -> tuple[bool, str | None]:
     return True, None
 
 
-def create_and_submit_job(*, owner, name: str = "", runner_key: str, sequences: str, params: dict) -> Job:
+def create_and_submit_job(
+    *,
+    owner,
+    name: str = "",
+    runner_key: str,
+    sequences: str,
+    params: dict,
+    model_key: str,
+    input_payload: dict | None = None,
+) -> Job:
     """Create a Job, create its workdir, write inputs, submit to SLURM."""
     # Check maintenance mode first
     allowed, error = check_maintenance_mode()
@@ -77,9 +86,12 @@ def create_and_submit_job(*, owner, name: str = "", runner_key: str, sequences: 
         owner=owner,
         name=name,
         runner=runner_key,
+        model_key=model_key,
         status=Job.Status.PENDING,
         sequences=sequences,
         params=params or {},
+        input_payload=input_payload or {},
+        output_payload={},
     )
 
     # Controlled filesystem layout under JOB_BASE_DIR/<uuid>/
@@ -100,5 +112,4 @@ def create_and_submit_job(*, owner, name: str = "", runner_key: str, sequences: 
         job.completed_at = timezone.now()
         job.save(update_fields=["status", "error_message", "completed_at"])
         raise
-
 

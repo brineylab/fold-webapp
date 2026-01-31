@@ -226,10 +226,10 @@ class ProteinMPNNModelType(ModelType):
 ## Implementation Plan (Phased)
 
 ### Phase 1: Core API + Registry
-1. Create `model_types/` module with registry and base protocol/ABC.
-2. Add `model_key` to `Job` model and migrate.
-3. Add JSON fields for `input_payload` and `output_payload` (if not already present).
-4. Add model lookup and dispatch in submission view.
+1. [x] Create `model_types/` module with registry and base protocol/ABC.
+2. [x] Add `model_key` to `Job` model and migrate.
+3. [x] Add JSON fields for `input_payload` and `output_payload` (if not already present).
+4. [x] Add model lookup and dispatch in submission view.
 
 ### Phase 2: Forms + Templates
 1. Create base submission template `jobs/templates/jobs/submit/base.html`.

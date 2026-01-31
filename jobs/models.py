@@ -19,10 +19,13 @@ class Job(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=100, blank=True, default="")
     runner = models.CharField(max_length=50)
+    model_key = models.CharField(max_length=50, default="runner")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
 
     sequences = models.TextField()
     params = models.JSONField(default=dict, blank=True)
+    input_payload = models.JSONField(default=dict, blank=True)
+    output_payload = models.JSONField(default=dict, blank=True)
 
     slurm_job_id = models.CharField(max_length=50, blank=True)
     error_message = models.TextField(blank=True)
@@ -45,5 +48,4 @@ class Job(models.Model):
 
     def __str__(self) -> str:
         return f"{self.id} ({self.runner})"
-
 
