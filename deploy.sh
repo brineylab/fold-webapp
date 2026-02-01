@@ -33,6 +33,7 @@ Commands:
   createsuperuser   Create a new admin user
   backup            Run a backup (delegates to scripts/backup.sh)
   restore <file>    Restore from backup (delegates to scripts/restore.sh)
+  prewarm [opts]    Pre-warm by pulling images and downloading model weights
 
 Options:
   -h, --help        Show this help message
@@ -194,6 +195,10 @@ cmd_restore() {
     exec "$SCRIPT_DIR/scripts/restore.sh" "$@"
 }
 
+cmd_prewarm() {
+    exec "$SCRIPT_DIR/scripts/prewarm.sh" "$@"
+}
+
 # ---------- main ----------
 
 if [ $# -eq 0 ]; then
@@ -216,6 +221,7 @@ case "$COMMAND" in
     createsuperuser)  cmd_createsuperuser "$@" ;;
     backup)           cmd_backup "$@" ;;
     restore)          cmd_restore "$@" ;;
+    prewarm)          cmd_prewarm "$@" ;;
     -h|--help|help)   usage ;;
     *)
         error "Unknown command: $COMMAND"
