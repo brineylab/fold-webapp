@@ -13,7 +13,7 @@ from console.models import SiteSettings
 from jobs.forms import get_disabled_runners
 from jobs.models import Job
 from jobs.services import create_and_submit_job
-from model_types import get_model_type, get_submittable_model_types
+from model_types import get_model_type, get_model_types_by_category, get_submittable_model_types
 
 
 def _fallback_output_context(job):
@@ -55,6 +55,7 @@ def job_submit(request):
     if not model_key and request.method == "GET":
         return render(request, "jobs/select_model.html", {
             "model_types": get_submittable_model_types(),
+            "model_categories": get_model_types_by_category(),
             "maintenance_mode": maintenance_mode,
             "maintenance_message": maintenance_message,
         })

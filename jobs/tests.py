@@ -389,6 +389,7 @@ class TestJobSubmitViewModelSelection(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "jobs/select_model.html")
         self.assertIn("model_types", response.context)
+        self.assertIn("model_categories", response.context)
 
     def test_get_with_model_shows_submit_form(self):
         response = self.client.get("/jobs/new/?model=boltz2")
@@ -407,6 +408,17 @@ class TestJobSubmitViewModelSelection(TestCase):
         response = self.client.get("/jobs/new/")
         model_keys = [mt.key for mt in response.context["model_types"]]
         self.assertIn("boltz2", model_keys)
+
+    def test_selection_page_has_category_headings(self):
+        response = self.client.get("/jobs/new/")
+        self.assertContains(response, "Structure Prediction")
+
+    def test_selection_page_categories_contain_models(self):
+        response = self.client.get("/jobs/new/")
+        categories = dict(response.context["model_categories"])
+        self.assertIn("Structure Prediction", categories)
+        keys = [mt.key for mt in categories["Structure Prediction"]]
+        self.assertIn("boltz2", keys)
 
 
 class TestSubmitBaseTemplate(TestCase):

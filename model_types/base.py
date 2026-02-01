@@ -25,6 +25,7 @@ class InputPayload(TypedDict):
 class BaseModelType(ABC):
     key: str = ""
     name: str = ""
+    category: str = ""
     template_name: str = ""
     form_class: type[forms.Form] = forms.Form
     help_text: str = ""

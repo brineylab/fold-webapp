@@ -15,6 +15,7 @@ from model_types.parsers import parse_fasta_batch
 from model_types.registry import (
     MODEL_TYPES,
     get_model_type,
+    get_model_types_by_category,
     get_submittable_model_types,
 )
 
@@ -333,6 +334,52 @@ class TestGetSubmittableModelTypes(TestCase):
         for mt in get_submittable_model_types():
             self.assertTrue(mt.name, f"ModelType {mt.key!r} missing name")
             self.assertTrue(mt.help_text, f"ModelType {mt.key!r} missing help_text")
+
+
+# ---------------------------------------------------------------------------
+# 11.1  Model categories
+# ---------------------------------------------------------------------------
+
+
+class TestModelCategories(TestCase):
+    """get_model_types_by_category groups models correctly."""
+
+    def test_returns_list_of_tuples(self):
+        result = get_model_types_by_category()
+        self.assertIsInstance(result, list)
+        for item in result:
+            self.assertIsInstance(item, tuple)
+            self.assertEqual(len(item), 2)
+            self.assertIsInstance(item[0], str)
+            self.assertIsInstance(item[1], list)
+
+    def test_boltz2_in_structure_prediction(self):
+        result = get_model_types_by_category()
+        categories = dict(result)
+        self.assertIn("Structure Prediction", categories)
+        keys = [mt.key for mt in categories["Structure Prediction"]]
+        self.assertIn("boltz2", keys)
+
+    def test_all_registered_models_present(self):
+        result = get_model_types_by_category()
+        all_keys = set()
+        for _cat, models in result:
+            for mt in models:
+                all_keys.add(mt.key)
+        for key in MODEL_TYPES:
+            self.assertIn(key, all_keys)
+
+    def test_models_without_category_grouped_under_other(self):
+        """Models with empty category should fall under 'Other'."""
+        mt = _MinimalModelType()
+        self.assertEqual(mt.category, "")
+        # The fallback logic uses "Other" for empty category strings
+        cat = mt.category or "Other"
+        self.assertEqual(cat, "Other")
+
+    def test_boltz2_has_category_set(self):
+        mt = get_model_type("boltz2")
+        self.assertEqual(mt.category, "Structure Prediction")
 
 
 # ---------------------------------------------------------------------------

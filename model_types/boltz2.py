@@ -7,6 +7,7 @@ from model_types.base import BaseModelType, InputPayload
 class Boltz2ModelType(BaseModelType):
     key = "boltz2"
     name = "Boltz-2"
+    category = "Structure Prediction"
     template_name = "jobs/submit_boltz2.html"
     form_class = Boltz2SubmitForm
     help_text = "Predict biomolecular structure and binding affinity with Boltz-2."

@@ -19,8 +19,10 @@
 
   <p class="text-muted mb-4">Select a model to begin a new job submission.</p>
 
-  <div class="row g-4">
-    {% for model in model_types %}
+  {% for category, models in model_categories %}
+  <h4 class="mb-3 mt-4">{{ category }}</h4>
+  <div class="row g-4 mb-4">
+    {% for model in models %}
     <div class="col-md-4">
       <div class="card h-100">
         <div class="card-body d-flex flex-column">
@@ -34,10 +36,11 @@
         </div>
       </div>
     </div>
-    {% empty %}
-    <div class="col-12">
-      <p class="text-muted">No models are currently available.</p>
-    </div>
     {% endfor %}
   </div>
+  {% empty %}
+  <div class="col-12">
+    <p class="text-muted">No models are currently available.</p>
+  </div>
+  {% endfor %}
 {% endblock %}
