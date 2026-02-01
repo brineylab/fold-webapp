@@ -133,9 +133,9 @@ The file upload **replaces** the sequence textarea, but model configuration opti
 - `ModelType.get_output_context()` returns structured output metadata.
 - Detail template uses this to render grouped files, primary results, and auxiliary outputs.
 
-## Completed Phases (1-11)
+## Completed Phases (1-17)
 
-Phases 1-11 have been implemented. Summary of what was built:
+Phases 1-17 have been implemented. Summary of what was built:
 
 1. **Phase 1**: Core API + Registry -- `model_types/` module, `BaseModelType`, `Boltz2ModelType`, `Job.model_key`, registry, view dispatch.
 2. **Phase 2**: Harden Base Abstractions -- ABC enforcement, `InputPayload` TypedDict, validation ownership clarification.
@@ -150,6 +150,10 @@ Phases 1-11 have been implemented. Summary of what was built:
 11. **Phase 11**: Model Categories on Landing Page -- added `category` attribute to `BaseModelType`, set "Structure Prediction" on Boltz-2, added `get_model_types_by_category()` registry function, updated landing page template to render models grouped by category headings.
 12. **Phase 12**: LigandMPNN Runner Infrastructure -- created `containers/ligandmpnn/Dockerfile`, deleted old `containers/protein_mpnn/` placeholder, added `LIGANDMPNN_IMAGE` setting, created shared `LigandMPNNRunner` (key=`"ligandmpnn"`) with checkpoint/model_type flag dispatch.
 13. **Phase 13**: ProteinMPNN + LigandMPNN ModelTypes, Forms, Templates -- added `ProteinMPNNModelType` and `LigandMPNNModelType` (category "Inverse Folding"), `ProteinMPNNSubmitForm`/`LigandMPNNSubmitForm` with PDB upload + noise level + temperature + sequences + chains + fixed residues + seed, submit templates, updated `download_file` view for subdirectory output paths.
+14. **Phase 14**: Chai-1 Dockerfile -- created `containers/chai1/Dockerfile` (CUDA 12.2 + cuDNN base, `chai_lab` from PyPI, `chai-lab` entrypoint, `CHAI_VERSION` build arg).
+15. **Phase 15**: Chai-1 Runner -- replaced stub in `runners/chai.py` with real `ChaiRunner` (Docker + SLURM script generation, `CHAI_DOWNLOADS_DIR` cache mount, conditional `--constraint-path` for restraints, `--use-msa-server`/`--num-diffn-samples`/`--seed` flags). Added `CHAI_IMAGE` and `CHAI_CACHE_DIR` settings.
+16. **Phase 16**: Chai-1 ModelType, Form, and Template -- added `Chai1ModelType` (category "Structure Prediction"), `Chai1SubmitForm` with sequences textarea + FASTA file upload + restraints CSV upload + MSA server + diffusion samples + seed, submit template, registered in `model_types/__init__.py`.
+17. **Phase 17**: Settings, env.example, and File Reference Updates -- added `CHAI_IMAGE`/`CHAI_CACHE_DIR` to `env.example`, updated workplan completed phases and file reference.
 
 ---
 
@@ -160,6 +164,7 @@ Phases 1-11 have been implemented. Summary of what was built:
 - `model_types/base.py` -- `BaseModelType` ABC and `InputPayload` TypedDict
 - `model_types/registry.py` -- registry dict and lookup functions
 - `model_types/boltz2.py` -- Boltz-2 ModelType implementation
+- `model_types/chai1.py` -- Chai-1 ModelType implementation
 - `model_types/protein_mpnn.py` -- ProteinMPNN ModelType implementation
 - `model_types/ligand_mpnn.py` -- LigandMPNN ModelType implementation
 - `model_types/parsers.py` -- FASTA parsing/validation utilities
@@ -167,13 +172,13 @@ Phases 1-11 have been implemented. Summary of what was built:
 **Runners**:
 - `runners/__init__.py` -- `Runner` ABC, registry, `@register` decorator
 - `runners/boltz.py` -- `BoltzRunner` (Docker + SLURM script)
+- `runners/chai.py` -- `ChaiRunner` (Docker + SLURM script)
 - `runners/ligandmpnn.py` -- `LigandMPNNRunner` (shared by ProteinMPNN and LigandMPNN)
 - `runners/alphafold.py` -- stub
-- `runners/chai.py` -- stub
 
 **Jobs app**:
 - `jobs/models.py` -- `Job` model
-- `jobs/forms.py` -- `Boltz2SubmitForm`, runner helpers
+- `jobs/forms.py` -- `Boltz2SubmitForm`, `Chai1SubmitForm`, runner helpers
 - `jobs/views.py` -- submission, detail, download, cancel, delete views
 - `jobs/services.py` -- `create_and_submit_job` orchestration
 - `jobs/urls.py` -- URL routing
@@ -184,8 +189,9 @@ Phases 1-11 have been implemented. Summary of what was built:
 
 **Infrastructure**:
 - `slurm.py` -- SLURM submission, status polling, cancellation
-- `bioportal/settings.py` -- Django settings, Boltz config, LigandMPNN config, quota defaults
+- `bioportal/settings.py` -- Django settings, Boltz config, Chai-1 config, LigandMPNN config, quota defaults
 - `containers/boltz2/Dockerfile` -- Boltz-2 container image
+- `containers/chai1/Dockerfile` -- Chai-1 container image
 - `containers/ligandmpnn/Dockerfile` -- LigandMPNN container image (shared by ProteinMPNN and LigandMPNN)
 
 **Templates**:
@@ -193,6 +199,7 @@ Phases 1-11 have been implemented. Summary of what was built:
 - `jobs/templates/jobs/submit_base.html` -- shared submission form
 - `jobs/templates/jobs/select_model.html` -- model selection landing page (grouped by category)
 - `jobs/templates/jobs/submit_boltz2.html` -- Boltz-2 form
+- `jobs/templates/jobs/submit_chai1.html` -- Chai-1 form
 - `jobs/templates/jobs/submit_protein_mpnn.html` -- ProteinMPNN form
 - `jobs/templates/jobs/submit_ligand_mpnn.html` -- LigandMPNN form
 - `jobs/templates/jobs/detail.html` -- job detail / output files
