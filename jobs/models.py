@@ -22,7 +22,7 @@ class Job(models.Model):
     model_key = models.CharField(max_length=50, default="runner")
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
 
-    sequences = models.TextField()
+    sequences = models.TextField(blank=True, default="")
     params = models.JSONField(default=dict, blank=True)
     input_payload = models.JSONField(default=dict, blank=True)
     output_payload = models.JSONField(default=dict, blank=True)

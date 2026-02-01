@@ -1,5 +1,9 @@
-"""Tests for the model_types harness (Phase 2: Harden Base Abstractions)."""
+"""Tests for the model_types harness (Phases 2-3)."""
 from __future__ import annotations
+
+import shutil
+import tempfile
+from pathlib import Path
 
 from django import forms
 from django.test import TestCase
@@ -228,3 +232,103 @@ class TestRegistry(TestCase):
     def test_get_model_type_unknown_raises(self):
         with self.assertRaises(KeyError):
             get_model_type("nonexistent")
+
+
+# ---------------------------------------------------------------------------
+# 3.2  prepare_workdir is a concrete method on BaseModelType
+# ---------------------------------------------------------------------------
+
+
+class _MinimalModelType(BaseModelType):
+    """Minimal concrete subclass for testing base prepare_workdir."""
+    key = "minimal"
+    name = "Minimal"
+
+    def validate(self, cleaned_data):
+        pass
+
+    def normalize_inputs(self, cleaned_data):
+        return {"sequences": "", "params": {}, "files": {}}
+
+    def resolve_runner_key(self, cleaned_data):
+        return "test"
+
+
+class TestPrepareWorkdirOnBase(TestCase):
+    """prepare_workdir is a concrete (non-abstract) method on BaseModelType."""
+
+    def test_prepare_workdir_is_not_abstract(self):
+        """Subclasses that don't override prepare_workdir should still instantiate."""
+        mt = _MinimalModelType()
+        self.assertTrue(callable(mt.prepare_workdir))
+
+    def test_registered_model_types_have_prepare_workdir(self):
+        """All registered model types should have prepare_workdir."""
+        for key, mt in MODEL_TYPES.items():
+            self.assertTrue(
+                callable(getattr(mt, "prepare_workdir", None)),
+                f"ModelType {key!r} missing prepare_workdir",
+            )
+
+    def test_default_prepare_workdir_creates_dirs(self):
+        tmpdir = Path(tempfile.mkdtemp())
+        try:
+            class FakeJob:
+                workdir = tmpdir / "job"
+
+            mt = _MinimalModelType()
+            mt.prepare_workdir(FakeJob(), {"sequences": "", "params": {}, "files": {}})
+            self.assertTrue((tmpdir / "job" / "input").is_dir())
+            self.assertTrue((tmpdir / "job" / "output").is_dir())
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_default_prepare_workdir_writes_fasta(self):
+        tmpdir = Path(tempfile.mkdtemp())
+        try:
+            class FakeJob:
+                workdir = tmpdir / "job"
+
+            mt = _MinimalModelType()
+            mt.prepare_workdir(
+                FakeJob(),
+                {"sequences": ">s\nACDEFG", "params": {}, "files": {}},
+            )
+            fasta = tmpdir / "job" / "input" / "sequences.fasta"
+            self.assertTrue(fasta.exists())
+            self.assertEqual(fasta.read_text(), ">s\nACDEFG")
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_default_prepare_workdir_skips_empty_sequences(self):
+        tmpdir = Path(tempfile.mkdtemp())
+        try:
+            class FakeJob:
+                workdir = tmpdir / "job"
+
+            mt = _MinimalModelType()
+            mt.prepare_workdir(FakeJob(), {"sequences": "", "params": {}, "files": {}})
+            self.assertFalse((tmpdir / "job" / "input" / "sequences.fasta").exists())
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_default_prepare_workdir_writes_files(self):
+        tmpdir = Path(tempfile.mkdtemp())
+        try:
+            class FakeJob:
+                workdir = tmpdir / "job"
+
+            mt = _MinimalModelType()
+            mt.prepare_workdir(
+                FakeJob(),
+                {
+                    "sequences": "",
+                    "params": {},
+                    "files": {"backbone.pdb": b"ATOM 1 N ALA"},
+                },
+            )
+            pdb = tmpdir / "job" / "input" / "backbone.pdb"
+            self.assertTrue(pdb.exists())
+            self.assertEqual(pdb.read_bytes(), b"ATOM 1 N ALA")
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)

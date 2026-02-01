@@ -55,3 +55,25 @@ class BaseModelType(ABC):
     def resolve_runner_key(self, cleaned_data: dict) -> str:
         """Return the runner key to use for this submission."""
         ...
+
+    def prepare_workdir(self, job, input_payload: InputPayload) -> None:
+        """Write input files to job.workdir.
+
+        Default implementation:
+        - Creates input/ and output/ subdirectories
+        - Writes sequences.fasta if sequences is non-empty
+        - Writes all files from input_payload["files"] into input/
+
+        Override for models that need custom workdir layouts
+        (e.g., nested directories, config files, specific filenames).
+        """
+        workdir = job.workdir
+        (workdir / "input").mkdir(parents=True, exist_ok=True)
+        (workdir / "output").mkdir(parents=True, exist_ok=True)
+        sequences = input_payload.get("sequences", "")
+        if sequences:
+            (workdir / "input" / "sequences.fasta").write_text(
+                sequences, encoding="utf-8"
+            )
+        for filename, content in input_payload.get("files", {}).items():
+            (workdir / "input" / filename).write_bytes(content)

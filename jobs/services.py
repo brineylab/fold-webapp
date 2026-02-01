@@ -6,6 +6,7 @@ from django.utils import timezone
 from console.models import RunnerConfig, SiteSettings
 from console.services.quota import check_quota
 from jobs.models import Job
+from model_types.base import BaseModelType
 from runners import get_runner
 import slurm
 
@@ -47,9 +48,10 @@ def check_runner_enabled(runner_key: str) -> tuple[bool, str | None]:
 def create_and_submit_job(
     *,
     owner,
+    model_type: BaseModelType,
     name: str = "",
     runner_key: str,
-    sequences: str,
+    sequences: str = "",
     params: dict,
     model_key: str,
     input_payload: dict | None = None,
@@ -59,17 +61,17 @@ def create_and_submit_job(
     allowed, error = check_maintenance_mode()
     if not allowed:
         raise ValidationError(error)
-    
+
     # Check if runner is enabled
     allowed, error = check_runner_enabled(runner_key)
     if not allowed:
         raise ValidationError(error)
-    
+
     # Check quota before proceeding
     allowed, error = check_quota(owner)
     if not allowed:
         raise ValidationError(error)
-    
+
     name = (name or "").strip()
     sequences = (sequences or "").strip()
     has_files = bool((input_payload or {}).get("files"))
@@ -83,6 +85,9 @@ def create_and_submit_job(
     if errors:
         raise ValidationError(errors)
 
+    # Strip binary file content before storing in the DB -- keep filenames only
+    storage_payload = _sanitize_payload_for_storage(input_payload)
+
     job = Job.objects.create(
         owner=owner,
         name=name,
@@ -91,15 +96,12 @@ def create_and_submit_job(
         status=Job.Status.PENDING,
         sequences=sequences,
         params=params or {},
-        input_payload=input_payload or {},
+        input_payload=storage_payload,
         output_payload={},
     )
 
-    # Controlled filesystem layout under JOB_BASE_DIR/<uuid>/
-    (job.workdir / "input").mkdir(parents=True, exist_ok=True)
-    (job.workdir / "output").mkdir(parents=True, exist_ok=True)
-
-    (job.workdir / "input" / "sequences.fasta").write_text(sequences, encoding="utf-8")
+    # Delegate workdir setup to the model type
+    model_type.prepare_workdir(job, input_payload or {})
 
     try:
         script = runner.build_script(job)
@@ -113,4 +115,18 @@ def create_and_submit_job(
         job.completed_at = timezone.now()
         job.save(update_fields=["status", "error_message", "completed_at"])
         raise
+
+
+def _sanitize_payload_for_storage(input_payload: dict | None) -> dict:
+    """Strip binary file content from input_payload for JSON-safe DB storage.
+
+    Replaces the ``files`` dict (filename -> bytes) with a list of filenames.
+    """
+    if not input_payload:
+        return {}
+    return {
+        "sequences": input_payload.get("sequences", ""),
+        "params": input_payload.get("params", {}),
+        "files": list(input_payload.get("files", {}).keys()),
+    }
 

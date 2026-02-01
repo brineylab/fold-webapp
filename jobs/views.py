@@ -62,6 +62,7 @@ def job_submit(request):
                     runner_key = model_type.resolve_runner_key(form.cleaned_data)
                     job = create_and_submit_job(
                         owner=request.user,
+                        model_type=model_type,
                         name=form.cleaned_data.get("name", ""),
                         runner_key=runner_key,
                         sequences=input_payload.get("sequences", ""),

@@ -374,21 +374,21 @@ Changes:
 
 ---
 
-### Phase 3: Generalize the Job Model and Service Layer
+### Phase 3: Generalize the Job Model and Service Layer ✅
 
 **Goal**: Make the data model and service layer work for models with non-FASTA inputs (file uploads, JSON configs, structure files) without breaking existing FASTA-based models.
 
-#### 3.1 Make `Job.sequences` optional
+#### 3.1 Make `Job.sequences` optional ✅
 
 **File**: `jobs/models.py`
 
 Current state: `Job.sequences = models.TextField()` -- implicitly required (no `blank=True`). This works for Boltz-2 but breaks for models like ProteinMPNN where the primary input is a PDB file, not FASTA text.
 
 Changes:
-- Change to `sequences = models.TextField(blank=True, default="")`.
-- Create and run a migration. Existing rows all have sequences, so this is backwards-compatible.
+- [x] Change to `sequences = models.TextField(blank=True, default="")`.
+- [x] Create and run a migration. Existing rows all have sequences, so this is backwards-compatible.
 
-#### 3.2 Add `prepare_workdir` hook to `BaseModelType`
+#### 3.2 Add `prepare_workdir` hook to `BaseModelType` ✅
 
 **File**: `model_types/base.py`
 
@@ -401,7 +401,7 @@ Current state: `create_and_submit_job()` in `jobs/services.py:97-101` hardcodes 
 A model that needs to write a PDB file, multiple files, or a JSON config has no hook to control this.
 
 Changes:
-- Add a `prepare_workdir(self, job, input_payload: InputPayload) -> None` method to `BaseModelType` with a concrete default implementation:
+- [x] Add a `prepare_workdir(self, job, input_payload: InputPayload) -> None` method to `BaseModelType` with a concrete default implementation:
 
 ```python
 def prepare_workdir(self, job, input_payload: InputPayload) -> None:
@@ -427,15 +427,16 @@ def prepare_workdir(self, job, input_payload: InputPayload) -> None:
 
 This is a concrete method (not abstract) because the default is genuinely useful for most models. Models with custom needs override it.
 
-#### 3.3 Refactor `create_and_submit_job` to use `prepare_workdir`
+#### 3.3 Refactor `create_and_submit_job` to use `prepare_workdir` ✅
 
 **File**: `jobs/services.py`
 
 Changes:
-- Add `model_type: BaseModelType` as a parameter to `create_and_submit_job` (or resolve it internally from `model_key`).
-- Replace the hardcoded workdir setup (lines 97-101) with a call to `model_type.prepare_workdir(job, input_payload)`.
-- Update the `sequences` parameter: accept it as optional (`sequences: str = ""`). When empty, skip the old empty-check or gate it on whether the model provides files.
-- Update the defense-in-depth input check: instead of `if not sequences: raise`, use `if not sequences and not (input_payload or {}).get("files"): raise ValidationError("No input provided.")`.
+- [x] Add `model_type: BaseModelType` as a parameter to `create_and_submit_job` (or resolve it internally from `model_key`).
+- [x] Replace the hardcoded workdir setup (lines 97-101) with a call to `model_type.prepare_workdir(job, input_payload)`.
+- [x] Update the `sequences` parameter: accept it as optional (`sequences: str = ""`). When empty, skip the old empty-check or gate it on whether the model provides files.
+- [x] Update the defense-in-depth input check: instead of `if not sequences: raise`, use `if not sequences and not (input_payload or {}).get("files"): raise ValidationError("No input provided.")`.
+- [x] Add `_sanitize_payload_for_storage()` to strip binary file content before DB storage.
 - The new function signature:
 
 ```python
@@ -452,9 +453,9 @@ def create_and_submit_job(
 ) -> Job:
 ```
 
-- In the view (`jobs/views.py`), pass `model_type=model_type` to `create_and_submit_job`.
+- [x] In the view (`jobs/views.py`), pass `model_type=model_type` to `create_and_submit_job`.
 
-#### 3.4 Update the view to pass `input_payload` through properly
+#### 3.4 Update the view to pass `input_payload` through properly ✅
 
 **File**: `jobs/views.py`
 
@@ -475,9 +476,9 @@ job = create_and_submit_job(
 ```
 
 Changes:
-- Add `model_type=model_type` to the `create_and_submit_job` call.
-- The `input_payload` is already passed through. The service layer will now use it for `prepare_workdir` instead of reconstructing the workdir layout itself.
-- When storing `input_payload` in the Job record, strip the `"files"` key (binary content shouldn't be stored in JSON). Store a version with filenames only:
+- [x] Add `model_type=model_type` to the `create_and_submit_job` call.
+- [x] The `input_payload` is already passed through. The service layer will now use it for `prepare_workdir` instead of reconstructing the workdir layout itself.
+- [x] When storing `input_payload` in the Job record, strip the `"files"` key (binary content shouldn't be stored in JSON). Store a version with filenames only (handled in `_sanitize_payload_for_storage` in the service layer):
 
 ```python
 # In the view, before passing to service:
