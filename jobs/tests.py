@@ -1,6 +1,7 @@
-"""Tests for jobs app (Phases 2-3: service-layer validation and workdir delegation)."""
+"""Tests for jobs app (Phases 2-3, 6-7: service-layer validation, workdir delegation, output presentation, batch/config)."""
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 from pathlib import Path
@@ -8,8 +9,10 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
+from jobs.models import Job
 from jobs.services import create_and_submit_job, _sanitize_payload_for_storage
 from model_types import get_model_type
 from model_types.base import BaseModelType, InputPayload
@@ -433,3 +436,420 @@ class TestSubmitBaseTemplate(TestCase):
     def test_submit_form_has_hidden_model_field(self):
         response = self.client.get("/jobs/new/?model=boltz2")
         self.assertContains(response, 'name="model" value="boltz2"')
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Output presentation (view + template integration)
+# ---------------------------------------------------------------------------
+
+
+class TestJobDetailOutputContext(TestCase):
+    """job_detail view uses model_type.get_output_context for structured output."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="detailuser", password="testpass"
+        )
+        self.client.login(username="detailuser", password="testpass")
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _create_job(self, model_key="boltz2"):
+        from jobs.models import Job
+        job = Job.objects.create(
+            owner=self.user,
+            runner="boltz-2",
+            model_key=model_key,
+            sequences=">s\nMKTAYI",
+            status=Job.Status.COMPLETED,
+        )
+        return job
+
+    def test_detail_view_provides_output_context_keys(self):
+        """Detail view should include files, primary_files, aux_files in context."""
+        job = self._create_job()
+        # Patch workdir to our temp dir
+        outdir = self.tmpdir / str(job.id) / "output"
+        outdir.mkdir(parents=True)
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("files", response.context)
+        self.assertIn("primary_files", response.context)
+        self.assertIn("aux_files", response.context)
+
+    def test_detail_view_boltz2_classifies_pdb_as_primary(self):
+        """Boltz-2 jobs should classify .pdb files as primary."""
+        job = self._create_job(model_key="boltz2")
+        outdir = self.tmpdir / str(job.id) / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "model.pdb").write_text("ATOM 1")
+        (outdir / "slurm-999.out").write_text("log output")
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        primary_names = [f["name"] for f in response.context["primary_files"]]
+        aux_names = [f["name"] for f in response.context["aux_files"]]
+        self.assertIn("model.pdb", primary_names)
+        self.assertIn("slurm-999.out", aux_names)
+
+    def test_detail_view_unknown_model_key_falls_back(self):
+        """Jobs with unrecognized model_key should fall back to default model type."""
+        job = self._create_job(model_key="nonexistent_model")
+        outdir = self.tmpdir / str(job.id) / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "result.txt").write_text("data")
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("files", response.context)
+        # Default model type puts everything in files, not primary
+        self.assertEqual(response.context["primary_files"], [])
+
+    def test_detail_view_no_output_dir(self):
+        """When output dir doesn't exist, files should be empty."""
+        job = self._create_job()
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["files"], [])
+
+
+class TestJobDetailTemplateRendering(TestCase):
+    """detail.html renders structured output sections correctly."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="tpldetailuser", password="testpass"
+        )
+        self.client.login(username="tpldetailuser", password="testpass")
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _create_job(self, model_key="boltz2"):
+        from jobs.models import Job
+        return Job.objects.create(
+            owner=self.user,
+            runner="boltz-2",
+            model_key=model_key,
+            sequences=">s\nMKTAYI",
+            status=Job.Status.COMPLETED,
+        )
+
+    def test_primary_files_section_rendered(self):
+        """When primary_files exist, the Results section should be rendered."""
+        job = self._create_job()
+        outdir = self.tmpdir / str(job.id) / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "predicted.pdb").write_text("ATOM 1")
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        self.assertContains(response, "Results")
+        self.assertContains(response, "predicted.pdb")
+
+    def test_aux_files_section_rendered(self):
+        """When aux_files exist, the Logs & Auxiliary section should be rendered."""
+        job = self._create_job()
+        outdir = self.tmpdir / str(job.id) / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "slurm-123.out").write_text("log")
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        self.assertContains(response, "Logs &amp; Auxiliary")
+        self.assertContains(response, "slurm-123.out")
+
+    def test_no_files_message(self):
+        """When no output files exist, show the 'no files' message."""
+        job = self._create_job()
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        self.assertContains(response, "No output files found yet")
+
+    def test_flat_file_list_for_base_model_type(self):
+        """Generic runner jobs (no primary/aux split) show flat file list."""
+        job = self._create_job(model_key="runner")
+        outdir = self.tmpdir / str(job.id) / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "output.txt").write_text("result data")
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        self.assertContains(response, "output.txt")
+        # Should NOT show "Results" or "Logs & Auxiliary" headers
+        self.assertNotContains(response, "Results")
+        self.assertNotContains(response, "Logs &amp; Auxiliary")
+
+    def test_file_sizes_displayed(self):
+        """Output files should have their size displayed."""
+        job = self._create_job()
+        outdir = self.tmpdir / str(job.id) / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "model.pdb").write_text("A" * 1024)
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        # Django's filesizeformat should render something like "1.0 KB"
+        self.assertContains(response, "KB")
+
+    def test_download_links_present(self):
+        """Each file should have a download link."""
+        job = self._create_job()
+        outdir = self.tmpdir / str(job.id) / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "model.pdb").write_text("ATOM")
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        self.assertContains(response, "Download")
+        self.assertContains(response, f"/jobs/{job.id}/download/model.pdb")
+
+
+# ---------------------------------------------------------------------------
+# Phase 7: Batch + Config (model, service, view integration)
+# ---------------------------------------------------------------------------
+
+
+class TestJobBatchIdField(TestCase):
+    """Job model has a batch_id field for grouping batch submissions."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="batchuser", password="testpass"
+        )
+
+    def test_batch_id_defaults_to_none(self):
+        job = Job.objects.create(
+            owner=self.user, runner="boltz-2", model_key="boltz2",
+        )
+        self.assertIsNone(job.batch_id)
+
+    def test_batch_id_can_be_set(self):
+        import uuid
+        bid = uuid.uuid4()
+        job = Job.objects.create(
+            owner=self.user, runner="boltz-2", model_key="boltz2",
+            batch_id=bid,
+        )
+        self.assertEqual(job.batch_id, bid)
+
+    def test_batch_id_queryable(self):
+        import uuid
+        bid = uuid.uuid4()
+        Job.objects.create(
+            owner=self.user, runner="boltz-2", model_key="boltz2", batch_id=bid,
+        )
+        Job.objects.create(
+            owner=self.user, runner="boltz-2", model_key="boltz2", batch_id=bid,
+        )
+        Job.objects.create(
+            owner=self.user, runner="boltz-2", model_key="boltz2",
+        )
+        self.assertEqual(Job.objects.filter(batch_id=bid).count(), 2)
+
+
+class TestServiceBatchId(TestCase):
+    """create_and_submit_job accepts and stores batch_id."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="svcbatchuser", password="testpass"
+        )
+
+    @patch("jobs.services.slurm")
+    def test_batch_id_stored_on_job(self, mock_slurm):
+        import uuid
+        mock_slurm.submit.return_value = "FAKE-BATCH"
+        bid = uuid.uuid4()
+        mt = get_model_type("boltz2")
+        job = create_and_submit_job(
+            owner=self.user,
+            model_type=mt,
+            runner_key="boltz-2",
+            sequences=">s\nMKTAYI",
+            params={},
+            model_key="boltz2",
+            input_payload={"sequences": ">s\nMKTAYI", "params": {}, "files": {}},
+            batch_id=bid,
+        )
+        self.assertEqual(job.batch_id, bid)
+
+    @patch("jobs.services.slurm")
+    def test_batch_id_defaults_to_none(self, mock_slurm):
+        mock_slurm.submit.return_value = "FAKE-SINGLE"
+        mt = get_model_type("boltz2")
+        job = create_and_submit_job(
+            owner=self.user,
+            model_type=mt,
+            runner_key="boltz-2",
+            sequences=">s\nMKTAYI",
+            params={},
+            model_key="boltz2",
+            input_payload={"sequences": ">s\nMKTAYI", "params": {}, "files": {}},
+        )
+        self.assertIsNone(job.batch_id)
+
+
+class TestBatchSubmissionView(TestCase):
+    """Batch file upload creates multiple jobs with shared batch_id."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="batchviewuser", password="testpass"
+        )
+        self.client.login(username="batchviewuser", password="testpass")
+
+    @patch("jobs.services.slurm")
+    def test_batch_creates_multiple_jobs(self, mock_slurm):
+        mock_slurm.submit.return_value = "FAKE-BATCH-JOB"
+        fasta_content = b">seq1\nMKTAYI\n>seq2\nACDEFG\n>seq3\nHIKLMN"
+        batch_file = SimpleUploadedFile(
+            "batch.fasta", fasta_content, content_type="text/plain"
+        )
+        response = self.client.post(
+            "/jobs/new/?model=boltz2",
+            {"model": "boltz2", "batch_file": batch_file},
+        )
+        # Should redirect to job list (not detail) for batch
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("", response.url)  # redirects to job_list
+
+        # 3 jobs created
+        jobs = Job.objects.filter(owner=self.user).order_by("created_at")
+        self.assertEqual(jobs.count(), 3)
+
+        # All share the same batch_id
+        batch_ids = set(j.batch_id for j in jobs)
+        self.assertEqual(len(batch_ids), 1)
+        self.assertIsNotNone(batch_ids.pop())
+
+        # Each has the right sequences
+        seqs = sorted(j.sequences for j in jobs)
+        self.assertIn(">seq1\nMKTAYI", seqs)
+        self.assertIn(">seq2\nACDEFG", seqs)
+        self.assertIn(">seq3\nHIKLMN", seqs)
+
+    @patch("jobs.services.slurm")
+    def test_batch_jobs_get_names_from_headers(self, mock_slurm):
+        mock_slurm.submit.return_value = "FAKE-BATCH-JOB"
+        fasta_content = b">my_protein\nMKTAYI\n>other_protein\nACDEFG"
+        batch_file = SimpleUploadedFile(
+            "batch.fasta", fasta_content, content_type="text/plain"
+        )
+        self.client.post(
+            "/jobs/new/?model=boltz2",
+            {"model": "boltz2", "batch_file": batch_file},
+        )
+        names = sorted(Job.objects.filter(owner=self.user).values_list("name", flat=True))
+        self.assertIn("my_protein", names)
+        self.assertIn("other_protein", names)
+
+    def test_no_sequences_or_batch_shows_error(self):
+        """Submitting without sequences and without batch file should fail."""
+        response = self.client.post(
+            "/jobs/new/?model=boltz2",
+            {"model": "boltz2"},
+        )
+        self.assertEqual(response.status_code, 200)
+        # Form should have errors
+        self.assertTrue(response.context["form"].errors)
+
+
+class TestConfigSubmissionView(TestCase):
+    """Config file upload merges param overrides into the job."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="configviewuser", password="testpass"
+        )
+        self.client.login(username="configviewuser", password="testpass")
+
+    @patch("jobs.services.slurm")
+    def test_config_overrides_params(self, mock_slurm):
+        mock_slurm.submit.return_value = "FAKE-CONFIG"
+        config_data = {"recycling_steps": 10, "sampling_steps": 50}
+        config_file = SimpleUploadedFile(
+            "config.json",
+            json.dumps(config_data).encode(),
+            content_type="application/json",
+        )
+        response = self.client.post(
+            "/jobs/new/?model=boltz2",
+            {
+                "model": "boltz2",
+                "sequences": ">s\nMKTAYI",
+                "config_file": config_file,
+            },
+        )
+        self.assertEqual(response.status_code, 302)  # redirect to detail
+
+        job = Job.objects.get(owner=self.user)
+        self.assertEqual(job.params.get("recycling_steps"), 10)
+        self.assertEqual(job.params.get("sampling_steps"), 50)
+
+    @patch("jobs.services.slurm")
+    def test_config_ignores_unknown_keys(self, mock_slurm):
+        mock_slurm.submit.return_value = "FAKE-CONFIG"
+        config_data = {"recycling_steps": 10, "malicious_key": "evil"}
+        config_file = SimpleUploadedFile(
+            "config.json",
+            json.dumps(config_data).encode(),
+            content_type="application/json",
+        )
+        self.client.post(
+            "/jobs/new/?model=boltz2",
+            {
+                "model": "boltz2",
+                "sequences": ">s\nMKTAYI",
+                "config_file": config_file,
+            },
+        )
+        job = Job.objects.get(owner=self.user)
+        self.assertNotIn("malicious_key", job.params)
+        self.assertEqual(job.params.get("recycling_steps"), 10)
+
+    @patch("jobs.services.slurm")
+    def test_batch_with_config(self, mock_slurm):
+        """Batch + config: all batch jobs should get config overrides."""
+        mock_slurm.submit.return_value = "FAKE-BOTH"
+        fasta_content = b">seq1\nMKTAYI\n>seq2\nACDEFG"
+        batch_file = SimpleUploadedFile(
+            "batch.fasta", fasta_content, content_type="text/plain"
+        )
+        config_data = {"recycling_steps": 7}
+        config_file = SimpleUploadedFile(
+            "config.json",
+            json.dumps(config_data).encode(),
+            content_type="application/json",
+        )
+        self.client.post(
+            "/jobs/new/?model=boltz2",
+            {
+                "model": "boltz2",
+                "batch_file": batch_file,
+                "config_file": config_file,
+            },
+        )
+        jobs = Job.objects.filter(owner=self.user)
+        self.assertEqual(jobs.count(), 2)
+        for job in jobs:
+            self.assertEqual(job.params.get("recycling_steps"), 7)
+
+
+class TestBoltz2TemplateAdvancedFields(TestCase):
+    """Boltz-2 submit template includes batch and config file fields."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="advuser", password="testpass"
+        )
+        self.client.login(username="advuser", password="testpass")
+
+    def test_batch_file_field_present(self):
+        response = self.client.get("/jobs/new/?model=boltz2")
+        self.assertContains(response, "batch_file")
+        self.assertContains(response, "Batch file")
+
+    def test_config_file_field_present(self):
+        response = self.client.get("/jobs/new/?model=boltz2")
+        self.assertContains(response, "config_file")
+        self.assertContains(response, "Config file")

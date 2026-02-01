@@ -789,15 +789,15 @@ Also:
 
 ---
 
-### Phase 6: Output Presentation
+### Phase 6: Output Presentation ✅
 
 **Goal**: Give model types control over how job outputs are displayed, enabling primary result highlighting, file grouping, and model-specific rendering.
 
-#### 6.1 Add `get_output_context` to `BaseModelType`
+#### 6.1 Add `get_output_context` to `BaseModelType` ✅
 
 **File**: `model_types/base.py`
 
-Add a concrete (not abstract) method with a useful default:
+Added a concrete (not abstract) method with a useful default:
 
 ```python
 def get_output_context(self, job) -> dict:
@@ -820,7 +820,7 @@ def get_output_context(self, job) -> dict:
     return {"files": files, "primary_files": [], "aux_files": []}
 ```
 
-#### 6.2 Override in `Boltz2ModelType`
+#### 6.2 Override in `Boltz2ModelType` ✅
 
 **File**: `model_types/boltz2.py`
 
@@ -844,11 +844,11 @@ def get_output_context(self, job) -> dict:
     }
 ```
 
-#### 6.3 Update `job_detail` view to use `get_output_context`
+#### 6.3 Update `job_detail` view to use `get_output_context` ✅
 
 **File**: `jobs/views.py`
 
-Current state (lines 87-98):
+Previous state:
 ```python
 def job_detail(request, job_id):
     job = get_object_or_404(...)
@@ -861,23 +861,16 @@ def job_detail(request, job_id):
     return render(request, "jobs/detail.html", {"job": job, "files": files})
 ```
 
-Changes:
-```python
-def job_detail(request, job_id):
-    job = get_object_or_404(...)
-    try:
-        model_type = get_model_type(job.model_key)
-    except KeyError:
-        model_type = get_default_model_type()
-    output_context = model_type.get_output_context(job)
-    return render(request, "jobs/detail.html", {"job": job, **output_context})
-```
+Changes (all done):
+- [x] Resolve model type from `job.model_key` with fallback to `get_default_model_type()`
+- [x] Call `model_type.get_output_context(job)` and spread into template context
+- [x] Import `get_default_model_type` from registry
 
-#### 6.4 Update `detail.html` template
+#### 6.4 Update `detail.html` template ✅
 
 **File**: `jobs/templates/jobs/detail.html`
 
-Update the output files section to use the structured context:
+Updated the output files section to use the structured context:
 
 ```html
 <h2 class="mb-3">Output Files</h2>
@@ -913,95 +906,80 @@ Update the output files section to use the structured context:
 </div>
 ```
 
-This is backwards-compatible: if `primary_files` and `aux_files` are empty (as with the base default), all files appear in the `files` list and the template can fall back to a flat listing.
+Changes (all done):
+- [x] Primary files shown in a "Results" section with `btn-outline-primary` download buttons
+- [x] Auxiliary files shown in a "Logs & Auxiliary" section with `btn-outline-secondary` download buttons
+- [x] Flat file list fallback when no primary/aux classification (base model type default)
+- [x] File sizes displayed via `filesizeformat` filter
+- [x] "No output files found yet" message when no files exist
+- [x] Backwards-compatible: base model type returns empty primary/aux lists, template shows flat list
 
 ---
 
-### Phase 7: Batch + Config Parsing
+### Phase 7: Batch + Config Parsing ✅
 
 **Goal**: Support batch submissions (multi-FASTA file, ZIP of PDBs) and advanced configuration files (JSON config overrides).
 
-#### 7.1 Add shared parsing utilities
+#### 7.1 Add shared parsing utilities ✅
 
 **File**: `model_types/parsers.py` (new)
 
-```python
-def parse_fasta_batch(text: str) -> list[dict]:
-    """Parse multi-FASTA text into a list of {header, sequence} dicts."""
-    ...
+Changes (all done):
+- [x] `parse_fasta_batch(text)` — parses multi-FASTA into `[{"header", "sequence"}, ...]` with validation (empty text, missing headers, empty sequences, max 100 entries)
+- [x] `parse_zip_entries(upload, allowed_extensions, max_total_bytes)` — extracts ZIP entries with safety checks (path traversal rejection, extension filtering, size limits, max 100 entries, basename deduplication)
+- [x] `parse_json_config(upload)` — parses JSON config files with type validation (must be a dict)
 
-def parse_zip_entries(upload) -> dict[str, bytes]:
-    """Extract files from a ZIP upload into a {filename: bytes} dict.
-    Rejects files outside expected extensions. Enforces size limits."""
-    ...
-```
-
-#### 7.2 Add batch/config methods to `BaseModelType`
+#### 7.2 Add batch/config methods to `BaseModelType` ✅
 
 **File**: `model_types/base.py`
 
-```python
-def parse_batch(self, upload) -> list[dict]:
-    """Parse a batch upload into a list of per-item input dicts.
-    Default raises NotImplementedError -- only implement in model
-    types that support batch submission."""
-    raise NotImplementedError(f"{self.name} does not support batch uploads.")
+Changes (all done):
+- [x] Added `parse_batch(self, upload) -> list[dict]` — concrete method that raises `NotImplementedError` by default
+- [x] Added `parse_config(self, upload) -> dict` — concrete method that raises `NotImplementedError` by default
+- [x] Model types opt in to batch/config support by overriding these methods
 
-def parse_config(self, upload) -> dict:
-    """Parse an advanced config file into a dict to merge into params.
-    Default raises NotImplementedError."""
-    raise NotImplementedError(f"{self.name} does not support config file uploads.")
-```
+#### 7.3 Update submission view and service layer ✅
 
-These are concrete methods (not abstract) that raise -- model types opt in to batch/config support by overriding.
+Changes (all done):
+- [x] Added `batch_id = UUIDField(null=True, blank=True, db_index=True)` to Job model with migration `0007_add_batch_id`
+- [x] Updated `create_and_submit_job()` to accept optional `batch_id` parameter
+- [x] Updated `job_submit` view: detects `batch_file` in cleaned_data, calls `model_type.parse_batch()`, loops to create multiple jobs with shared `batch_id`, redirects to job list
+- [x] Updated `job_submit` view: detects `config_file` in cleaned_data, calls `model_type.parse_config()`, merges overrides into cleaned_data before `normalize_inputs()`
+- [x] Config merging happens before batch splitting, so batch + config works together
 
-#### 7.3 Update submission view and service layer
+#### 7.4 Add UI hints ✅
 
-- When form includes a batch file, call `model_type.parse_batch()` and loop to create multiple jobs.
-- When form includes a config file, call `model_type.parse_config()` and merge the result into `params`.
-- Store batch relationship via a `batch_id` field on Job (all jobs from one batch share the same UUID).
-
-#### 7.4 Add UI hints
-
-- Update `submit_base.html` to support optional batch/config file fields.
-- Add help text explaining batch upload format per model type.
+Changes (all done):
+- [x] Added `batch_file` and `config_file` FileField to `Boltz2SubmitForm` with descriptive help text
+- [x] Made `sequences` field optional in `Boltz2SubmitForm` (required=False) with cross-field `clean()` that requires either sequences or batch_file
+- [x] Added "Advanced" section to `submit_boltz2.html` with batch file and config file upload fields
+- [x] `submit_base.html` already has `enctype="multipart/form-data"` for file uploads
+- [x] Implemented `Boltz2ModelType.parse_batch()` — splits multi-FASTA into per-sequence items with name from header
+- [x] Implemented `Boltz2ModelType.parse_config()` — parses JSON, filters to allowed Boltz-2 parameter keys only
 
 ---
 
-### Phase 8: Minor Fixes and Cleanup
+### Phase 8: Minor Fixes and Cleanup ✅
 
 These can be done at any point, ideally alongside the phase that touches the relevant file.
 
-#### 8.1 Remove unused variable in `BoltzRunner`
+#### 8.1 Remove unused variable in `BoltzRunner` ✅
 
 **File**: `runners/boltz.py:18`
 
-`input_path = workdir / "input" / "sequences.fasta"` is defined but never used (the Docker command hardcodes the path). Remove it.
+`input_path = workdir / "input" / "sequences.fasta"` was defined but never used. Already removed in Phase 5.
 
-#### 8.2 Fix `normalize_inputs` filter for boolean False
+#### 8.2 Fix `normalize_inputs` filter for boolean False ✅
 
 **File**: `model_types/boltz2.py:31`
 
-Current filter: `{k: v for k, v in params.items() if v not in (None, "")}` keeps `"use_msa_server": False` in the params dict (because `False not in (None, "")`). The runner then checks `if params.get("use_msa_server")` which is falsy, so the flag is never added. The `False` value is dead weight in the stored JSON.
+Filter already updated to `{k: v for k, v in params.items() if v not in (None, "", False)}` to exclude dead-weight `False` values from stored JSON.
 
-Change the filter to also exclude `False`:
-```python
-params = {k: v for k, v in params.items() if v not in (None, "", False)}
-```
+#### 8.3 Fix file handle in `download_file` ✅
 
-Or, more explicitly, only include truthy booleans and non-None/non-empty other values.
+**File**: `jobs/views.py:153`
 
-#### 8.3 Fix file handle in `download_file`
-
-**File**: `jobs/views.py:110`
-
-Current: `return FileResponse(open(file_path, "rb"), ...)` -- opens a file handle that Django's `FileResponse` will close, but it's cleaner to use the `Path`-based approach:
-
-```python
-return FileResponse(file_path.open("rb"), as_attachment=True, filename=safe_name)
-```
-
-This is functionally equivalent but more idiomatic with the `Path` objects already in use.
+Changed `open(file_path, "rb")` to `file_path.open("rb")` for idiomatic `Path` usage.
 
 ---
 
@@ -1018,6 +996,7 @@ This is functionally equivalent but more idiomatic with the `Path` objects alrea
 - `model_types/registry.py` -- registry dict and lookup functions
 - `model_types/boltz2.py` -- Boltz-2 ModelType implementation
 - `model_types/runner.py` -- generic runner ModelType
+- `model_types/parsers.py` -- shared parsing utilities (FASTA, ZIP, JSON config) (Phase 7)
 
 **Runners**:
 - `runners/__init__.py` -- `Runner` ABC, registry, `@register` decorator

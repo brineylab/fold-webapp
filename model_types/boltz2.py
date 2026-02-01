@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from jobs.forms import Boltz2SubmitForm
 from model_types.base import BaseModelType, InputPayload
+from model_types.parsers import parse_fasta_batch, parse_json_config
 
 
 class Boltz2ModelType(BaseModelType):
@@ -37,3 +38,57 @@ class Boltz2ModelType(BaseModelType):
 
     def resolve_runner_key(self, cleaned_data: dict) -> str:
         return "boltz-2"
+
+    def parse_batch(self, upload) -> list[dict]:
+        """Parse a multi-FASTA upload into per-sequence input overrides.
+
+        Returns a list of dicts, each with ``sequences`` and ``name`` keys.
+        These are merged with the base form cleaned_data before calling
+        :meth:`normalize_inputs` for each batch item.
+        """
+        text = upload.read().decode("utf-8")
+        entries = parse_fasta_batch(text)
+        return [
+            {
+                "sequences": f">{entry['header']}\n{entry['sequence']}",
+                "name": entry["header"][:100],
+            }
+            for entry in entries
+        ]
+
+    def parse_config(self, upload) -> dict:
+        """Parse a JSON config file into param overrides.
+
+        Accepted keys: ``recycling_steps``, ``sampling_steps``,
+        ``diffusion_samples``, ``use_msa_server``, ``use_potentials``,
+        ``output_format``.
+        """
+        data = parse_json_config(upload)
+        allowed_keys = {
+            "recycling_steps",
+            "sampling_steps",
+            "diffusion_samples",
+            "use_msa_server",
+            "use_potentials",
+            "output_format",
+        }
+        return {k: v for k, v in data.items() if k in allowed_keys}
+
+    def get_output_context(self, job) -> dict:
+        """Boltz-2 classifies structure files as primary results."""
+        outdir = job.workdir / "output"
+        primary, aux = [], []
+        if outdir.exists() and outdir.is_dir():
+            for p in sorted(outdir.iterdir()):
+                if not p.is_file():
+                    continue
+                entry = {"name": p.name, "size": p.stat().st_size}
+                if p.suffix in (".pdb", ".cif", ".mmcif"):
+                    primary.append(entry)
+                else:
+                    aux.append(entry)
+        return {
+            "files": primary + aux,
+            "primary_files": primary,
+            "aux_files": aux,
+        }

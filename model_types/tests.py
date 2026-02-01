@@ -1,14 +1,20 @@
-"""Tests for the model_types harness (Phases 2-4)."""
+"""Tests for the model_types harness (Phases 2-4, 6-7)."""
 from __future__ import annotations
 
+import io
+import json
 import shutil
 import tempfile
+import zipfile
 from pathlib import Path
 
 from django import forms
+from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
 from model_types.base import BaseModelType, InputPayload
+from model_types.parsers import parse_fasta_batch, parse_json_config, parse_zip_entries
 from model_types.registry import (
     MODEL_TYPES,
     get_dedicated_runner_keys,
@@ -388,3 +394,447 @@ class TestGetSubmittableModelTypes(TestCase):
         for mt in get_submittable_model_types():
             self.assertTrue(mt.name, f"ModelType {mt.key!r} missing name")
             self.assertTrue(mt.help_text, f"ModelType {mt.key!r} missing help_text")
+
+
+# ---------------------------------------------------------------------------
+# 6.1  get_output_context on BaseModelType (concrete default)
+# ---------------------------------------------------------------------------
+
+
+class TestGetOutputContextBase(TestCase):
+    """get_output_context is a concrete method with a useful default."""
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _make_fake_job(self):
+        class FakeJob:
+            workdir = self.tmpdir / "job"
+        return FakeJob()
+
+    def test_is_not_abstract(self):
+        """Subclasses that don't override get_output_context should still instantiate."""
+        mt = _MinimalModelType()
+        self.assertTrue(callable(mt.get_output_context))
+
+    def test_all_registered_model_types_have_get_output_context(self):
+        for key, mt in MODEL_TYPES.items():
+            self.assertTrue(
+                callable(getattr(mt, "get_output_context", None)),
+                f"ModelType {key!r} missing get_output_context",
+            )
+
+    def test_returns_empty_when_no_output_dir(self):
+        job = self._make_fake_job()
+        mt = _MinimalModelType()
+        result = mt.get_output_context(job)
+        self.assertEqual(result, {"files": [], "primary_files": [], "aux_files": []})
+
+    def test_returns_empty_when_output_dir_empty(self):
+        job = self._make_fake_job()
+        (job.workdir / "output").mkdir(parents=True)
+        mt = _MinimalModelType()
+        result = mt.get_output_context(job)
+        self.assertEqual(result, {"files": [], "primary_files": [], "aux_files": []})
+
+    def test_lists_files_with_name_and_size(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "result.pdb").write_text("ATOM 1")
+        (outdir / "log.txt").write_text("done")
+
+        mt = _MinimalModelType()
+        result = mt.get_output_context(job)
+        names = [f["name"] for f in result["files"]]
+        self.assertIn("result.pdb", names)
+        self.assertIn("log.txt", names)
+        for f in result["files"]:
+            self.assertIn("name", f)
+            self.assertIn("size", f)
+            self.assertIsInstance(f["size"], int)
+        # Base default puts everything in files, nothing in primary/aux
+        self.assertEqual(result["primary_files"], [])
+        self.assertEqual(result["aux_files"], [])
+
+    def test_skips_subdirectories(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "subdir").mkdir()
+        (outdir / "file.txt").write_text("hello")
+
+        mt = _MinimalModelType()
+        result = mt.get_output_context(job)
+        self.assertEqual(len(result["files"]), 1)
+        self.assertEqual(result["files"][0]["name"], "file.txt")
+
+    def test_files_sorted_alphabetically(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "z_file.txt").write_text("z")
+        (outdir / "a_file.txt").write_text("a")
+        (outdir / "m_file.txt").write_text("m")
+
+        mt = _MinimalModelType()
+        result = mt.get_output_context(job)
+        names = [f["name"] for f in result["files"]]
+        self.assertEqual(names, ["a_file.txt", "m_file.txt", "z_file.txt"])
+
+
+# ---------------------------------------------------------------------------
+# 6.2  get_output_context override in Boltz2ModelType
+# ---------------------------------------------------------------------------
+
+
+class TestGetOutputContextBoltz2(TestCase):
+    """Boltz2ModelType classifies structure files as primary."""
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _make_fake_job(self):
+        class FakeJob:
+            workdir = self.tmpdir / "job"
+        return FakeJob()
+
+    def test_pdb_files_are_primary(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "model.pdb").write_text("ATOM")
+        (outdir / "slurm-123.out").write_text("log")
+
+        mt = get_model_type("boltz2")
+        result = mt.get_output_context(job)
+        primary_names = [f["name"] for f in result["primary_files"]]
+        aux_names = [f["name"] for f in result["aux_files"]]
+        self.assertIn("model.pdb", primary_names)
+        self.assertIn("slurm-123.out", aux_names)
+
+    def test_cif_and_mmcif_are_primary(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "structure.cif").write_text("data")
+        (outdir / "complex.mmcif").write_text("data")
+        (outdir / "scores.json").write_text("{}")
+
+        mt = get_model_type("boltz2")
+        result = mt.get_output_context(job)
+        primary_names = [f["name"] for f in result["primary_files"]]
+        aux_names = [f["name"] for f in result["aux_files"]]
+        self.assertIn("structure.cif", primary_names)
+        self.assertIn("complex.mmcif", primary_names)
+        self.assertIn("scores.json", aux_names)
+
+    def test_files_is_primary_plus_aux(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "model.pdb").write_text("ATOM")
+        (outdir / "log.txt").write_text("done")
+
+        mt = get_model_type("boltz2")
+        result = mt.get_output_context(job)
+        all_names = [f["name"] for f in result["files"]]
+        primary_names = [f["name"] for f in result["primary_files"]]
+        aux_names = [f["name"] for f in result["aux_files"]]
+        self.assertEqual(all_names, primary_names + aux_names)
+
+    def test_empty_output_dir(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+
+        mt = get_model_type("boltz2")
+        result = mt.get_output_context(job)
+        self.assertEqual(result["files"], [])
+        self.assertEqual(result["primary_files"], [])
+        self.assertEqual(result["aux_files"], [])
+
+
+# ---------------------------------------------------------------------------
+# 7.1  Parsing utilities
+# ---------------------------------------------------------------------------
+
+
+class TestParseFastaBatch(TestCase):
+    """parse_fasta_batch parses multi-FASTA text correctly."""
+
+    def test_single_entry(self):
+        text = ">seq1\nMKTAYI"
+        entries = parse_fasta_batch(text)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["header"], "seq1")
+        self.assertEqual(entries[0]["sequence"], "MKTAYI")
+
+    def test_multiple_entries(self):
+        text = ">seq1\nMKTAYI\n>seq2\nACDEFG\n>seq3\nHIKLMN"
+        entries = parse_fasta_batch(text)
+        self.assertEqual(len(entries), 3)
+        self.assertEqual(entries[0]["header"], "seq1")
+        self.assertEqual(entries[1]["header"], "seq2")
+        self.assertEqual(entries[2]["header"], "seq3")
+        self.assertEqual(entries[2]["sequence"], "HIKLMN")
+
+    def test_multiline_sequence(self):
+        text = ">seq1\nMKTA\nYIAC\nDEFG"
+        entries = parse_fasta_batch(text)
+        self.assertEqual(entries[0]["sequence"], "MKTAYIACDEFG")
+
+    def test_blank_lines_ignored(self):
+        text = ">seq1\nMKTAYI\n\n>seq2\nACDEFG\n\n"
+        entries = parse_fasta_batch(text)
+        self.assertEqual(len(entries), 2)
+
+    def test_strips_whitespace(self):
+        text = "  >seq1  \n  MKTAYI  \n"
+        entries = parse_fasta_batch(text)
+        self.assertEqual(entries[0]["header"], "seq1")
+        self.assertEqual(entries[0]["sequence"], "MKTAYI")
+
+    def test_empty_text_raises(self):
+        with self.assertRaises(ValidationError):
+            parse_fasta_batch("")
+
+    def test_no_header_raises(self):
+        with self.assertRaises(ValidationError):
+            parse_fasta_batch("MKTAYI")
+
+    def test_empty_sequence_raises(self):
+        with self.assertRaises(ValidationError):
+            parse_fasta_batch(">seq1\n>seq2\nMKTAYI")
+
+    def test_too_many_entries_raises(self):
+        text = "\n".join(f">seq{i}\nMKTAYI" for i in range(101))
+        with self.assertRaises(ValidationError) as ctx:
+            parse_fasta_batch(text)
+        self.assertIn("Too many", str(ctx.exception))
+
+
+class TestParseZipEntries(TestCase):
+    """parse_zip_entries extracts files from ZIP uploads safely."""
+
+    def _make_zip(self, file_dict: dict[str, bytes]) -> io.BytesIO:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for name, content in file_dict.items():
+                zf.writestr(name, content)
+        buf.seek(0)
+        return buf
+
+    def test_extracts_allowed_extensions(self):
+        zf = self._make_zip({"a.pdb": b"ATOM", "b.txt": b"data"})
+        result = parse_zip_entries(zf)
+        self.assertIn("a.pdb", result)
+        self.assertIn("b.txt", result)
+        self.assertEqual(result["a.pdb"], b"ATOM")
+
+    def test_skips_disallowed_extensions(self):
+        zf = self._make_zip({"script.sh": b"#!/bin/bash", "a.pdb": b"ATOM"})
+        result = parse_zip_entries(zf)
+        self.assertNotIn("script.sh", result)
+        self.assertIn("a.pdb", result)
+
+    def test_flattens_nested_paths(self):
+        zf = self._make_zip({"subdir/a.pdb": b"ATOM"})
+        result = parse_zip_entries(zf)
+        self.assertIn("a.pdb", result)
+
+    def test_rejects_path_traversal(self):
+        zf = self._make_zip({"../evil.pdb": b"ATOM"})
+        with self.assertRaises(ValidationError) as ctx:
+            parse_zip_entries(zf)
+        self.assertIn("unsafe path", str(ctx.exception))
+
+    def test_rejects_absolute_path(self):
+        zf = self._make_zip({"/etc/passwd.pdb": b"data"})
+        with self.assertRaises(ValidationError) as ctx:
+            parse_zip_entries(zf)
+        self.assertIn("unsafe path", str(ctx.exception))
+
+    def test_rejects_invalid_zip(self):
+        buf = io.BytesIO(b"not a zip file")
+        with self.assertRaises(ValidationError) as ctx:
+            parse_zip_entries(buf)
+        self.assertIn("not a valid ZIP", str(ctx.exception))
+
+    def test_rejects_oversized_zip(self):
+        zf = self._make_zip({"a.pdb": b"A" * 1024})
+        with self.assertRaises(ValidationError) as ctx:
+            parse_zip_entries(zf, max_total_bytes=100)
+        self.assertIn("size limit", str(ctx.exception))
+
+    def test_rejects_too_many_entries(self):
+        files = {f"file{i}.pdb": b"data" for i in range(101)}
+        zf = self._make_zip(files)
+        with self.assertRaises(ValidationError) as ctx:
+            parse_zip_entries(zf)
+        self.assertIn("too many files", str(ctx.exception))
+
+    def test_rejects_empty_zip(self):
+        zf = self._make_zip({"script.sh": b"#!/bin/bash"})
+        with self.assertRaises(ValidationError) as ctx:
+            parse_zip_entries(zf)
+        self.assertIn("no files with allowed extensions", str(ctx.exception))
+
+    def test_deduplicates_basenames(self):
+        zf = self._make_zip({
+            "dir1/a.pdb": b"ATOM1",
+            "dir2/a.pdb": b"ATOM2",
+        })
+        result = parse_zip_entries(zf)
+        self.assertEqual(len(result), 2)
+        self.assertIn("a.pdb", result)
+        self.assertIn("a_1.pdb", result)
+
+    def test_custom_allowed_extensions(self):
+        zf = self._make_zip({"a.xyz": b"data", "b.pdb": b"ATOM"})
+        result = parse_zip_entries(zf, allowed_extensions=frozenset({".xyz"}))
+        self.assertIn("a.xyz", result)
+        self.assertNotIn("b.pdb", result)
+
+
+class TestParseJsonConfig(TestCase):
+    """parse_json_config parses JSON config uploads."""
+
+    def _make_upload(self, content: bytes) -> io.BytesIO:
+        buf = io.BytesIO(content)
+        return buf
+
+    def test_valid_json_object(self):
+        upload = self._make_upload(b'{"recycling_steps": 5}')
+        result = parse_json_config(upload)
+        self.assertEqual(result, {"recycling_steps": 5})
+
+    def test_rejects_json_array(self):
+        upload = self._make_upload(b'[1, 2, 3]')
+        with self.assertRaises(ValidationError) as ctx:
+            parse_json_config(upload)
+        self.assertIn("JSON object", str(ctx.exception))
+
+    def test_rejects_invalid_json(self):
+        upload = self._make_upload(b'{invalid}')
+        with self.assertRaises(ValidationError) as ctx:
+            parse_json_config(upload)
+        self.assertIn("Invalid JSON", str(ctx.exception))
+
+    def test_rejects_json_scalar(self):
+        upload = self._make_upload(b'"just a string"')
+        with self.assertRaises(ValidationError):
+            parse_json_config(upload)
+
+
+# ---------------------------------------------------------------------------
+# 7.2  parse_batch / parse_config on BaseModelType
+# ---------------------------------------------------------------------------
+
+
+class TestBaseModelTypeBatchConfig(TestCase):
+    """parse_batch and parse_config raise NotImplementedError by default."""
+
+    def test_parse_batch_raises(self):
+        mt = _MinimalModelType()
+        with self.assertRaises(NotImplementedError) as ctx:
+            mt.parse_batch(None)
+        self.assertIn("Minimal", str(ctx.exception))
+
+    def test_parse_config_raises(self):
+        mt = _MinimalModelType()
+        with self.assertRaises(NotImplementedError) as ctx:
+            mt.parse_config(None)
+        self.assertIn("Minimal", str(ctx.exception))
+
+    def test_parse_batch_not_abstract(self):
+        """parse_batch should be concrete (not abstract) so subclasses can omit it."""
+        mt = _MinimalModelType()
+        self.assertTrue(callable(mt.parse_batch))
+
+    def test_parse_config_not_abstract(self):
+        mt = _MinimalModelType()
+        self.assertTrue(callable(mt.parse_config))
+
+
+# ---------------------------------------------------------------------------
+# 7.2  Boltz2 parse_batch / parse_config overrides
+# ---------------------------------------------------------------------------
+
+
+class TestBoltz2ParseBatch(TestCase):
+    """Boltz2ModelType.parse_batch splits multi-FASTA into per-sequence items."""
+
+    def _make_upload(self, text: str):
+        return io.BytesIO(text.encode("utf-8"))
+
+    def test_splits_multi_fasta(self):
+        mt = get_model_type("boltz2")
+        upload = self._make_upload(">seq1\nMKTAYI\n>seq2\nACDEFG")
+        items = mt.parse_batch(upload)
+        self.assertEqual(len(items), 2)
+        self.assertIn("sequences", items[0])
+        self.assertIn("name", items[0])
+        self.assertEqual(items[0]["sequences"], ">seq1\nMKTAYI")
+        self.assertEqual(items[0]["name"], "seq1")
+        self.assertEqual(items[1]["sequences"], ">seq2\nACDEFG")
+
+    def test_truncates_long_name(self):
+        mt = get_model_type("boltz2")
+        long_header = "A" * 200
+        upload = self._make_upload(f">{long_header}\nMKTAYI")
+        items = mt.parse_batch(upload)
+        self.assertLessEqual(len(items[0]["name"]), 100)
+
+    def test_single_entry_batch(self):
+        mt = get_model_type("boltz2")
+        upload = self._make_upload(">only\nMKTAYI")
+        items = mt.parse_batch(upload)
+        self.assertEqual(len(items), 1)
+
+    def test_invalid_fasta_raises(self):
+        mt = get_model_type("boltz2")
+        upload = self._make_upload("not fasta")
+        with self.assertRaises(ValidationError):
+            mt.parse_batch(upload)
+
+
+class TestBoltz2ParseConfig(TestCase):
+    """Boltz2ModelType.parse_config extracts allowed param overrides."""
+
+    def _make_upload(self, data: dict):
+        return io.BytesIO(json.dumps(data).encode("utf-8"))
+
+    def test_extracts_allowed_keys(self):
+        mt = get_model_type("boltz2")
+        upload = self._make_upload({
+            "recycling_steps": 5,
+            "sampling_steps": 20,
+            "output_format": "pdb",
+        })
+        result = mt.parse_config(upload)
+        self.assertEqual(result["recycling_steps"], 5)
+        self.assertEqual(result["sampling_steps"], 20)
+        self.assertEqual(result["output_format"], "pdb")
+
+    def test_filters_unknown_keys(self):
+        mt = get_model_type("boltz2")
+        upload = self._make_upload({
+            "recycling_steps": 5,
+            "unknown_param": "should_be_dropped",
+        })
+        result = mt.parse_config(upload)
+        self.assertIn("recycling_steps", result)
+        self.assertNotIn("unknown_param", result)
+
+    def test_invalid_json_raises(self):
+        mt = get_model_type("boltz2")
+        upload = io.BytesIO(b"not json")
+        with self.assertRaises(ValidationError):
+            mt.parse_config(upload)

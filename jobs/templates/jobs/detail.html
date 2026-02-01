@@ -63,26 +63,78 @@
   <h2 class="mb-3">Output Files</h2>
   <div class="card">
     <div class="card-body">
-      {% if files %}
-        <div class="table-responsive">
+      {% if primary_files %}
+        <h6 class="text-muted mb-2">Results</h6>
+        <div class="table-responsive mb-3">
           <table class="table table-hover mb-0">
             <thead>
               <tr>
                 <th>File</th>
+                <th>Size</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {% for name in files %}
+              {% for f in primary_files %}
                 <tr>
-                  <td class="font-monospace">{{ name }}</td>
-                  <td><a class="btn btn-outline-secondary btn-sm" href="{% url 'download_file' job_id=job.id filename=name %}">Download</a></td>
+                  <td class="font-monospace">{{ f.name }}</td>
+                  <td class="text-muted">{{ f.size|filesizeformat }}</td>
+                  <td><a class="btn btn-outline-primary btn-sm" href="{% url 'download_file' job_id=job.id filename=f.name %}">Download</a></td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-      {% else %}
+      {% endif %}
+
+      {% if aux_files %}
+        <h6 class="text-muted mb-2">Logs &amp; Auxiliary</h6>
+        <div class="table-responsive mb-3">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Size</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in aux_files %}
+                <tr>
+                  <td class="font-monospace">{{ f.name }}</td>
+                  <td class="text-muted">{{ f.size|filesizeformat }}</td>
+                  <td><a class="btn btn-outline-secondary btn-sm" href="{% url 'download_file' job_id=job.id filename=f.name %}">Download</a></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+
+      {% if not primary_files and not aux_files and files %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Size</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in files %}
+                <tr>
+                  <td class="font-monospace">{{ f.name }}</td>
+                  <td class="text-muted">{{ f.size|filesizeformat }}</td>
+                  <td><a class="btn btn-outline-secondary btn-sm" href="{% url 'download_file' job_id=job.id filename=f.name %}">Download</a></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+
+      {% if not files %}
         <p class="text-muted mb-0">No output files found yet. If the job is running, check back later.</p>
       {% endif %}
     </div>

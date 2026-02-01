@@ -36,6 +36,8 @@ class Job(models.Model):
 
     hidden_from_owner = models.BooleanField(default=False)
 
+    batch_id = models.UUIDField(null=True, blank=True, db_index=True)
+
     # Audit history tracking
     history = HistoricalRecords()
 

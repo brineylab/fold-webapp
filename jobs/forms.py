@@ -87,6 +87,7 @@ class Boltz2SubmitForm(forms.Form):
         widget=forms.TextInput(attrs={"class": "form-control"}),
     )
     sequences = forms.CharField(
+        required=False,
         widget=forms.Textarea(
             attrs={
                 "class": "form-control",
@@ -96,6 +97,16 @@ class Boltz2SubmitForm(forms.Form):
         ),
         help_text="Paste one or more FASTA-formatted sequences.",
     )
+
+    def clean(self):
+        cleaned = super().clean()
+        has_sequences = bool((cleaned.get("sequences") or "").strip())
+        has_batch = bool(cleaned.get("batch_file"))
+        if not has_sequences and not has_batch:
+            raise forms.ValidationError(
+                "Provide either sequences or a batch file."
+            )
+        return cleaned
     use_msa_server = forms.BooleanField(
         required=False,
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
@@ -130,4 +141,20 @@ class Boltz2SubmitForm(forms.Form):
         min_value=1,
         widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Optional number of diffusion samples (default: Boltz-2 setting).",
+    )
+    batch_file = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
+        help_text=(
+            "Upload a multi-FASTA file to submit one job per sequence. "
+            "When provided, the Sequences text area is ignored."
+        ),
+    )
+    config_file = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
+        help_text=(
+            "Upload a JSON config file to override default parameters. "
+            "Keys should match parameter names (e.g., recycling_steps, sampling_steps)."
+        ),
     )

@@ -77,3 +77,46 @@ class BaseModelType(ABC):
             )
         for filename, content in input_payload.get("files", {}).items():
             (workdir / "input" / filename).write_bytes(content)
+
+    def parse_batch(self, upload) -> list[dict]:
+        """Parse a batch upload into a list of per-item input dicts.
+
+        Default raises ``NotImplementedError`` -- only implement in model
+        types that support batch submission.  Each dict in the returned list
+        is a partial ``cleaned_data`` override that will be merged with the
+        base form data before calling :meth:`normalize_inputs`.
+        """
+        raise NotImplementedError(
+            f"{self.name} does not support batch uploads."
+        )
+
+    def parse_config(self, upload) -> dict:
+        """Parse an advanced config file into a dict to merge into params.
+
+        Default raises ``NotImplementedError`` -- only implement in model
+        types that support config file uploads.  The returned dict is merged
+        into the form's ``cleaned_data`` before calling
+        :meth:`normalize_inputs`.
+        """
+        raise NotImplementedError(
+            f"{self.name} does not support config file uploads."
+        )
+
+    def get_output_context(self, job) -> dict:
+        """Return template context for rendering job outputs on the detail page.
+
+        Returns a dict with:
+          - files: list of all output file dicts (name, size)
+          - primary_files: list of "main result" file dicts
+          - aux_files: list of auxiliary/log file dicts
+
+        Override to customize grouping, add labels, or flag specific
+        files for inline preview.
+        """
+        outdir = job.workdir / "output"
+        files = []
+        if outdir.exists() and outdir.is_dir():
+            for p in sorted(outdir.iterdir()):
+                if p.is_file():
+                    files.append({"name": p.name, "size": p.stat().st_size})
+        return {"files": files, "primary_files": [], "aux_files": []}
