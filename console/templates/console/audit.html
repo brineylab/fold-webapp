@@ -1,0 +1,173 @@
+{% extends "console/base.html" %}
+
+{% block title %}Audit Log - Ops Console{% endblock %}
+
+{% block console_content %}
+<h1 class="mb-4">Audit Log</h1>
+
+{% if not history_available %}
+<div class="alert alert-warning">
+  <strong>History Not Available</strong>
+  <p class="mb-0">{{ message|default:"django-simple-history is not configured for the Job model." }}</p>
+</div>
+{% else %}
+
+<!-- Filters -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3">
+      <div class="col-md-3">
+        <label for="job" class="form-label">Job ID</label>
+        <input type="text" class="form-control" id="job" name="job" value="{{ job_filter }}" 
+               placeholder="Search by job ID...">
+      </div>
+      <div class="col-md-3">
+        <label for="user" class="form-label">User</label>
+        <input type="text" class="form-control" id="user" name="user" value="{{ user_filter }}" 
+               placeholder="Search by username...">
+      </div>
+      <div class="col-md-3">
+        <label for="action" class="form-label">Action</label>
+        <select class="form-select" id="action" name="action">
+          <option value="">All Actions</option>
+          <option value="+" {% if action_filter == "+" %}selected{% endif %}>Created (+)</option>
+          <option value="~" {% if action_filter == "~" %}selected{% endif %}>Changed (~)</option>
+          <option value="-" {% if action_filter == "-" %}selected{% endif %}>Deleted (-)</option>
+        </select>
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">Filter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- History Records -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>History Records</strong>
+    <span class="badge bg-secondary">{{ history_records|length }} shown (max 200)</span>
+  </div>
+  <div class="card-body p-0">
+    {% if history_records %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Timestamp</th>
+            <th>Job ID</th>
+            <th>Action</th>
+            <th>User</th>
+            <th>Status</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in history_records %}
+          <tr>
+            <td class="text-muted">{{ record.history_date|date:"Y-m-d H:i:s" }}</td>
+            <td>
+              <a href="{% url 'console:job_detail' job_id=record.id %}">
+                <code>{{ record.id|truncatechars:13 }}</code>
+              </a>
+            </td>
+            <td>
+              {% if record.history_type == "+" %}
+              <span class="badge bg-success">Created</span>
+              {% elif record.history_type == "~" %}
+              <span class="badge bg-info">Changed</span>
+              {% elif record.history_type == "-" %}
+              <span class="badge bg-danger">Deleted</span>
+              {% else %}
+              <span class="badge bg-secondary">{{ record.history_type }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if record.history_user %}
+              {{ record.history_user.username }}
+              {% else %}
+              <span class="text-muted">System</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="status-{{ record.status }}">{{ record.status }}</span>
+            </td>
+            <td>
+              {% if record.history_type == "~" %}
+              <button type="button" class="btn btn-outline-secondary btn-sm" 
+                      data-bs-toggle="modal" 
+                      data-bs-target="#changeModal{{ forloop.counter }}">
+                View Changes
+              </button>
+              
+              <!-- Modal for viewing changes -->
+              <div class="modal fade" id="changeModal{{ forloop.counter }}" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Changes to Job {{ record.id|truncatechars:13 }}</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                      <p class="text-muted">
+                        Changed at {{ record.history_date|date:"Y-m-d H:i:s" }}
+                        {% if record.history_user %}by {{ record.history_user.username }}{% endif %}
+                      </p>
+                      <table class="table table-sm">
+                        <thead>
+                          <tr>
+                            <th>Field</th>
+                            <th>Value at this point</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>Status</td>
+                            <td><span class="status-{{ record.status }}">{{ record.status }}</span></td>
+                          </tr>
+                          <tr>
+                            <td>Hidden from owner</td>
+                            <td>{{ record.hidden_from_owner|yesno:"Yes,No" }}</td>
+                          </tr>
+                          {% if record.error_message %}
+                          <tr>
+                            <td>Error message</td>
+                            <td>{{ record.error_message }}</td>
+                          </tr>
+                          {% endif %}
+                          <tr>
+                            <td>SLURM Job ID</td>
+                            <td>{{ record.slurm_job_id|default:"-" }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <p class="text-muted small mb-0">
+                        <em>Note: This shows the state at this point in time. 
+                        Use the "diff" feature in django-simple-history admin for field-by-field comparison.</em>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% elif record.history_type == "+" %}
+              <span class="text-muted small">Job created</span>
+              {% elif record.history_type == "-" %}
+              <span class="text-muted small">Job deleted</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="p-4 text-center text-muted">
+      No history records found matching your criteria.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
+

@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  # Run database migrations before starting other services
+  migrate:
+    build: .
+    command: python manage.py migrate --noinput
+    env_file: .env
+    environment:
+      - DATABASE_PATH=/app/data/db/db.sqlite3
+      - JOB_BASE_DIR=/app/data/jobs
+    volumes:
+      - ./data/db:/app/data/db
+      - ./data/jobs:/app/data/jobs
+    # Only run once, then exit
+    restart: "no"
+
+  # Main web application
+  web:
+    build: .
+    command: gunicorn bioportal.wsgi:application --bind 0.0.0.0:8000 --workers 2
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      - DATABASE_PATH=/app/data/db/db.sqlite3
+      - JOB_BASE_DIR=/app/data/jobs
+    volumes:
+      - ./data/db:/app/data/db
+      - ./data/jobs:/app/data/jobs
+      - static_files:/app/staticfiles
+      # Uncomment below to mount SLURM binaries from host (production only)
+      # - /usr/bin/sbatch:/usr/bin/sbatch:ro
+      # - /usr/bin/squeue:/usr/bin/squeue:ro
+      # - /usr/bin/sacct:/usr/bin/sacct:ro
+      # - /usr/bin/scancel:/usr/bin/scancel:ro
+      # - /etc/slurm:/etc/slurm:ro
+      # - /var/run/munge:/var/run/munge:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Background job status poller
+  poller:
+    build: .
+    command: >
+      sh -c "while true; do python manage.py poll_jobs; sleep 10; done"
+    env_file: .env
+    environment:
+      - DATABASE_PATH=/app/data/db/db.sqlite3
+      - JOB_BASE_DIR=/app/data/jobs
+    volumes:
+      - ./data/db:/app/data/db
+      - ./data/jobs:/app/data/jobs
+      # Uncomment below to mount SLURM binaries from host (production only)
+      # - /usr/bin/squeue:/usr/bin/squeue:ro
+      # - /usr/bin/sacct:/usr/bin/sacct:ro
+      # - /etc/slurm:/etc/slurm:ro
+      # - /var/run/munge:/var/run/munge:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  static_files:

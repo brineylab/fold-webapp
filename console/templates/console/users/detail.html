@@ -1,0 +1,260 @@
+{% extends "console/base.html" %}
+
+{% block title %}{{ user_obj.username }} - Users - Ops Console{% endblock %}
+
+{% block console_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-1">
+        <li class="breadcrumb-item"><a href="{% url 'console:user_list' %}">Users</a></li>
+        <li class="breadcrumb-item active">{{ user_obj.username }}</li>
+      </ol>
+    </nav>
+    <h1 class="mb-0">
+      {{ user_obj.username }}
+      {% if user_obj.is_superuser %}
+      <span class="badge bg-danger fs-6">superuser</span>
+      {% elif user_obj.is_staff %}
+      <span class="badge bg-primary fs-6">staff</span>
+      {% endif %}
+    </h1>
+  </div>
+</div>
+
+<div class="row">
+  <!-- User Info Card -->
+  <div class="col-lg-4 mb-4">
+    <div class="card">
+      <div class="card-header">
+        <strong>Account Information</strong>
+      </div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Email</dt>
+          <dd class="col-sm-8">{{ user_obj.email|default:"-" }}</dd>
+          
+          <dt class="col-sm-4">Name</dt>
+          <dd class="col-sm-8">{{ user_obj.get_full_name|default:"-" }}</dd>
+          
+          <dt class="col-sm-4">Joined</dt>
+          <dd class="col-sm-8">{{ user_obj.date_joined|date:"Y-m-d H:i" }}</dd>
+          
+          <dt class="col-sm-4">Last Login</dt>
+          <dd class="col-sm-8">{{ user_obj.last_login|date:"Y-m-d H:i"|default:"Never" }}</dd>
+          
+          <dt class="col-sm-4">Active</dt>
+          <dd class="col-sm-8">
+            {% if user_obj.is_active %}
+            <span class="badge bg-success">Yes</span>
+            {% else %}
+            <span class="badge bg-secondary">No</span>
+            {% endif %}
+          </dd>
+          
+          <dt class="col-sm-4">Quota Status</dt>
+          <dd class="col-sm-8">
+            {% if quota.is_disabled %}
+            <span class="badge bg-warning text-dark">Disabled</span>
+            <small class="d-block text-muted mt-1">{{ quota.disabled_reason }}</small>
+            {% else %}
+            <span class="badge bg-success">Enabled</span>
+            {% endif %}
+          </dd>
+        </dl>
+      </div>
+      <div class="card-footer">
+        <!-- Account Actions -->
+        <div class="btn-group-vertical w-100">
+          {% if quota.is_disabled %}
+          <form method="post" action="{% url 'console:user_enable' user_id=user_obj.id %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success btn-sm w-100 mb-2">
+              Enable Account
+            </button>
+          </form>
+          {% else %}
+          <button type="button" class="btn btn-warning btn-sm w-100 mb-2" 
+                  data-bs-toggle="modal" data-bs-target="#disableModal">
+            Disable Account
+          </button>
+          {% endif %}
+          
+          <form method="post" action="{% url 'console:user_toggle_active' user_id=user_obj.id %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-{% if user_obj.is_active %}danger{% else %}success{% endif %} btn-sm w-100 mb-2"
+                    onclick="return confirm('{% if user_obj.is_active %}Deactivate{% else %}Activate{% endif %} this account?');">
+              {% if user_obj.is_active %}Deactivate{% else %}Activate{% endif %} (Django)
+            </button>
+          </form>
+          
+          <form method="post" action="{% url 'console:user_reset_password' user_id=user_obj.id %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary btn-sm w-100"
+                    onclick="return confirm('Generate a new temporary password for this user?');">
+              Reset Password
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Job Stats Card -->
+    <div class="card mt-4">
+      <div class="card-header">
+        <strong>Job Statistics</strong>
+      </div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-6">Total Jobs</dt>
+          <dd class="col-sm-6">{{ job_stats.total }}</dd>
+          
+          <dt class="col-sm-6">Completed</dt>
+          <dd class="col-sm-6 text-success">{{ job_stats.completed }}</dd>
+          
+          <dt class="col-sm-6">Failed</dt>
+          <dd class="col-sm-6 text-danger">{{ job_stats.failed }}</dd>
+          
+          <dt class="col-sm-6">Running</dt>
+          <dd class="col-sm-6 text-info">{{ job_stats.running }}</dd>
+          
+          <dt class="col-sm-6">Pending</dt>
+          <dd class="col-sm-6 text-muted">{{ job_stats.pending }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Quota Settings Card -->
+  <div class="col-lg-8 mb-4">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Quota Settings</strong>
+        {% if quota_status.is_exempt %}
+        <span class="badge bg-info">Exempt (Staff)</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <form method="post" action="{% url 'console:user_update_quota' user_id=user_obj.id %}">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="max_concurrent_jobs" class="form-label">Max Concurrent Jobs</label>
+              <input type="number" class="form-control" id="max_concurrent_jobs" name="max_concurrent_jobs" 
+                     value="{{ quota.max_concurrent_jobs }}" min="0">
+              <small class="text-muted">
+                Current: {{ quota_status.concurrent_jobs.current }}/{{ quota_status.concurrent_jobs.max }}
+              </small>
+            </div>
+            <div class="col-md-6">
+              <label for="max_queued_jobs" class="form-label">Max Queued Jobs</label>
+              <input type="number" class="form-control" id="max_queued_jobs" name="max_queued_jobs" 
+                     value="{{ quota.max_queued_jobs }}" min="0">
+              <small class="text-muted">
+                Current: {{ quota_status.queued_jobs.current }}/{{ quota_status.queued_jobs.max }}
+              </small>
+            </div>
+            <div class="col-md-6">
+              <label for="jobs_per_day" class="form-label">Jobs Per Day</label>
+              <input type="number" class="form-control" id="jobs_per_day" name="jobs_per_day" 
+                     value="{{ quota.jobs_per_day }}" min="0">
+              <small class="text-muted">
+                Today: {{ quota_status.daily_jobs.current }}/{{ quota_status.daily_jobs.max }}
+              </small>
+            </div>
+            <div class="col-md-6">
+              <label for="retention_days" class="form-label">Data Retention (Days)</label>
+              <input type="number" class="form-control" id="retention_days" name="retention_days" 
+                     value="{{ quota.retention_days }}" min="0">
+              <small class="text-muted">0 = never delete</small>
+            </div>
+          </div>
+          <div class="mt-3">
+            <button type="submit" class="btn btn-primary">Save Quota Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- Recent Jobs Card -->
+    <div class="card mt-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Recent Jobs</strong>
+        <a href="{% url 'console:job_list' %}?search={{ user_obj.username }}" class="btn btn-outline-secondary btn-sm">
+          View All
+        </a>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_jobs %}
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Job ID</th>
+                <th>Name</th>
+                <th>Runner</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for job in recent_jobs %}
+              <tr>
+                <td>
+                  <a href="{% url 'console:job_detail' job_id=job.id %}">
+                    <code>{{ job.id|truncatechars:13 }}</code>
+                  </a>
+                </td>
+                <td>{{ job.name|default:"-" }}</td>
+                <td><span class="badge bg-secondary">{{ job.runner }}</span></td>
+                <td><span class="fw-semibold status-{{ job.status }}">{{ job.status }}</span></td>
+                <td class="text-muted">{{ job.created_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                  <a href="{% url 'console:job_detail' job_id=job.id %}" class="btn btn-outline-secondary btn-sm">
+                    View
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">
+          No jobs found for this user.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Disable Account Modal -->
+<div class="modal fade" id="disableModal" tabindex="-1" aria-labelledby="disableModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'console:user_disable' user_id=user_obj.id %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="disableModalLabel">Disable Account</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>This will prevent <strong>{{ user_obj.username }}</strong> from submitting new jobs.</p>
+          <div class="mb-3">
+            <label for="reason" class="form-label">Reason (optional)</label>
+            <textarea class="form-control" id="reason" name="reason" rows="3" 
+                      placeholder="Enter a reason for disabling this account..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning">Disable Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

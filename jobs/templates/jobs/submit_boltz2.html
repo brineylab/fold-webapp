@@ -1,0 +1,75 @@
+{% extends "jobs/submit_base.html" %}
+
+{% block form_fields %}
+        <div class="mb-3">
+          <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+          {{ form.name }}
+          {{ form.name.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.sequences.id_for_label }}" class="form-label">Sequences</label>
+          {{ form.sequences }}
+          <div class="form-text">{{ form.sequences.help_text }}</div>
+          {{ form.sequences.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.input_file.id_for_label }}" class="form-label">Input file</label>
+          {{ form.input_file }}
+          <div class="form-text">{{ form.input_file.help_text }}</div>
+          {{ form.input_file.errors }}
+        </div>
+
+        <div class="mb-3">
+          <div class="form-check">
+            {{ form.use_msa_server }}
+            <label class="form-check-label" for="{{ form.use_msa_server.id_for_label }}">
+              Use MSA server
+            </label>
+          </div>
+          <div class="form-text">{{ form.use_msa_server.help_text }}</div>
+          {{ form.use_msa_server.errors }}
+        </div>
+
+        <div class="mb-3">
+          <div class="form-check">
+            {{ form.use_potentials }}
+            <label class="form-check-label" for="{{ form.use_potentials.id_for_label }}">
+              Use inference-time potentials
+            </label>
+          </div>
+          <div class="form-text">{{ form.use_potentials.help_text }}</div>
+          {{ form.use_potentials.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.output_format.id_for_label }}" class="form-label">Output format</label>
+          {{ form.output_format }}
+          <div class="form-text">{{ form.output_format.help_text }}</div>
+          {{ form.output_format.errors }}
+        </div>
+
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label for="{{ form.recycling_steps.id_for_label }}" class="form-label">Recycling steps</label>
+            {{ form.recycling_steps }}
+            <div class="form-text">{{ form.recycling_steps.help_text }}</div>
+            {{ form.recycling_steps.errors }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label for="{{ form.sampling_steps.id_for_label }}" class="form-label">Sampling steps</label>
+            {{ form.sampling_steps }}
+            <div class="form-text">{{ form.sampling_steps.help_text }}</div>
+            {{ form.sampling_steps.errors }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label for="{{ form.diffusion_samples.id_for_label }}" class="form-label">Diffusion samples</label>
+            {{ form.diffusion_samples }}
+            <div class="form-text">{{ form.diffusion_samples.help_text }}</div>
+            {{ form.diffusion_samples.errors }}
+          </div>
+        </div>
+
+
+{% endblock %}

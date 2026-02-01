@@ -1,3 +1,17 @@
+*.pyc
+__pycache__/
+
+.env
+db.sqlite3
+
+job_data/
+staticfiles/
+data/
+backups/
+
+venv/
+.venv/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

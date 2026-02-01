@@ -1,0 +1,171 @@
+{% extends "console/base.html" %}
+
+{% block title %}Stats - Ops Console{% endblock %}
+
+{% block console_content %}
+<h1 class="mb-4">Statistics</h1>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body text-center">
+        <h2 class="display-4 mb-0">{{ summary.total_jobs }}</h2>
+        <p class="text-muted mb-0">Total Jobs</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body text-center">
+        <h2 class="display-4 mb-0">{{ summary.jobs_last_30_days }}</h2>
+        <p class="text-muted mb-0">Jobs (Last 30 Days)</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body text-center">
+        <h2 class="display-4 mb-0">
+          {% if summary.avg_runtime_seconds %}
+            {{ summary.avg_runtime_seconds|floatformat:0 }}s
+          {% else %}
+            -
+          {% endif %}
+        </h2>
+        <p class="text-muted mb-0">Avg Runtime</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Jobs by Status -->
+  <div class="col-md-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <strong>Jobs by Status</strong>
+      </div>
+      <div class="card-body">
+        {% if summary.jobs_by_status %}
+        <table class="table table-sm mb-0">
+          <tbody>
+            {% for status, count in summary.jobs_by_status.items %}
+            <tr>
+              <td>
+                <span class="fw-semibold status-{{ status }}">{{ status }}</span>
+              </td>
+              <td class="text-end">{{ count }}</td>
+              <td style="width: 60%;">
+                <div class="progress" style="height: 20px;">
+                  <div class="progress-bar 
+                    {% if status == 'COMPLETED' %}bg-success
+                    {% elif status == 'FAILED' %}bg-danger
+                    {% elif status == 'RUNNING' %}bg-info
+                    {% else %}bg-warning{% endif %}" 
+                       role="progressbar" 
+                       style="width: {% widthratio count summary.total_jobs 100 %}%;">
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted mb-0">No data available</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Jobs by Runner -->
+  <div class="col-md-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <strong>Jobs by Runner</strong>
+      </div>
+      <div class="card-body">
+        {% if summary.jobs_by_runner %}
+        <table class="table table-sm mb-0">
+          <tbody>
+            {% for runner, count in summary.jobs_by_runner.items %}
+            <tr>
+              <td>
+                <span class="badge bg-secondary">{{ runner }}</span>
+              </td>
+              <td class="text-end">{{ count }}</td>
+              <td style="width: 60%;">
+                <div class="progress" style="height: 20px;">
+                  <div class="progress-bar bg-primary" 
+                       role="progressbar" 
+                       style="width: {% widthratio count summary.total_jobs 100 %}%;">
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted mb-0">No data available</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Jobs Over Time Placeholder -->
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Jobs Over Time (Last 30 Days)</strong>
+        <span class="badge bg-info">Chart Coming Soon</span>
+      </div>
+      <div class="card-body">
+        <div class="text-center text-muted py-5">
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-graph-up mb-3 opacity-50" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M0 0h1v15h15v1H0zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07"/>
+          </svg>
+          <p class="mb-2">Time series chart will be displayed here</p>
+          <p class="small text-muted mb-0">
+            This placeholder is ready for Chart.js integration or Streamlit embedding.
+            <br>
+            Data is available via the <a href="{% url 'console:stats_api_summary' %}">JSON API endpoint</a>.
+          </p>
+        </div>
+        
+        <!-- Raw data for development -->
+        <details class="mt-3">
+          <summary class="text-muted small">View raw data ({{ summary.jobs_by_day|length }} data points)</summary>
+          <pre class="mt-2 p-2 bg-light rounded" style="max-height: 200px; overflow-y: auto;"><code>{% for entry in summary.jobs_by_day %}{{ entry.date }}: {{ entry.count }}
+{% endfor %}</code></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API Info -->
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <strong>Stats API</strong>
+      </div>
+      <div class="card-body">
+        <p>Statistics data is available as JSON for external tools and dashboards:</p>
+        <p>
+          <code>GET <a href="{% url 'console:stats_api_summary' %}">{% url 'console:stats_api_summary' %}</a></code>
+        </p>
+        <p class="text-muted mb-0">
+          This endpoint can be used to integrate with Streamlit dashboards, 
+          Grafana, or any other visualization tool.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

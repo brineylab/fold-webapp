@@ -1,0 +1,6 @@
+Django>=5.0,<6.0
+gunicorn>=21.2,<23.0
+python-dotenv>=1.0,<2.0
+honcho>=1.1,<2.0  # Process manager for Procfile-based development
+django-simple-history>=3.4.0,<4.0  # Audit logging for model changes
+whitenoise>=6.0,<7.0  # Static file serving for production and development
