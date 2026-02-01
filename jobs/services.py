@@ -104,7 +104,8 @@ def create_and_submit_job(
     model_type.prepare_workdir(job, input_payload or {})
 
     try:
-        script = runner.build_script(job)
+        config = RunnerConfig.get_config(runner_key)
+        script = runner.build_script(job, config=config)
         job.slurm_job_id = slurm.submit(script, job.workdir)
         job.submitted_at = timezone.now()
         job.save(update_fields=["slurm_job_id", "submitted_at"])

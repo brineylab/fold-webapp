@@ -8,8 +8,14 @@ class Runner(ABC):
     name: str
 
     @abstractmethod
-    def build_script(self, job) -> str:
-        """Generate sbatch script content for a Job."""
+    def build_script(self, job, config=None) -> str:
+        """Generate sbatch script content for a Job.
+
+        Args:
+            job: The Job instance.
+            config: Optional RunnerConfig with SLURM resource settings
+                and container overrides.
+        """
         raise NotImplementedError
 
     def validate(self, sequences: str, params: dict) -> list[str]:

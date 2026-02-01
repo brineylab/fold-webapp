@@ -12,12 +12,20 @@ class BoltzRunner(Runner):
     key = "boltz-2"
     name = "Boltz-2"
 
-    def build_script(self, job) -> str:
+    def build_script(self, job, config=None) -> str:
         workdir = Path(job.workdir)
         outdir = workdir / "output"
-        input_path = workdir / "input" / "sequences.fasta"
         cache_dir = Path(settings.BOLTZ_CACHE_DIR)
-        image = settings.BOLTZ_IMAGE
+
+        # Use config image override, fall back to settings
+        image = (
+            config.image_uri
+            if config and config.image_uri
+            else settings.BOLTZ_IMAGE
+        )
+
+        # Build SLURM directives from config
+        slurm_directives = config.get_slurm_directives() if config else ""
 
         params = job.params or {}
         flags: list[str] = []
@@ -40,6 +48,7 @@ class BoltzRunner(Runner):
 #SBATCH --job-name=boltz-{job.id}
 #SBATCH --output={outdir}/slurm-%j.out
 #SBATCH --error={outdir}/slurm-%j.err
+{slurm_directives}
 
 set -euo pipefail
 

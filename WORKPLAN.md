@@ -643,17 +643,18 @@ Changes to the view (`jobs/views.py`):
 
 ---
 
-### Phase 5: RunnerConfig with SLURM Resources
+### Phase 5: RunnerConfig with SLURM Resources ✅
 
 **Goal**: Make SLURM resource requirements (partition, GPUs, memory, time limit) configurable per-runner via Django admin, and have runners use these settings when building sbatch scripts.
 
-#### 5.1 Add resource fields to `RunnerConfig`
+#### 5.1 Add resource fields to `RunnerConfig` ✅
 
 **File**: `console/models.py`
 
 Current state: `RunnerConfig` has `runner_key`, `enabled`, `disabled_reason`, and timestamps. No resource fields.
 
-Changes -- add these fields to `RunnerConfig`:
+Changes (all done):
+- [x] Add these fields to `RunnerConfig`:
 ```python
 # SLURM resource configuration
 partition = models.CharField(
@@ -692,9 +693,9 @@ extra_mounts = models.JSONField(
 )
 ```
 
-Create and run migration.
+- [x] Create and run migration (`0003_add_runnerconfig_resource_fields`).
 
-#### 5.2 Add a `get_slurm_directives` method to `RunnerConfig`
+#### 5.2 Add a `get_slurm_directives` method to `RunnerConfig` ✅
 
 **File**: `console/models.py`
 
@@ -715,12 +716,12 @@ def get_slurm_directives(self) -> str:
     return "\n".join(lines)
 ```
 
-#### 5.3 Update `Runner.build_script` to accept resource config
+#### 5.3 Update `Runner.build_script` to accept resource config ✅
 
 **File**: `runners/__init__.py`
 
 Changes:
-- Update the `Runner` ABC to pass resource config into `build_script`:
+- [x] Update the `Runner` ABC to pass resource config into `build_script`:
 
 ```python
 class Runner(ABC):
@@ -734,14 +735,14 @@ class Runner(ABC):
         ...
 ```
 
-- Update `jobs/services.py` to fetch the `RunnerConfig` and pass it:
+- [x] Update `jobs/services.py` to fetch the `RunnerConfig` and pass it:
 
 ```python
 config = RunnerConfig.get_config(runner_key)
 script = runner.build_script(job, config=config)
 ```
 
-#### 5.4 Update `BoltzRunner.build_script` to use config
+#### 5.4 Update `BoltzRunner.build_script` to use config ✅
 
 **File**: `runners/boltz.py`
 
@@ -783,8 +784,8 @@ docker run --rm --gpus all \\
 ```
 
 Also:
-- Remove the unused `input_path` variable (currently defined on line 18 of `runners/boltz.py` but never referenced).
-- Update stub runners (`alphafold.py`, `chai.py`) to accept `config` parameter.
+- [x] Remove the unused `input_path` variable (was on line 18 of `runners/boltz.py`).
+- [x] Update stub runners (`alphafold.py`, `chai.py`) to accept `config` parameter and emit SLURM directives.
 
 ---
 

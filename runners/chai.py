@@ -8,13 +8,15 @@ class ChaiRunner(Runner):
     key = "chai-1"
     name = "Chai-1"
 
-    def build_script(self, job) -> str:
+    def build_script(self, job, config=None) -> str:
         workdir = job.workdir
         outdir = workdir / "output"
+        slurm_directives = config.get_slurm_directives() if config else ""
         return f"""#!/bin/bash
 #SBATCH --job-name=chai-{job.id}
 #SBATCH --output={outdir}/slurm-%j.out
 #SBATCH --error={outdir}/slurm-%j.err
+{slurm_directives}
 
 set -euo pipefail
 
