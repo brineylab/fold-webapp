@@ -10,7 +10,7 @@ class Boltz2ModelType(BaseModelType):
     category = "Structure Prediction"
     template_name = "jobs/submit_boltz2.html"
     form_class = Boltz2SubmitForm
-    help_text = "Predict biomolecular structure and binding affinity with Boltz-2."
+    help_text = "Predict biomolecular structure and binding affinity with Boltz-2. Supports proteins, nucleic acids, small molecules, and multimeric complexes."
     _runner_key = "boltz-2"
 
     def validate(self, cleaned_data: dict) -> None:

@@ -42,14 +42,18 @@ class Boltz2SubmitForm(forms.Form):
                 "placeholder": ">seq1\nMKTAYI...\n",
             }
         ),
-        help_text="Paste one or more FASTA-formatted sequences.",
+        help_text=(
+            "Paste one or more FASTA-formatted sequences. "
+            "Multiple sequences will be modeled as a single multimeric complex."
+        ),
     )
     input_file = forms.FileField(
         required=False,
         widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
         help_text=(
             "Upload a Boltz-2 YAML input file. "
-            "When provided, the Sequences field is ignored."
+            "When provided, the Sequences field is ignored. "
+            "Multiple sequences will be modeled as a single multimeric complex."
         ),
     )
     use_msa_server = forms.BooleanField(
