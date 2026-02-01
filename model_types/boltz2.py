@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from django.core.exceptions import ValidationError
-
 from jobs.forms import Boltz2SubmitForm
-from model_types.base import BaseModelType
+from model_types.base import BaseModelType, InputPayload
 
 
 class Boltz2ModelType(BaseModelType):
@@ -14,11 +12,12 @@ class Boltz2ModelType(BaseModelType):
     help_text = "Predict biomolecular structure and binding affinity with Boltz-2."
 
     def validate(self, cleaned_data: dict) -> None:
-        sequences = (cleaned_data.get("sequences") or "").strip()
-        if not sequences:
-            raise ValidationError("Sequences are required.")
+        # Form enforces that sequences is required and non-empty.
+        # Add domain-specific cross-field checks here as needed, e.g.
+        # multi-chain complex validation, ligand SMILES checks, etc.
+        pass
 
-    def normalize_inputs(self, cleaned_data: dict) -> dict:
+    def normalize_inputs(self, cleaned_data: dict) -> InputPayload:
         sequences = (cleaned_data.get("sequences") or "").strip()
         params = {
             "use_msa_server": bool(cleaned_data.get("use_msa_server")),
@@ -28,10 +27,11 @@ class Boltz2ModelType(BaseModelType):
             "sampling_steps": cleaned_data.get("sampling_steps"),
             "diffusion_samples": cleaned_data.get("diffusion_samples"),
         }
-        params = {key: value for key, value in params.items() if value not in (None, "")}
+        params = {k: v for k, v in params.items() if v not in (None, "", False)}
         return {
             "sequences": sequences,
             "params": params,
+            "files": {},
         }
 
     def resolve_runner_key(self, cleaned_data: dict) -> str:

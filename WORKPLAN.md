@@ -292,11 +292,11 @@ class ProteinMPNNModelType(BaseModelType):
 
 ---
 
-### Phase 2: Harden Base Abstractions
+### Phase 2: Harden Base Abstractions ✅
 
 **Goal**: Make the base contracts strict, typed, and safe so that future model types get compile-time (or at least registration-time) enforcement rather than runtime surprises.
 
-#### 2.1 Make `BaseModelType` a proper ABC
+#### 2.1 Make `BaseModelType` a proper ABC ✅
 
 **File**: `model_types/base.py`
 
@@ -333,7 +333,7 @@ class BaseModelType(ABC):
     def resolve_runner_key(self, cleaned_data: dict) -> str: ...
 ```
 
-#### 2.2 Define the `InputPayload` contract
+#### 2.2 Define the `InputPayload` contract ✅
 
 **File**: `model_types/base.py` (add to the same file)
 
@@ -357,7 +357,7 @@ class InputPayload(TypedDict):
 
 This makes the contract between ModelType and the service layer explicit. A model type that only takes file uploads returns `{"sequences": "", "params": {...}, "files": {"backbone.pdb": b"..."}}`.
 
-#### 2.3 Clarify validation ownership
+#### 2.3 Clarify validation ownership ✅
 
 **Context**: Sequence-empty checks currently happen in three places:
 1. `Boltz2SubmitForm.sequences` is a required `CharField` (Django enforces non-empty)

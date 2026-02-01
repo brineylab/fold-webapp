@@ -72,8 +72,9 @@ def create_and_submit_job(
     
     name = (name or "").strip()
     sequences = (sequences or "").strip()
-    if not sequences:
-        raise ValidationError("Sequences are required.")
+    has_files = bool((input_payload or {}).get("files"))
+    if not sequences and not has_files:
+        raise ValidationError("No input provided (sequences or files required).")
     if len(sequences) > MAX_SEQUENCE_CHARS:
         raise ValidationError(f"Sequences too large (>{MAX_SEQUENCE_CHARS} chars).")
 
