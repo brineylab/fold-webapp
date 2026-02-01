@@ -493,18 +493,18 @@ Or handle this inside `create_and_submit_job` before writing to the DB.
 
 ---
 
-### Phase 4: Templates and UX
+### Phase 4: Templates and UX ✅
 
 **Goal**: Eliminate template duplication and resolve the awkward two-track submission system (generic `RunnerModelType` vs. specialized model types).
 
-#### 4.1 Create a shared base submission template
+#### 4.1 Create a shared base submission template ✅
 
 **File**: `jobs/templates/jobs/submit_base.html` (new)
 
 Current state: `submit.html` and `submit_boltz2.html` share ~80% of their markup (maintenance banner, disabled runners banner, card layout, CSRF token, hidden model field, submit/cancel buttons). Every new model type would copy-paste this boilerplate.
 
 Changes:
-- Create `jobs/templates/jobs/submit_base.html` with the shared structure:
+- [x] Create `jobs/templates/jobs/submit_base.html` with the shared structure:
 
 ```html
 {% extends "jobs/base.html" %}
@@ -564,18 +564,18 @@ Key additions vs. current templates:
 - `{{ page_title }}` variable instead of hardcoded title
 - `{% block form_fields %}` for model-specific content
 
-- Update `submit_boltz2.html` to extend `submit_base.html` and only define `{% block form_fields %}` with the Boltz-specific fields.
-- Update `submit.html` to extend `submit_base.html` similarly.
-- Add `page_title` to the template context in the view (e.g., `f"New {model_type.name} Job"`).
+- [x] Update `submit_boltz2.html` to extend `submit_base.html` and only define `{% block form_fields %}` with the Boltz-specific fields.
+- [x] Update `submit.html` to extend `submit_base.html` similarly.
+- [x] Add `page_title` to the template context in the view (e.g., `f"New {model_type.name} Job"`).
 
-#### 4.2 Resolve the generic vs. specialized model type tension
+#### 4.2 Resolve the generic vs. specialized model type tension ✅
 
 Current state: `RunnerModelType` (key="runner") is a generic catch-all that shows all registered runners in a dropdown. `Boltz2ModelType` (key="boltz2") provides a dedicated Boltz-2 form. Both paths can submit Boltz-2 jobs, but the generic path omits all Boltz-specific parameters. This creates a confusing dual-path UX that will get worse as more specialized model types are added.
 
 **Decision**: The generic `RunnerModelType` should serve as a minimal fallback for runners that don't yet have dedicated model types. Runners that DO have a dedicated model type should be excluded from the generic dropdown.
 
 Changes:
-- **`jobs/forms.py`**: Update `get_enabled_runner_choices()` to accept an `exclude_keys` parameter:
+- [x] **`jobs/forms.py`**: Update `get_enabled_runner_choices()` to accept an `exclude_keys` parameter:
 
 ```python
 def get_enabled_runner_choices(exclude_keys: set[str] | None = None) -> list[tuple[str, str]]:
@@ -585,7 +585,7 @@ def get_enabled_runner_choices(exclude_keys: set[str] | None = None) -> list[tup
             if r.key in enabled_keys and r.key not in exclude]
 ```
 
-- **`model_types/runner.py`**: In `RunnerModelType.get_form()`, compute the set of runner keys that have dedicated model types and exclude them:
+- [x] **`model_types/runner.py`**: In `RunnerModelType.get_form()`, compute the set of runner keys that have dedicated model types and exclude them:
 
 ```python
 def get_form(self, *args, **kwargs) -> forms.Form:
@@ -605,11 +605,11 @@ def get_form(self, *args, **kwargs) -> forms.Form:
     return form
 ```
 
-- **Simpler alternative**: Add a `runner_key` class attribute to each dedicated ModelType (e.g., `Boltz2ModelType._runner_key = "boltz-2"`) and use that for exclusion. This avoids inspecting `resolve_runner_key` which takes `cleaned_data`.
+- [x] **Simpler alternative**: Add a `_runner_key` class attribute to each dedicated ModelType (e.g., `Boltz2ModelType._runner_key = "boltz-2"`) and use that for exclusion. Added `get_dedicated_runner_keys()` to registry.
 
-- **If the generic dropdown ends up empty** (all runners have dedicated model types), redirect the user to a model selection page instead.
+- [x] **If the generic dropdown ends up empty** (all runners have dedicated model types), `get_submittable_model_types()` excludes the generic runner from the selection page.
 
-#### 4.3 Add a model selection landing page
+#### 4.3 Add a model selection landing page ✅
 
 **File**: `jobs/templates/jobs/select_model.html` (new)
 
@@ -638,8 +638,8 @@ When the user navigates to `/jobs/new/` without a `?model=` parameter, instead o
 ```
 
 Changes to the view (`jobs/views.py`):
-- If no `model` param is provided and `request.method == "GET"`, render the selection page with all registered model types.
-- Alternatively, keep the current default-to-"runner" behavior and add the selection page at a separate URL. Either approach works.
+- [x] If no `model` param is provided and `request.method == "GET"`, render the selection page with all registered model types.
+- [x] Added `get_submittable_model_types()` to registry for smart filtering of the selection page.
 
 ---
 
@@ -1043,7 +1043,8 @@ This is functionally equivalent but more idiomatic with the `Path` objects alrea
 **Templates**:
 - `jobs/templates/jobs/base.html` -- base layout
 - `jobs/templates/jobs/submit_base.html` -- shared submission form (Phase 4)
-- `jobs/templates/jobs/submit.html` -- generic runner form
-- `jobs/templates/jobs/submit_boltz2.html` -- Boltz-2 form
+- `jobs/templates/jobs/select_model.html` -- model selection landing page (Phase 4)
+- `jobs/templates/jobs/submit.html` -- generic runner form (extends submit_base)
+- `jobs/templates/jobs/submit_boltz2.html` -- Boltz-2 form (extends submit_base)
 - `jobs/templates/jobs/detail.html` -- job detail / output files
 - `jobs/templates/jobs/list.html` -- job list

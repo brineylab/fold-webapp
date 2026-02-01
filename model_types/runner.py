@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from jobs.forms import JobForm
+from django import forms
+
+from jobs.forms import JobForm, get_enabled_runner_choices
 from model_types.base import BaseModelType, InputPayload
 
 
@@ -10,6 +12,17 @@ class RunnerModelType(BaseModelType):
     template_name = "jobs/submit.html"
     form_class = JobForm
     help_text = "Submit a job using an enabled runner."
+
+    def get_form(self, *args, **kwargs) -> forms.Form:
+        form = super().get_form(*args, **kwargs)
+        # Exclude runners that have their own dedicated ModelType
+        from model_types.registry import get_dedicated_runner_keys
+
+        dedicated = get_dedicated_runner_keys()
+        form.fields["runner"].choices = get_enabled_runner_choices(
+            exclude_keys=dedicated
+        )
+        return form
 
     def validate(self, cleaned_data: dict) -> None:
         # Form enforces that sequences is required and non-empty.

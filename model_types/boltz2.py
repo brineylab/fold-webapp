@@ -10,6 +10,7 @@ class Boltz2ModelType(BaseModelType):
     template_name = "jobs/submit_boltz2.html"
     form_class = Boltz2SubmitForm
     help_text = "Predict biomolecular structure and binding affinity with Boltz-2."
+    _runner_key = "boltz-2"
 
     def validate(self, cleaned_data: dict) -> None:
         # Form enforces that sequences is required and non-empty.

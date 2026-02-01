@@ -1,4 +1,4 @@
-"""Tests for the model_types harness (Phases 2-3)."""
+"""Tests for the model_types harness (Phases 2-4)."""
 from __future__ import annotations
 
 import shutil
@@ -9,7 +9,12 @@ from django import forms
 from django.test import TestCase
 
 from model_types.base import BaseModelType, InputPayload
-from model_types.registry import MODEL_TYPES, get_model_type
+from model_types.registry import (
+    MODEL_TYPES,
+    get_dedicated_runner_keys,
+    get_model_type,
+    get_submittable_model_types,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -332,3 +337,54 @@ class TestPrepareWorkdirOnBase(TestCase):
             self.assertEqual(pdb.read_bytes(), b"ATOM 1 N ALA")
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# 4.2  Dedicated runner key exclusion
+# ---------------------------------------------------------------------------
+
+
+class TestDedicatedRunnerKeys(TestCase):
+    """get_dedicated_runner_keys returns runner keys with dedicated ModelTypes."""
+
+    def test_boltz2_runner_key_is_dedicated(self):
+        keys = get_dedicated_runner_keys()
+        self.assertIn("boltz-2", keys)
+
+    def test_runner_model_type_has_no_runner_key(self):
+        """The generic RunnerModelType should not have a _runner_key."""
+        mt = get_model_type("runner")
+        self.assertFalse(getattr(mt, "_runner_key", None))
+
+    def test_boltz2_has_runner_key_attribute(self):
+        mt = get_model_type("boltz2")
+        self.assertEqual(mt._runner_key, "boltz-2")
+
+
+class TestRunnerModelTypeExclusion(TestCase):
+    """RunnerModelType.get_form() should exclude dedicated runners."""
+
+    def test_generic_form_excludes_boltz2_runner(self):
+        mt = get_model_type("runner")
+        form = mt.get_form()
+        runner_keys = [key for key, _name in form.fields["runner"].choices]
+        self.assertNotIn("boltz-2", runner_keys)
+
+
+# ---------------------------------------------------------------------------
+# 4.3  Model selection / submittable model types
+# ---------------------------------------------------------------------------
+
+
+class TestGetSubmittableModelTypes(TestCase):
+    """get_submittable_model_types returns the right set for the landing page."""
+
+    def test_includes_boltz2(self):
+        model_types = get_submittable_model_types()
+        keys = [mt.key for mt in model_types]
+        self.assertIn("boltz2", keys)
+
+    def test_all_have_name_and_help_text(self):
+        for mt in get_submittable_model_types():
+            self.assertTrue(mt.name, f"ModelType {mt.key!r} missing name")
+            self.assertTrue(mt.help_text, f"ModelType {mt.key!r} missing help_text")

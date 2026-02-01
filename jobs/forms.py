@@ -6,14 +6,25 @@ from console.models import RunnerConfig
 from runners import all_runners
 
 
-def get_enabled_runner_choices() -> list[tuple[str, str]]:
-    """
-    Get list of enabled runners as form choices.
-    
-    Returns list of (key, name) tuples for runners that are currently enabled.
+def get_enabled_runner_choices(
+    exclude_keys: set[str] | None = None,
+) -> list[tuple[str, str]]:
+    """Get list of enabled runners as form choices.
+
+    Args:
+        exclude_keys: Optional set of runner keys to exclude (e.g., runners
+            that have dedicated ModelTypes with their own forms).
+
+    Returns list of (key, name) tuples for runners that are currently enabled
+    and not in the exclusion set.
     """
     enabled_keys = RunnerConfig.get_enabled_runners()
-    return [(r.key, r.name) for r in all_runners() if r.key in enabled_keys]
+    exclude = exclude_keys or set()
+    return [
+        (r.key, r.name)
+        for r in all_runners()
+        if r.key in enabled_keys and r.key not in exclude
+    ]
 
 
 def get_disabled_runners() -> list[dict]:

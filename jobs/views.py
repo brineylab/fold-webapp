@@ -13,7 +13,7 @@ from console.models import SiteSettings
 from jobs.forms import get_disabled_runners
 from jobs.models import Job
 from jobs.services import create_and_submit_job
-from model_types import get_default_model_type, get_model_type
+from model_types import get_model_type, get_submittable_model_types
 
 
 def _job_queryset_for(user):
@@ -34,15 +34,23 @@ def job_submit(request):
     site_settings = SiteSettings.get_settings()
     maintenance_mode = site_settings.maintenance_mode
     maintenance_message = site_settings.maintenance_message
-    
+
     # Get list of disabled runners
     disabled_runners = get_disabled_runners()
-    
-    model_key = (
-        request.GET.get("model")
-        or request.POST.get("model")
-        or get_default_model_type().key
-    )
+
+    model_key = request.GET.get("model") or request.POST.get("model")
+
+    # No model selected -- show the model selection landing page
+    if not model_key and request.method == "GET":
+        return render(request, "jobs/select_model.html", {
+            "model_types": get_submittable_model_types(),
+            "maintenance_mode": maintenance_mode,
+            "maintenance_message": maintenance_message,
+        })
+
+    # Resolve the selected model type
+    if not model_key:
+        raise Http404
     try:
         model_type = get_model_type(model_key)
     except KeyError as exc:
@@ -75,10 +83,12 @@ def job_submit(request):
                     form.add_error(None, str(e))
     else:
         form = model_type.get_form()
-    
+
+    page_title = f"New {model_type.name} Job"
     return render(request, model_type.template_name, {
         "form": form,
         "model_key": model_key,
+        "page_title": page_title,
         "maintenance_mode": maintenance_mode,
         "maintenance_message": maintenance_message,
         "disabled_runners": disabled_runners,

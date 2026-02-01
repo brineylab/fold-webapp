@@ -366,3 +366,70 @@ class TestServiceCallsPrepareWorkdir(TestCase):
         stored = job.input_payload
         self.assertIsInstance(stored["files"], list)
         self.assertEqual(stored["files"], ["backbone.pdb"])
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: View-level tests (templates, model selection, page_title)
+# ---------------------------------------------------------------------------
+
+
+class TestJobSubmitViewModelSelection(TestCase):
+    """job_submit view shows model selection page when no ?model= param."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="viewuser", password="testpass"
+        )
+        self.client.login(username="viewuser", password="testpass")
+
+    def test_get_without_model_shows_selection_page(self):
+        response = self.client.get("/jobs/new/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "jobs/select_model.html")
+        self.assertIn("model_types", response.context)
+
+    def test_get_with_model_shows_submit_form(self):
+        response = self.client.get("/jobs/new/?model=boltz2")
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "jobs/submit_boltz2.html")
+
+    def test_get_with_invalid_model_returns_404(self):
+        response = self.client.get("/jobs/new/?model=nonexistent")
+        self.assertEqual(response.status_code, 404)
+
+    def test_page_title_in_context(self):
+        response = self.client.get("/jobs/new/?model=boltz2")
+        self.assertEqual(response.context["page_title"], "New Boltz-2 Job")
+
+    def test_selection_page_lists_boltz2(self):
+        response = self.client.get("/jobs/new/")
+        model_keys = [mt.key for mt in response.context["model_types"]]
+        self.assertIn("boltz2", model_keys)
+
+
+class TestSubmitBaseTemplate(TestCase):
+    """Submit templates extend submit_base.html and include shared elements."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="tpluser", password="testpass"
+        )
+        self.client.login(username="tpluser", password="testpass")
+
+    def test_boltz2_extends_submit_base(self):
+        response = self.client.get("/jobs/new/?model=boltz2")
+        self.assertTemplateUsed(response, "jobs/submit_base.html")
+        self.assertTemplateUsed(response, "jobs/submit_boltz2.html")
+
+    def test_runner_extends_submit_base(self):
+        response = self.client.get("/jobs/new/?model=runner")
+        self.assertTemplateUsed(response, "jobs/submit_base.html")
+        self.assertTemplateUsed(response, "jobs/submit.html")
+
+    def test_submit_form_has_multipart_enctype(self):
+        response = self.client.get("/jobs/new/?model=boltz2")
+        self.assertContains(response, 'enctype="multipart/form-data"')
+
+    def test_submit_form_has_hidden_model_field(self):
+        response = self.client.get("/jobs/new/?model=boltz2")
+        self.assertContains(response, 'name="model" value="boltz2"')
