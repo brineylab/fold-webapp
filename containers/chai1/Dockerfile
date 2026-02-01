@@ -1,8 +1,8 @@
-FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.8.0-cudnn9-runtime-ubuntu22.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 ARG CHAI_VERSION=0.6.1
-ARG TORCH_CUDA_INDEX_URL=https://download.pytorch.org/whl/cu121
+ARG TORCH_CUDA_INDEX_URL=https://download.pytorch.org/whl/cu128
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
