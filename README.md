@@ -42,6 +42,8 @@ while true; do python manage.py poll_jobs; sleep 10; done
 
 ## Production Deployment (Docker Compose)
 
+For a complete walkthrough starting from a vanilla Ubuntu installation — including NVIDIA drivers, Docker, Slurm, model containers, and pre-warming — see **[DEPLOY.md](DEPLOY.md)**.
+
 The recommended way to deploy is with the `deploy.sh` script, which handles environment setup, Docker builds, migrations, and service management.
 
 ### First-Time Install
