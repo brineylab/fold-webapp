@@ -11,6 +11,10 @@ from console.views.users import (
     user_enable,
     user_reset_password,
     user_toggle_active,
+    user_toggle_api_access,
+    user_create_api_key,
+    user_revoke_api_key,
+    user_delete_api_key,
 )
 from console.views.cleanup import (
     cleanup_dashboard,
@@ -43,6 +47,10 @@ __all__ = [
     "user_enable",
     "user_reset_password",
     "user_toggle_active",
+    "user_toggle_api_access",
+    "user_create_api_key",
+    "user_revoke_api_key",
+    "user_delete_api_key",
     "cleanup_dashboard",
     "run_cleanup",
     "delete_orphan",

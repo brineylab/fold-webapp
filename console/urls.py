@@ -22,7 +22,11 @@ urlpatterns = [
     path("users/<int:user_id>/enable/", views.user_enable, name="user_enable"),
     path("users/<int:user_id>/reset-password/", views.user_reset_password, name="user_reset_password"),
     path("users/<int:user_id>/toggle-active/", views.user_toggle_active, name="user_toggle_active"),
-    
+    path("users/<int:user_id>/api-access/", views.user_toggle_api_access, name="user_toggle_api_access"),
+    path("users/<int:user_id>/api-keys/create/", views.user_create_api_key, name="user_create_api_key"),
+    path("users/<int:user_id>/api-keys/<int:key_id>/revoke/", views.user_revoke_api_key, name="user_revoke_api_key"),
+    path("users/<int:user_id>/api-keys/<int:key_id>/delete/", views.user_delete_api_key, name="user_delete_api_key"),
+
     # Data cleanup
     path("cleanup/", views.cleanup_dashboard, name="cleanup_dashboard"),
     path("cleanup/run/", views.run_cleanup, name="run_cleanup"),

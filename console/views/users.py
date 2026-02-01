@@ -83,13 +83,19 @@ def user_detail(request, user_id):
         "running": Job.objects.filter(owner=user, status=Job.Status.RUNNING).count(),
         "pending": Job.objects.filter(owner=user, status=Job.Status.PENDING).count(),
     }
-    
+
+    # API keys
+    from api.models import APIKey
+
+    api_keys = APIKey.objects.filter(user=user).order_by("-created_at")
+
     context = {
         "user_obj": user,
         "quota": quota,
         "quota_status": quota_status,
         "recent_jobs": recent_jobs,
         "job_stats": job_stats,
+        "api_keys": api_keys,
     }
     return render(request, "console/users/detail.html", context)
 
@@ -202,5 +208,76 @@ def user_toggle_active(request, user_id):
     
     status = "activated" if user.is_active else "deactivated"
     messages.success(request, f"Account {status} for {user.username}.")
+    return redirect("console:user_detail", user_id=user_id)
+
+
+# ---------------------------------------------------------------------------
+# API access & key management
+# ---------------------------------------------------------------------------
+
+
+@console_required
+@require_POST
+def user_toggle_api_access(request, user_id):
+    """Toggle api_enabled on a user's quota."""
+    user = get_object_or_404(User, id=user_id)
+    quota = get_user_quota(user)
+
+    quota.api_enabled = not quota.api_enabled
+    quota.save(update_fields=["api_enabled"])
+
+    status = "enabled" if quota.api_enabled else "disabled"
+    messages.success(request, f"API access {status} for {user.username}.")
+    return redirect("console:user_detail", user_id=user_id)
+
+
+@console_required
+@require_POST
+def user_create_api_key(request, user_id):
+    """Create an API key for a user."""
+    from api.models import APIKey
+
+    user = get_object_or_404(User, id=user_id)
+    label = request.POST.get("label", "").strip()
+
+    api_key = APIKey(user=user, label=label)
+    api_key.save()
+
+    messages.success(
+        request,
+        f"API key created for {user.username}. "
+        f"Copy it now \u2014 it cannot be shown again: {api_key.key}",
+    )
+    return redirect("console:user_detail", user_id=user_id)
+
+
+@console_required
+@require_POST
+def user_revoke_api_key(request, user_id, key_id):
+    """Revoke (deactivate) an API key."""
+    from api.models import APIKey
+
+    user = get_object_or_404(User, id=user_id)
+    api_key = get_object_or_404(APIKey, id=key_id, user=user)
+
+    api_key.is_active = False
+    api_key.save(update_fields=["is_active"])
+
+    messages.success(request, f"API key revoked for {user.username}.")
+    return redirect("console:user_detail", user_id=user_id)
+
+
+@console_required
+@require_POST
+def user_delete_api_key(request, user_id, key_id):
+    """Permanently delete an API key."""
+    from api.models import APIKey
+
+    user = get_object_or_404(User, id=user_id)
+    api_key = get_object_or_404(APIKey, id=key_id, user=user)
+
+    api_key.delete()
+
+    messages.success(request, f"API key deleted for {user.username}.")
     return redirect("console:user_detail", user_id=user_id)
 

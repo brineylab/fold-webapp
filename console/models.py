@@ -38,6 +38,12 @@ class UserQuota(models.Model):
         help_text="Days to retain job workdirs (0 = never delete)",
     )
     
+    # API access
+    api_enabled = models.BooleanField(
+        default=False,
+        help_text="If true, user can access the REST API with API keys",
+    )
+
     # Account status
     is_disabled = models.BooleanField(
         default=False,

@@ -162,6 +162,20 @@ In Docker, `DATABASE_PATH` and `JOB_BASE_DIR` are set automatically by `docker-c
 └─────────────────────────────────────────────────┘
 ```
 
+## REST API
+
+BioPortal includes a REST API for programmatic job submission and management. API access is opt-in per user, controlled by administrators via the Ops Console.
+
+```bash
+# Submit a job
+curl -X POST http://localhost:8000/api/v1/jobs/ \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "boltz2", "sequences": ">A\nMKTAYIAKQRQISFVK..."}'
+```
+
+See **[api/README.md](api/README.md)** for full endpoint documentation, authentication setup, and usage examples.
+
 ## Notes
 
 - **Job directories**: Controlled filesystem layout under `JOB_BASE_DIR/<job_uuid>/...`

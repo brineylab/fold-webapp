@@ -176,6 +176,94 @@
       </div>
     </div>
     
+    <!-- API Keys Card -->
+    <div class="card mt-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>API Access</strong>
+        <form method="post" action="{% url 'console:user_toggle_api_access' user_id=user_obj.id %}" class="d-inline">
+          {% csrf_token %}
+          {% if quota.api_enabled %}
+          <button type="submit" class="btn btn-outline-danger btn-sm"
+                  onclick="return confirm('Disable API access for this user?');">
+            Disable API
+          </button>
+          {% else %}
+          <button type="submit" class="btn btn-outline-success btn-sm">Enable API</button>
+          {% endif %}
+        </form>
+      </div>
+      <div class="card-body">
+        {% if quota.api_enabled %}
+        <!-- Create Key Form -->
+        <form method="post" action="{% url 'console:user_create_api_key' user_id=user_obj.id %}" class="row g-2 mb-3">
+          {% csrf_token %}
+          <div class="col">
+            <input type="text" class="form-control form-control-sm" name="label" placeholder="Key label (optional)" maxlength="100">
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-primary btn-sm">Create Key</button>
+          </div>
+        </form>
+
+        {% if api_keys %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Label</th>
+                <th>Key</th>
+                <th>Created</th>
+                <th>Last Used</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for key in api_keys %}
+              <tr>
+                <td>{{ key.label|default:"-" }}</td>
+                <td><code>...{{ key.key|truncatechars:12 }}</code></td>
+                <td class="text-muted">{{ key.created_at|date:"Y-m-d H:i" }}</td>
+                <td class="text-muted">{{ key.last_used_at|date:"Y-m-d H:i"|default:"Never" }}</td>
+                <td>
+                  {% if key.is_active %}
+                  <span class="badge bg-success">Active</span>
+                  {% else %}
+                  <span class="badge bg-secondary">Revoked</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if key.is_active %}
+                  <form method="post" action="{% url 'console:user_revoke_api_key' user_id=user_obj.id key_id=key.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-warning btn-sm"
+                            onclick="return confirm('Revoke this API key?');">
+                      Revoke
+                    </button>
+                  </form>
+                  {% endif %}
+                  <form method="post" action="{% url 'console:user_delete_api_key' user_id=user_obj.id key_id=key.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger btn-sm"
+                            onclick="return confirm('Permanently delete this API key?');">
+                      Delete
+                    </button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">No API keys. Use the form above to create one.</p>
+        {% endif %}
+        {% else %}
+        <p class="text-muted mb-0">API access is disabled for this user. Click "Enable API" to allow API key creation.</p>
+        {% endif %}
+      </div>
+    </div>
+
     <!-- Recent Jobs Card -->
     <div class="card mt-4">
       <div class="card-header d-flex justify-content-between align-items-center">

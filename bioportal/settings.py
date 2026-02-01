@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "simple_history",
     "jobs.apps.JobsConfig",
     "console.apps.ConsoleConfig",
+    "api.apps.ApiConfig",
 ]
 
 MIDDLEWARE = [

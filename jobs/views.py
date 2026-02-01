@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -165,3 +166,57 @@ def job_delete(request, job_id):
     job.save(update_fields=["hidden_from_owner"])
 
     return redirect("job_list")
+
+
+# ---------------------------------------------------------------------------
+# Account page & API key management
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def account_view(request):
+    from api.models import APIKey
+    from console.services.quota import get_user_quota
+
+    quota = get_user_quota(request.user)
+    api_keys = APIKey.objects.filter(user=request.user).order_by("-created_at")
+
+    return render(request, "jobs/account.html", {
+        "quota": quota,
+        "api_keys": api_keys,
+    })
+
+
+@login_required
+@require_POST
+def account_create_api_key(request):
+    from api.models import APIKey
+    from console.services.quota import get_user_quota
+
+    quota = get_user_quota(request.user)
+    if not quota.api_enabled:
+        messages.error(request, "API access is not enabled for your account.")
+        return redirect("account")
+
+    label = request.POST.get("label", "").strip()
+    api_key = APIKey(user=request.user, label=label)
+    api_key.save()
+
+    messages.success(
+        request,
+        f"API key created. Copy it now \u2014 it cannot be shown again: {api_key.key}",
+    )
+    return redirect("account")
+
+
+@login_required
+@require_POST
+def account_revoke_api_key(request, key_id):
+    from api.models import APIKey
+
+    api_key = get_object_or_404(APIKey, id=key_id, user=request.user)
+    api_key.is_active = False
+    api_key.save(update_fields=["is_active"])
+
+    messages.success(request, "API key revoked.")
+    return redirect("account")
