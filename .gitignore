@@ -6,6 +6,8 @@ db.sqlite3
 
 job_data/
 staticfiles/
+data/
+backups/
 
 venv/
 .venv/

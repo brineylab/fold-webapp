@@ -42,26 +42,63 @@ while true; do python manage.py poll_jobs; sleep 10; done
 
 ## Production Deployment (Docker Compose)
 
-For production deployments, use Docker Compose:
+The recommended way to deploy is with the `deploy.sh` script, which handles environment setup, Docker builds, migrations, and service management.
+
+### First-Time Install
 
 ```bash
-# Configure environment
-cp env.example .env
-# Edit .env with production settings:
-#   - Set DEBUG=false
-#   - Set a secure SECRET_KEY
-#   - Set FAKE_SLURM=0 (use real SLURM)
-#   - Configure JOB_BASE_DIR for shared storage
-
-# Build and start all services
-docker compose up -d --build
-
-# Create admin user (first time only)
-docker compose exec web python manage.py createsuperuser
-
-# View logs
-docker compose logs -f
+./deploy.sh install
 ```
+
+This will:
+1. Check that Docker and Docker Compose v2 are installed
+2. Create `.env` from `env.example` with a generated `SECRET_KEY` and production defaults
+3. Create `./data/` directories for persistent storage
+4. Build the Docker image and start all services
+5. Prompt you to create an admin (superuser) account
+
+Re-running `install` is safe — it skips steps that are already done. Pass `--force` to regenerate `.env`.
+
+### Managing Services
+
+```bash
+./deploy.sh start             # Start services
+./deploy.sh stop              # Stop services
+./deploy.sh restart           # Restart services
+./deploy.sh status            # Show service status
+./deploy.sh logs              # Tail all logs
+./deploy.sh logs web          # Tail logs for a specific service
+./deploy.sh update            # Pull latest code, rebuild, and restart
+./deploy.sh shell             # Open a Django shell
+./deploy.sh createsuperuser   # Create a new admin user
+```
+
+Make targets are also available as shortcuts (e.g., `make start`, `make stop`, `make logs`).
+
+### Backup and Restore
+
+Create a backup (database, job data, and config):
+
+```bash
+./deploy.sh backup
+```
+
+Backups are saved to `./backups/` as timestamped `.tar.gz` archives. Old backups are automatically pruned after 30 days (configurable via `BACKUP_RETENTION` in `.env`).
+
+The backup script can also be called directly for cron use:
+
+```bash
+# Cron example: daily backup at 2am
+0 2 * * * /path/to/fold-webapp/scripts/backup.sh --quiet >> /var/log/fold-webapp-backup.log 2>&1
+```
+
+Restore from a backup:
+
+```bash
+./scripts/restore.sh backups/fold-webapp-backup-20250101_020000.tar.gz
+```
+
+The restore script will show a manifest, prompt for confirmation, stop services, and restore all data. Pass `--restore-env` to also restore the `.env` file, or `--yes` to skip the confirmation prompt.
 
 ### SLURM Integration
 
@@ -88,8 +125,13 @@ Both the web container and SLURM compute nodes need access to job working direct
 | `DEBUG` | Enable debug mode | `false` |
 | `SECRET_KEY` | Django secret key | `dev-key-change-in-production` |
 | `ALLOWED_HOSTS` | Comma-separated hostnames | `localhost,127.0.0.1` |
+| `DATABASE_PATH` | Path to SQLite database file | `<BASE_DIR>/db.sqlite3` |
 | `JOB_BASE_DIR` | Directory for job working files | `./job_data` |
 | `FAKE_SLURM` | Simulate SLURM for local dev (`1` or `0`) | `0` |
+| `BACKUP_DIR` | Directory for backup archives | `./backups` |
+| `BACKUP_RETENTION` | Days to keep old backups | `30` |
+
+In Docker, `DATABASE_PATH` and `JOB_BASE_DIR` are set automatically by `docker-compose.yml` to use bind mounts under `./data/`. You typically don't need to set these yourself.
 
 ## Architecture
 

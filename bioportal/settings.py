@@ -67,10 +67,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "bioportal.wsgi.application"
 
 
+DATABASE_PATH = Path(
+    os.environ.get("DATABASE_PATH", str(BASE_DIR / "db.sqlite3"))
+)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": DATABASE_PATH,
     }
 }
 
