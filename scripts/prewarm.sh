@@ -117,7 +117,7 @@ if ! docker compose version &>/dev/null; then
 fi
 
 # Check for GPU availability
-if ! docker run --rm --gpus all nvidia/cuda:12.2.2-base-ubuntu22.04 nvidia-smi &>/dev/null; then
+if ! docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu22.04 nvidia-smi &>/dev/null; then
     warn "GPU not accessible via Docker. Model weight downloads may fail."
     warn "Ensure nvidia-docker2 is installed and configured."
     read -rp "Continue anyway? [y/N] " continue_nogpu
