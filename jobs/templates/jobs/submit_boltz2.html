@@ -1,0 +1,115 @@
+{% extends "jobs/base.html" %}
+
+{% block title %}New Boltz-2 Job{% endblock %}
+
+{% block content %}
+  <h1 class="mb-4">New Boltz-2 Job</h1>
+
+  {% if maintenance_mode %}
+  <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-exclamation-triangle-fill flex-shrink-0 me-3" viewBox="0 0 16 16">
+      <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+    </svg>
+    <div>
+      <strong>Maintenance Mode Active</strong>
+      <p class="mb-0">{{ maintenance_message }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if disabled_runners %}
+  <div class="alert alert-info mb-4" role="alert">
+    <strong>Some runners are temporarily unavailable:</strong>
+    <ul class="mb-0 mt-2">
+      {% for runner in disabled_runners %}
+      <li><strong>{{ runner.name }}</strong>: {{ runner.reason }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="model" value="{{ model_key }}">
+        {{ form.non_field_errors }}
+
+        <div class="mb-3">
+          <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+          {{ form.name }}
+          {{ form.name.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.sequences.id_for_label }}" class="form-label">Sequences</label>
+          {{ form.sequences }}
+          <div class="form-text">{{ form.sequences.help_text }}</div>
+          {{ form.sequences.errors }}
+        </div>
+
+        <div class="mb-3">
+          <div class="form-check">
+            {{ form.use_msa_server }}
+            <label class="form-check-label" for="{{ form.use_msa_server.id_for_label }}">
+              Use MSA server
+            </label>
+          </div>
+          <div class="form-text">{{ form.use_msa_server.help_text }}</div>
+          {{ form.use_msa_server.errors }}
+        </div>
+
+        <div class="mb-3">
+          <div class="form-check">
+            {{ form.use_potentials }}
+            <label class="form-check-label" for="{{ form.use_potentials.id_for_label }}">
+              Use inference-time potentials
+            </label>
+          </div>
+          <div class="form-text">{{ form.use_potentials.help_text }}</div>
+          {{ form.use_potentials.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.output_format.id_for_label }}" class="form-label">Output format</label>
+          {{ form.output_format }}
+          <div class="form-text">{{ form.output_format.help_text }}</div>
+          {{ form.output_format.errors }}
+        </div>
+
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label for="{{ form.recycling_steps.id_for_label }}" class="form-label">Recycling steps</label>
+            {{ form.recycling_steps }}
+            <div class="form-text">{{ form.recycling_steps.help_text }}</div>
+            {{ form.recycling_steps.errors }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label for="{{ form.sampling_steps.id_for_label }}" class="form-label">Sampling steps</label>
+            {{ form.sampling_steps }}
+            <div class="form-text">{{ form.sampling_steps.help_text }}</div>
+            {{ form.sampling_steps.errors }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label for="{{ form.diffusion_samples.id_for_label }}" class="form-label">Diffusion samples</label>
+            {{ form.diffusion_samples }}
+            <div class="form-text">{{ form.diffusion_samples.help_text }}</div>
+            {{ form.diffusion_samples.errors }}
+          </div>
+        </div>
+
+        {% if maintenance_mode %}
+        <button class="btn btn-secondary" type="submit" disabled>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-lock-fill me-1" viewBox="0 0 16 16">
+            <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/>
+          </svg>
+          Submissions Disabled
+        </button>
+        {% else %}
+        <button class="btn btn-primary" type="submit">Submit</button>
+        {% endif %}
+        <a class="btn btn-outline-secondary" href="{% url 'job_list' %}">Cancel</a>
+      </form>
+    </div>
+  </div>
+{% endblock %}

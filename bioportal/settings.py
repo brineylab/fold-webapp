@@ -15,7 +15,8 @@ DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = [
     h.strip()
     for h in os.environ.get(
-        "ALLOWED_HOSTS", "localhost,127.0.0.1,kraken.scripps.edu"
+        # "ALLOWED_HOSTS", "localhost,127.0.0.1,kraken.scripps.edu"
+        "ALLOWED_HOSTS", "*"
     ).split(",")
     if h.strip()
 ]
@@ -111,6 +112,10 @@ JOB_BASE_DIR = Path(os.environ.get("JOB_BASE_DIR", str(BASE_DIR / "job_data")))
 
 # set to "1" for normal use, "0" for development without SLURM (which means the runners won't actually launch SLURM jobs)
 FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "0"
+
+# Boltz-2 configuration
+BOLTZ_IMAGE = os.environ.get("BOLTZ_IMAGE", "boltz2:latest")
+BOLTZ_CACHE_DIR = Path(os.environ.get("BOLTZ_CACHE_DIR", str(JOB_BASE_DIR / "boltz_cache")))
 
 
 #

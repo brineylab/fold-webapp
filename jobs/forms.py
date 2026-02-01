@@ -68,3 +68,55 @@ class JobForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["runner"].choices = get_enabled_runner_choices()
+
+
+class Boltz2SubmitForm(forms.Form):
+    name = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+    )
+    sequences = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 12,
+                "placeholder": ">seq1\nMKTAYI...\n",
+            }
+        ),
+        help_text="Paste one or more FASTA-formatted sequences.",
+    )
+    use_msa_server = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        help_text="Generate MSAs via the mmseqs2 server (requires network access).",
+    )
+    use_potentials = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        help_text="Apply inference-time potentials for improved physical plausibility.",
+    )
+    output_format = forms.ChoiceField(
+        required=False,
+        choices=[("mmcif", "mmCIF"), ("pdb", "PDB")],
+        widget=forms.Select(attrs={"class": "form-select"}),
+        initial="mmcif",
+        help_text="Select the output structure format.",
+    )
+    recycling_steps = forms.IntegerField(
+        required=False,
+        min_value=1,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Optional number of recycling steps (default: Boltz-2 setting).",
+    )
+    sampling_steps = forms.IntegerField(
+        required=False,
+        min_value=1,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Optional number of sampling steps (default: Boltz-2 setting).",
+    )
+    diffusion_samples = forms.IntegerField(
+        required=False,
+        min_value=1,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Optional number of diffusion samples (default: Boltz-2 setting).",
+    )
