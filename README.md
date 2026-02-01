@@ -42,6 +42,8 @@ while true; do python manage.py poll_jobs; sleep 10; done
 
 ## Production Deployment (Docker Compose)
 
+For a complete walkthrough starting from a vanilla Ubuntu installation — including NVIDIA drivers, Docker, Slurm, model containers, and pre-warming — see **[DEPLOY.md](DEPLOY.md)**.
+
 The recommended way to deploy is with the `deploy.sh` script, which handles environment setup, Docker builds, migrations, and service management.
 
 ### First-Time Install
@@ -71,6 +73,7 @@ Re-running `install` is safe — it skips steps that are already done. Pass `--f
 ./deploy.sh update            # Pull latest code, rebuild, and restart
 ./deploy.sh shell             # Open a Django shell
 ./deploy.sh createsuperuser   # Create a new admin user
+./deploy.sh setup-slurm       # Configure Slurm on this host (requires sudo)
 ```
 
 Make targets are also available as shortcuts (e.g., `make start`, `make stop`, `make logs`).
@@ -102,17 +105,19 @@ The restore script will show a manifest, prompt for confirmation, stop services,
 
 ### SLURM Integration
 
-For the web container to communicate with SLURM, uncomment the volume mounts in `docker-compose.yml` to expose SLURM binaries and configuration:
+The `setup-slurm` command installs and configures Slurm on a single Ubuntu node, auto-detects hardware (CPUs, RAM, GPUs), and generates a `docker-compose.override.yml` that mounts Slurm binaries and config into the web/poller containers:
 
-```yaml
-volumes:
-  - /usr/bin/sbatch:/usr/bin/sbatch:ro
-  - /usr/bin/squeue:/usr/bin/squeue:ro
-  - /usr/bin/sacct:/usr/bin/sacct:ro
-  - /usr/bin/scancel:/usr/bin/scancel:ro
-  - /etc/slurm:/etc/slurm:ro
-  - /var/run/munge:/var/run/munge:ro
+```bash
+sudo ./deploy.sh setup-slurm
 ```
+
+After setup, set `FAKE_SLURM=0` in `.env` and restart:
+
+```bash
+./deploy.sh restart
+```
+
+For manual configuration or multi-node clusters, you can instead uncomment the volume mounts in `docker-compose.yml` directly. See [`scripts/SLURM_README.md`](scripts/SLURM_README.md) for full details.
 
 ### Shared Storage
 

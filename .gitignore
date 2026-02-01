@@ -8,6 +8,7 @@ job_data/
 staticfiles/
 data/
 backups/
+docker-compose.override.yml
 
 venv/
 .venv/

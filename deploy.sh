@@ -34,6 +34,7 @@ Commands:
   backup            Run a backup (delegates to scripts/backup.sh)
   restore <file>    Restore from backup (delegates to scripts/restore.sh)
   prewarm [opts]    Pre-warm by pulling images and downloading model weights
+  setup-slurm       Configure Slurm on this host (requires sudo)
 
 Options:
   -h, --help        Show this help message
@@ -199,6 +200,10 @@ cmd_prewarm() {
     exec "$SCRIPT_DIR/scripts/prewarm.sh" "$@"
 }
 
+cmd_setup_slurm() {
+    exec "$SCRIPT_DIR/scripts/setup-slurm.sh" "$@"
+}
+
 # ---------- main ----------
 
 if [ $# -eq 0 ]; then
@@ -222,6 +227,7 @@ case "$COMMAND" in
     backup)           cmd_backup "$@" ;;
     restore)          cmd_restore "$@" ;;
     prewarm)          cmd_prewarm "$@" ;;
+    setup-slurm)      cmd_setup_slurm "$@" ;;
     -h|--help|help)   usage ;;
     *)
         error "Unknown command: $COMMAND"
