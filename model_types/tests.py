@@ -1,23 +1,19 @@
-"""Tests for the model_types harness (Phases 2-4, 6-7)."""
+"""Tests for the model_types harness."""
 from __future__ import annotations
 
 import io
-import json
 import shutil
 import tempfile
-import zipfile
 from pathlib import Path
 
 from django import forms
 from django.core.exceptions import ValidationError
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
 from model_types.base import BaseModelType, InputPayload
-from model_types.parsers import parse_fasta_batch, parse_json_config, parse_zip_entries
+from model_types.parsers import parse_fasta_batch
 from model_types.registry import (
     MODEL_TYPES,
-    get_dedicated_runner_keys,
     get_model_type,
     get_submittable_model_types,
 )
@@ -117,7 +113,7 @@ class TestBaseModelTypeABC(TestCase):
 
 
 class TestInputPayloadContract(TestCase):
-    """Both registered ModelTypes must return InputPayload-shaped dicts."""
+    """Registered ModelTypes must return InputPayload-shaped dicts."""
 
     REQUIRED_KEYS = {"sequences", "params", "files"}
 
@@ -175,25 +171,6 @@ class TestInputPayloadContract(TestCase):
             "diffusion_samples": 5,
         })
 
-    def test_runner_normalize_inputs(self):
-        mt = get_model_type("runner")
-        payload = mt.normalize_inputs({
-            "sequences": ">s\nMKTAYI",
-            "runner": "boltz-2",
-        })
-        self._assert_payload_shape(payload)
-        self.assertEqual(payload["sequences"], ">s\nMKTAYI")
-        self.assertEqual(payload["params"], {})
-        self.assertEqual(payload["files"], {})
-
-    def test_runner_strips_whitespace(self):
-        mt = get_model_type("runner")
-        payload = mt.normalize_inputs({
-            "sequences": "  >s\nMKTAYI  \n",
-            "runner": "boltz-2",
-        })
-        self.assertEqual(payload["sequences"], ">s\nMKTAYI")
-
 
 # ---------------------------------------------------------------------------
 # 2.2  InputPayload export
@@ -224,11 +201,6 @@ class TestValidationOwnership(TestCase):
         mt.validate({"sequences": ""})
         mt.validate({})
 
-    def test_runner_validate_does_not_check_empty_sequences(self):
-        mt = get_model_type("runner")
-        mt.validate({"sequences": ""})
-        mt.validate({})
-
 
 # ---------------------------------------------------------------------------
 # Registry sanity
@@ -236,9 +208,8 @@ class TestValidationOwnership(TestCase):
 
 
 class TestRegistry(TestCase):
-    def test_both_model_types_registered(self):
+    def test_boltz2_registered(self):
         self.assertIn("boltz2", MODEL_TYPES)
-        self.assertIn("runner", MODEL_TYPES)
 
     def test_get_model_type_unknown_raises(self):
         with self.assertRaises(KeyError):
@@ -343,38 +314,6 @@ class TestPrepareWorkdirOnBase(TestCase):
             self.assertEqual(pdb.read_bytes(), b"ATOM 1 N ALA")
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
-
-
-# ---------------------------------------------------------------------------
-# 4.2  Dedicated runner key exclusion
-# ---------------------------------------------------------------------------
-
-
-class TestDedicatedRunnerKeys(TestCase):
-    """get_dedicated_runner_keys returns runner keys with dedicated ModelTypes."""
-
-    def test_boltz2_runner_key_is_dedicated(self):
-        keys = get_dedicated_runner_keys()
-        self.assertIn("boltz-2", keys)
-
-    def test_runner_model_type_has_no_runner_key(self):
-        """The generic RunnerModelType should not have a _runner_key."""
-        mt = get_model_type("runner")
-        self.assertFalse(getattr(mt, "_runner_key", None))
-
-    def test_boltz2_has_runner_key_attribute(self):
-        mt = get_model_type("boltz2")
-        self.assertEqual(mt._runner_key, "boltz-2")
-
-
-class TestRunnerModelTypeExclusion(TestCase):
-    """RunnerModelType.get_form() should exclude dedicated runners."""
-
-    def test_generic_form_excludes_boltz2_runner(self):
-        mt = get_model_type("runner")
-        form = mt.get_form()
-        runner_keys = [key for key, _name in form.fields["runner"].choices]
-        self.assertNotIn("boltz-2", runner_keys)
 
 
 # ---------------------------------------------------------------------------
@@ -562,7 +501,7 @@ class TestGetOutputContextBoltz2(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 7.1  Parsing utilities
+# 7.1  FASTA parsing utility (kept from Phase 7)
 # ---------------------------------------------------------------------------
 
 
@@ -620,221 +559,55 @@ class TestParseFastaBatch(TestCase):
         self.assertIn("Too many", str(ctx.exception))
 
 
-class TestParseZipEntries(TestCase):
-    """parse_zip_entries extracts files from ZIP uploads safely."""
+# ---------------------------------------------------------------------------
+# 9.2  Boltz2 input_file in normalize_inputs
+# ---------------------------------------------------------------------------
 
-    def _make_zip(self, file_dict: dict[str, bytes]) -> io.BytesIO:
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w") as zf:
-            for name, content in file_dict.items():
-                zf.writestr(name, content)
-        buf.seek(0)
-        return buf
 
-    def test_extracts_allowed_extensions(self):
-        zf = self._make_zip({"a.pdb": b"ATOM", "b.txt": b"data"})
-        result = parse_zip_entries(zf)
-        self.assertIn("a.pdb", result)
-        self.assertIn("b.txt", result)
-        self.assertEqual(result["a.pdb"], b"ATOM")
+class TestBoltz2InputFile(TestCase):
+    """Boltz2ModelType.normalize_inputs handles input_file uploads."""
 
-    def test_skips_disallowed_extensions(self):
-        zf = self._make_zip({"script.sh": b"#!/bin/bash", "a.pdb": b"ATOM"})
-        result = parse_zip_entries(zf)
-        self.assertNotIn("script.sh", result)
-        self.assertIn("a.pdb", result)
+    def _make_upload(self, name: str, content: bytes):
+        """Create a fake file upload object."""
+        upload = io.BytesIO(content)
+        upload.name = name
+        return upload
 
-    def test_flattens_nested_paths(self):
-        zf = self._make_zip({"subdir/a.pdb": b"ATOM"})
-        result = parse_zip_entries(zf)
-        self.assertIn("a.pdb", result)
-
-    def test_rejects_path_traversal(self):
-        zf = self._make_zip({"../evil.pdb": b"ATOM"})
-        with self.assertRaises(ValidationError) as ctx:
-            parse_zip_entries(zf)
-        self.assertIn("unsafe path", str(ctx.exception))
-
-    def test_rejects_absolute_path(self):
-        zf = self._make_zip({"/etc/passwd.pdb": b"data"})
-        with self.assertRaises(ValidationError) as ctx:
-            parse_zip_entries(zf)
-        self.assertIn("unsafe path", str(ctx.exception))
-
-    def test_rejects_invalid_zip(self):
-        buf = io.BytesIO(b"not a zip file")
-        with self.assertRaises(ValidationError) as ctx:
-            parse_zip_entries(buf)
-        self.assertIn("not a valid ZIP", str(ctx.exception))
-
-    def test_rejects_oversized_zip(self):
-        zf = self._make_zip({"a.pdb": b"A" * 1024})
-        with self.assertRaises(ValidationError) as ctx:
-            parse_zip_entries(zf, max_total_bytes=100)
-        self.assertIn("size limit", str(ctx.exception))
-
-    def test_rejects_too_many_entries(self):
-        files = {f"file{i}.pdb": b"data" for i in range(101)}
-        zf = self._make_zip(files)
-        with self.assertRaises(ValidationError) as ctx:
-            parse_zip_entries(zf)
-        self.assertIn("too many files", str(ctx.exception))
-
-    def test_rejects_empty_zip(self):
-        zf = self._make_zip({"script.sh": b"#!/bin/bash"})
-        with self.assertRaises(ValidationError) as ctx:
-            parse_zip_entries(zf)
-        self.assertIn("no files with allowed extensions", str(ctx.exception))
-
-    def test_deduplicates_basenames(self):
-        zf = self._make_zip({
-            "dir1/a.pdb": b"ATOM1",
-            "dir2/a.pdb": b"ATOM2",
+    def test_input_file_included_in_files(self):
+        mt = get_model_type("boltz2")
+        upload = self._make_upload("complex.yaml", b"version: 2\nsequences:\n  - protein:")
+        payload = mt.normalize_inputs({
+            "sequences": ">s\nMKTAYI",
+            "input_file": upload,
         })
-        result = parse_zip_entries(zf)
-        self.assertEqual(len(result), 2)
-        self.assertIn("a.pdb", result)
-        self.assertIn("a_1.pdb", result)
+        self.assertIn("complex.yaml", payload["files"])
+        self.assertEqual(payload["files"]["complex.yaml"], b"version: 2\nsequences:\n  - protein:")
 
-    def test_custom_allowed_extensions(self):
-        zf = self._make_zip({"a.xyz": b"data", "b.pdb": b"ATOM"})
-        result = parse_zip_entries(zf, allowed_extensions=frozenset({".xyz"}))
-        self.assertIn("a.xyz", result)
-        self.assertNotIn("b.pdb", result)
-
-
-class TestParseJsonConfig(TestCase):
-    """parse_json_config parses JSON config uploads."""
-
-    def _make_upload(self, content: bytes) -> io.BytesIO:
-        buf = io.BytesIO(content)
-        return buf
-
-    def test_valid_json_object(self):
-        upload = self._make_upload(b'{"recycling_steps": 5}')
-        result = parse_json_config(upload)
-        self.assertEqual(result, {"recycling_steps": 5})
-
-    def test_rejects_json_array(self):
-        upload = self._make_upload(b'[1, 2, 3]')
-        with self.assertRaises(ValidationError) as ctx:
-            parse_json_config(upload)
-        self.assertIn("JSON object", str(ctx.exception))
-
-    def test_rejects_invalid_json(self):
-        upload = self._make_upload(b'{invalid}')
-        with self.assertRaises(ValidationError) as ctx:
-            parse_json_config(upload)
-        self.assertIn("Invalid JSON", str(ctx.exception))
-
-    def test_rejects_json_scalar(self):
-        upload = self._make_upload(b'"just a string"')
-        with self.assertRaises(ValidationError):
-            parse_json_config(upload)
-
-
-# ---------------------------------------------------------------------------
-# 7.2  parse_batch / parse_config on BaseModelType
-# ---------------------------------------------------------------------------
-
-
-class TestBaseModelTypeBatchConfig(TestCase):
-    """parse_batch and parse_config raise NotImplementedError by default."""
-
-    def test_parse_batch_raises(self):
-        mt = _MinimalModelType()
-        with self.assertRaises(NotImplementedError) as ctx:
-            mt.parse_batch(None)
-        self.assertIn("Minimal", str(ctx.exception))
-
-    def test_parse_config_raises(self):
-        mt = _MinimalModelType()
-        with self.assertRaises(NotImplementedError) as ctx:
-            mt.parse_config(None)
-        self.assertIn("Minimal", str(ctx.exception))
-
-    def test_parse_batch_not_abstract(self):
-        """parse_batch should be concrete (not abstract) so subclasses can omit it."""
-        mt = _MinimalModelType()
-        self.assertTrue(callable(mt.parse_batch))
-
-    def test_parse_config_not_abstract(self):
-        mt = _MinimalModelType()
-        self.assertTrue(callable(mt.parse_config))
-
-
-# ---------------------------------------------------------------------------
-# 7.2  Boltz2 parse_batch / parse_config overrides
-# ---------------------------------------------------------------------------
-
-
-class TestBoltz2ParseBatch(TestCase):
-    """Boltz2ModelType.parse_batch splits multi-FASTA into per-sequence items."""
-
-    def _make_upload(self, text: str):
-        return io.BytesIO(text.encode("utf-8"))
-
-    def test_splits_multi_fasta(self):
+    def test_input_file_clears_sequences(self):
         mt = get_model_type("boltz2")
-        upload = self._make_upload(">seq1\nMKTAYI\n>seq2\nACDEFG")
-        items = mt.parse_batch(upload)
-        self.assertEqual(len(items), 2)
-        self.assertIn("sequences", items[0])
-        self.assertIn("name", items[0])
-        self.assertEqual(items[0]["sequences"], ">seq1\nMKTAYI")
-        self.assertEqual(items[0]["name"], "seq1")
-        self.assertEqual(items[1]["sequences"], ">seq2\nACDEFG")
+        upload = self._make_upload("input.yaml", b"version: 2")
+        payload = mt.normalize_inputs({
+            "sequences": ">s\nMKTAYI",
+            "input_file": upload,
+        })
+        self.assertEqual(payload["sequences"], "")
 
-    def test_truncates_long_name(self):
+    def test_no_input_file_keeps_sequences(self):
         mt = get_model_type("boltz2")
-        long_header = "A" * 200
-        upload = self._make_upload(f">{long_header}\nMKTAYI")
-        items = mt.parse_batch(upload)
-        self.assertLessEqual(len(items[0]["name"]), 100)
+        payload = mt.normalize_inputs({
+            "sequences": ">s\nMKTAYI",
+        })
+        self.assertEqual(payload["sequences"], ">s\nMKTAYI")
+        self.assertEqual(payload["files"], {})
 
-    def test_single_entry_batch(self):
+    def test_params_still_populated_with_file(self):
         mt = get_model_type("boltz2")
-        upload = self._make_upload(">only\nMKTAYI")
-        items = mt.parse_batch(upload)
-        self.assertEqual(len(items), 1)
-
-    def test_invalid_fasta_raises(self):
-        mt = get_model_type("boltz2")
-        upload = self._make_upload("not fasta")
-        with self.assertRaises(ValidationError):
-            mt.parse_batch(upload)
-
-
-class TestBoltz2ParseConfig(TestCase):
-    """Boltz2ModelType.parse_config extracts allowed param overrides."""
-
-    def _make_upload(self, data: dict):
-        return io.BytesIO(json.dumps(data).encode("utf-8"))
-
-    def test_extracts_allowed_keys(self):
-        mt = get_model_type("boltz2")
-        upload = self._make_upload({
+        upload = self._make_upload("input.yaml", b"version: 2")
+        payload = mt.normalize_inputs({
+            "sequences": "",
+            "input_file": upload,
+            "use_msa_server": True,
             "recycling_steps": 5,
-            "sampling_steps": 20,
-            "output_format": "pdb",
         })
-        result = mt.parse_config(upload)
-        self.assertEqual(result["recycling_steps"], 5)
-        self.assertEqual(result["sampling_steps"], 20)
-        self.assertEqual(result["output_format"], "pdb")
-
-    def test_filters_unknown_keys(self):
-        mt = get_model_type("boltz2")
-        upload = self._make_upload({
-            "recycling_steps": 5,
-            "unknown_param": "should_be_dropped",
-        })
-        result = mt.parse_config(upload)
-        self.assertIn("recycling_steps", result)
-        self.assertNotIn("unknown_param", result)
-
-    def test_invalid_json_raises(self):
-        mt = get_model_type("boltz2")
-        upload = io.BytesIO(b"not json")
-        with self.assertRaises(ValidationError):
-            mt.parse_config(upload)
+        self.assertIn("use_msa_server", payload["params"])
+        self.assertIn("recycling_steps", payload["params"])

@@ -78,30 +78,6 @@ class BaseModelType(ABC):
         for filename, content in input_payload.get("files", {}).items():
             (workdir / "input" / filename).write_bytes(content)
 
-    def parse_batch(self, upload) -> list[dict]:
-        """Parse a batch upload into a list of per-item input dicts.
-
-        Default raises ``NotImplementedError`` -- only implement in model
-        types that support batch submission.  Each dict in the returned list
-        is a partial ``cleaned_data`` override that will be merged with the
-        base form data before calling :meth:`normalize_inputs`.
-        """
-        raise NotImplementedError(
-            f"{self.name} does not support batch uploads."
-        )
-
-    def parse_config(self, upload) -> dict:
-        """Parse an advanced config file into a dict to merge into params.
-
-        Default raises ``NotImplementedError`` -- only implement in model
-        types that support config file uploads.  The returned dict is merged
-        into the form's ``cleaned_data`` before calling
-        :meth:`normalize_inputs`.
-        """
-        raise NotImplementedError(
-            f"{self.name} does not support config file uploads."
-        )
-
     def get_output_context(self, job) -> dict:
         """Return template context for rendering job outputs on the detail page.
 

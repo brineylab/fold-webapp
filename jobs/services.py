@@ -55,7 +55,6 @@ def create_and_submit_job(
     params: dict,
     model_key: str,
     input_payload: dict | None = None,
-    batch_id=None,
 ) -> Job:
     """Create a Job, create its workdir, write inputs, submit to SLURM."""
     # Check maintenance mode first
@@ -89,7 +88,7 @@ def create_and_submit_job(
     # Strip binary file content before storing in the DB -- keep filenames only
     storage_payload = _sanitize_payload_for_storage(input_payload)
 
-    job_kwargs = dict(
+    job = Job.objects.create(
         owner=owner,
         name=name,
         runner=runner_key,
@@ -100,9 +99,6 @@ def create_and_submit_job(
         input_payload=storage_payload,
         output_payload={},
     )
-    if batch_id is not None:
-        job_kwargs["batch_id"] = batch_id
-    job = Job.objects.create(**job_kwargs)
 
     # Delegate workdir setup to the model type
     model_type.prepare_workdir(job, input_payload or {})

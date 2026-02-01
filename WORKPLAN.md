@@ -12,8 +12,9 @@ ModelType defines how a model appears to users, how inputs are collected/validat
 - UX: submission forms, templates, help text, advanced options
 - Input schema and validation
 - Workdir preparation (writing input files to disk)
-- Optional batch/config file parsing
+- Model-specific file upload (native input format: YAML, JSON, FASTA, etc.)
 - Output metadata (what files/links to present, how to group/label them)
+- Category assignment for landing page grouping
 
 **Interface (Python ABC)**
 ```python
@@ -21,14 +22,14 @@ from abc import ABC, abstractmethod
 from typing import TypedDict
 
 class InputPayload(TypedDict):
-    """Typed contract between normalize_inputs() and the service layer."""
-    sequences: str            # may be empty for non-FASTA models
+    sequences: str            # may be empty for non-FASTA models or file uploads
     params: dict              # model-specific parameters
     files: dict[str, bytes]   # filename -> content for uploaded files
 
 class BaseModelType(ABC):
     key: str = ""
     name: str = ""
+    category: str = ""        # e.g., "Structure Prediction", "Inverse Folding"
     template_name: str = ""
     form_class: type[forms.Form] = forms.Form
     help_text: str = ""
@@ -37,48 +38,17 @@ class BaseModelType(ABC):
         return self.form_class(*args, **kwargs)
 
     @abstractmethod
-    def validate(self, cleaned_data: dict) -> None:
-        """Model-specific validation beyond what the form enforces.
-        Raise ValidationError on failure. Do NOT duplicate form-level
-        checks (e.g., required fields) -- only enforce cross-field
-        constraints and domain rules."""
-        ...
+    def validate(self, cleaned_data: dict) -> None: ...
 
     @abstractmethod
-    def normalize_inputs(self, cleaned_data: dict) -> InputPayload:
-        """Convert form cleaned_data into a typed InputPayload dict.
-        Must return an InputPayload with sequences, params, and files keys."""
-        ...
+    def normalize_inputs(self, cleaned_data: dict) -> InputPayload: ...
 
     @abstractmethod
-    def resolve_runner_key(self, cleaned_data: dict) -> str:
-        """Return the runner key to use for this submission."""
-        ...
+    def resolve_runner_key(self, cleaned_data: dict) -> str: ...
 
-    def prepare_workdir(self, job, input_payload: InputPayload) -> None:
-        """Write input files to job.workdir. Default writes sequences.fasta
-        if sequences is non-empty and any files from input_payload['files'].
-        Override for models that need custom workdir layouts."""
-        workdir = job.workdir
-        (workdir / "input").mkdir(parents=True, exist_ok=True)
-        (workdir / "output").mkdir(parents=True, exist_ok=True)
-        sequences = input_payload.get("sequences", "")
-        if sequences:
-            (workdir / "input" / "sequences.fasta").write_text(sequences, encoding="utf-8")
-        for filename, content in input_payload.get("files", {}).items():
-            (workdir / "input" / filename).write_bytes(content)
+    def prepare_workdir(self, job, input_payload: InputPayload) -> None: ...
 
-    def get_output_context(self, job) -> dict:
-        """Return template context for rendering job outputs.
-        Default returns a flat file list. Override for model-specific
-        grouping, labels, primary result highlighting, etc."""
-        outdir = job.workdir / "output"
-        files = []
-        if outdir.exists() and outdir.is_dir():
-            for p in sorted(outdir.iterdir()):
-                if p.is_file():
-                    files.append({"name": p.name, "size": p.stat().st_size})
-        return {"files": files, "primary_files": [], "aux_files": []}
+    def get_output_context(self, job) -> dict: ...
 ```
 
 ### RunnerConfig (runtime/ops contract)
@@ -97,16 +67,16 @@ class RunnerConfig(models.Model):
     disabled_reason = TextField(blank=True)
 
     # SLURM resource configuration
-    partition = CharField(max_length=50, blank=True)        # e.g., "gpu"
-    gpus = PositiveIntegerField(default=0)                  # --gres=gpu:N
-    cpus = PositiveIntegerField(default=1)                  # --cpus-per-task
-    mem_gb = PositiveIntegerField(default=8)                # --mem (in GB)
-    time_limit = CharField(max_length=20, blank=True)       # --time, e.g., "02:00:00"
+    partition = CharField(max_length=50, blank=True)
+    gpus = PositiveIntegerField(default=0)
+    cpus = PositiveIntegerField(default=1)
+    mem_gb = PositiveIntegerField(default=8)
+    time_limit = CharField(max_length=20, blank=True)
 
     # Container configuration
-    image_uri = CharField(max_length=200, blank=True)       # override per-runner default
-    extra_env = JSONField(default=dict, blank=True)         # additional env vars
-    extra_mounts = JSONField(default=list, blank=True)      # additional bind mounts
+    image_uri = CharField(max_length=200, blank=True)
+    extra_env = JSONField(default=dict, blank=True)
+    extra_mounts = JSONField(default=list, blank=True)
 ```
 
 ## API Structure
@@ -128,865 +98,275 @@ def get_model_type(key: str) -> BaseModelType:
     return MODEL_TYPES[key]
 ```
 
-### Data model changes
+### Data model
 - `Job.model_key`: links job back to the ModelType that created it
 - `Job.sequences`: `TextField(blank=True)` -- optional, not all models use FASTA
 - `Job.params`: `JSONField` for model-specific parameters
-- `Job.input_payload`: `JSONField` for the full normalized input (archival)
+- `Job.input_payload`: `JSONField` for the full normalized input (archival, files as filename list)
 - `Job.output_payload`: `JSONField` for output metadata
+
+### Model-specific file uploads
+Each model type can accept a native input file that replaces the textarea-based sequence input. The file is the raw input format accepted by the model CLI:
+- **Boltz-2**: YAML file
+- **AlphaFold3**: JSON file
+- **Chai-1**: FASTA file + optional restraints file
+
+The file upload **replaces** the sequence textarea, but model configuration options (MSA server, diffusion samples, etc.) still apply alongside the uploaded file. The file is stored verbatim in the job workdir and passed to the model command.
 
 ## UX Flow
 
 ### Submission
-1. User navigates to `/jobs/new/?model=<model_key>`.
-2. View resolves ModelType, renders `template_name` with `form_class`.
-3. On submit:
+1. User navigates to `/jobs/new/` and sees the model selection landing page with models grouped by category.
+2. User selects a model, which navigates to `/jobs/new/?model=<model_key>`.
+3. View resolves ModelType, renders `template_name` with `form_class`.
+4. On submit:
    - Form validates base fields (required, type constraints).
    - `ModelType.validate()` enforces model-specific cross-field and domain constraints.
    - `ModelType.normalize_inputs()` produces a typed `InputPayload`.
    - `ModelType.resolve_runner_key()` determines which runner to use.
-4. Service layer checks maintenance mode, runner enabled, and user quota.
-5. Job record is created. `ModelType.prepare_workdir()` writes input files.
-6. Runner builds SLURM script (using resource config from `RunnerConfig`).
-7. SLURM job is submitted.
+5. Service layer checks maintenance mode, runner enabled, and user quota.
+6. Job record is created. `ModelType.prepare_workdir()` writes input files.
+7. Runner builds SLURM script (using resource config from `RunnerConfig`).
+8. SLURM job is submitted.
 
 ### Output display
 - `ModelType.get_output_context()` returns structured output metadata.
 - Detail template uses this to render grouped files, primary results, and auxiliary outputs.
 
-## Example ModelTypes
+## Completed Phases (1-8)
 
-### 1) Structure Prediction: Boltz-2
+Phases 1-8 have been implemented. Summary of what was built:
 
-**User UX goals**
-- Simple: FASTA textarea for single sequence
-- Advanced: optional config JSON upload
-- Batch: optional multi-sequence FASTA file
-
-**Form fields**
-- `name` (text, optional)
-- `sequences` (textarea, required)
-- `use_msa_server` (bool, optional)
-- `use_potentials` (bool, optional)
-- `output_format` (choice: mmCIF/PDB)
-- `recycling_steps` (int, optional)
-- `sampling_steps` (int, optional)
-- `diffusion_samples` (int, optional)
-
-**ModelType outline**
-```python
-class Boltz2ModelType(BaseModelType):
-    key = "boltz2"
-    name = "Boltz-2"
-    template_name = "jobs/submit_boltz2.html"
-    form_class = Boltz2SubmitForm
-    help_text = "Predict biomolecular structure and binding affinity with Boltz-2."
-
-    def validate(self, cleaned_data):
-        # Form already enforces sequences is required.
-        # Add domain-specific checks here, e.g.:
-        # - multi-chain complexes require at least 2 sequences
-        # - ligand SMILES validation if applicable
-        pass
-
-    def normalize_inputs(self, cleaned_data) -> InputPayload:
-        sequences = (cleaned_data.get("sequences") or "").strip()
-        params = {
-            "use_msa_server": bool(cleaned_data.get("use_msa_server")),
-            "use_potentials": bool(cleaned_data.get("use_potentials")),
-            "output_format": cleaned_data.get("output_format"),
-            "recycling_steps": cleaned_data.get("recycling_steps"),
-            "sampling_steps": cleaned_data.get("sampling_steps"),
-            "diffusion_samples": cleaned_data.get("diffusion_samples"),
-        }
-        params = {k: v for k, v in params.items() if v not in (None, "", False)}
-        return {"sequences": sequences, "params": params, "files": {}}
-
-    def resolve_runner_key(self, cleaned_data):
-        return "boltz-2"
-
-    def get_output_context(self, job):
-        """Boltz-2 produces structure files and confidence scores."""
-        outdir = job.workdir / "output"
-        primary = []
-        aux = []
-        if outdir.exists():
-            for p in sorted(outdir.iterdir()):
-                if not p.is_file():
-                    continue
-                entry = {"name": p.name, "size": p.stat().st_size}
-                if p.suffix in (".pdb", ".cif", ".mmcif"):
-                    primary.append(entry)
-                elif p.name.startswith("slurm-"):
-                    aux.append(entry)
-                else:
-                    aux.append(entry)
-        return {"files": primary + aux, "primary_files": primary, "aux_files": aux}
-```
-
-### 2) Inverse Folding: ProteinMPNN
-
-**User UX goals**
-- Requires a backbone structure input (PDB file upload)
-- Optional constraints/positions file
-- No FASTA sequences -- primary input is a file
-
-**Form fields**
-- `name` (text, optional)
-- `backbone_pdb` (file, required)
-- `constraint_file` (file, optional)
-- `num_sequences` (int, default 1)
-- `temperature` (float, default 0.1)
-
-**ModelType outline**
-```python
-class ProteinMPNNModelType(BaseModelType):
-    key = "protein_mpnn"
-    name = "ProteinMPNN"
-    template_name = "jobs/submit_protein_mpnn.html"
-    form_class = ProteinMPNNForm
-    help_text = "Design sequences for a given backbone structure."
-
-    def validate(self, cleaned_data):
-        pdb = cleaned_data.get("backbone_pdb")
-        if pdb and pdb.size > 10 * 1024 * 1024:  # 10MB
-            raise ValidationError("PDB file too large (max 10MB).")
-
-    def normalize_inputs(self, cleaned_data) -> InputPayload:
-        files = {}
-        pdb = cleaned_data.get("backbone_pdb")
-        if pdb:
-            files["backbone.pdb"] = pdb.read()
-        constraint = cleaned_data.get("constraint_file")
-        if constraint:
-            files["constraints.json"] = constraint.read()
-        return {
-            "sequences": "",  # no FASTA for inverse folding
-            "params": {
-                "num_sequences": cleaned_data.get("num_sequences", 1),
-                "temperature": cleaned_data.get("temperature", 0.1),
-            },
-            "files": files,
-        }
-
-    def resolve_runner_key(self, cleaned_data):
-        return "protein-mpnn"
-
-    def prepare_workdir(self, job, input_payload):
-        """ProteinMPNN needs PDB in a specific location."""
-        workdir = job.workdir
-        (workdir / "input").mkdir(parents=True, exist_ok=True)
-        (workdir / "output").mkdir(parents=True, exist_ok=True)
-        for filename, content in input_payload.get("files", {}).items():
-            (workdir / "input" / filename).write_bytes(content)
-```
-
-## Implementation Plan (Phased)
-
-### Phase 1: Core API + Registry ✅
-1. [x] Create `model_types/` module with registry and base class.
-2. [x] Add `model_key` to `Job` model and migrate.
-3. [x] Add JSON fields for `input_payload` and `output_payload`.
-4. [x] Add model lookup and dispatch in submission view.
-5. [x] Implement `Boltz2ModelType` with form, template, and runner.
+1. **Phase 1**: Core API + Registry -- `model_types/` module, `BaseModelType`, `Boltz2ModelType`, `Job.model_key`, registry, view dispatch.
+2. **Phase 2**: Harden Base Abstractions -- ABC enforcement, `InputPayload` TypedDict, validation ownership clarification.
+3. **Phase 3**: Generalize Job Model -- `Job.sequences` optional, `prepare_workdir` hook, service layer refactor with `_sanitize_payload_for_storage`.
+4. **Phase 4**: Templates and UX -- shared `submit_base.html`, model selection landing page, generic runner exclusion from dedicated model dropdowns.
+5. **Phase 5**: RunnerConfig with SLURM Resources -- resource fields, `get_slurm_directives()`, runners accept config, Boltz runner uses config.
+6. **Phase 6**: Output Presentation -- `get_output_context()` on base and Boltz-2, detail template with primary/auxiliary file sections.
+7. **Phase 7**: Batch + Config Parsing -- `model_types/parsers.py`, `parse_batch`/`parse_config` hooks, batch_id on Job model. **To be reworked in Phase 9.**
+8. **Phase 8**: Minor Fixes -- unused variable removal, boolean filter fix, `Path.open()` in download view.
 
 ---
 
-### Phase 2: Harden Base Abstractions ✅
+## Phase 9: Remove Batch/Config, Add Model-Specific File Upload
 
-**Goal**: Make the base contracts strict, typed, and safe so that future model types get compile-time (or at least registration-time) enforcement rather than runtime surprises.
+**Goal**: Replace the batch/config file infrastructure (Phase 7) with model-specific native input file uploads. The file upload accepts the raw input format for each model's CLI (YAML for Boltz-2, JSON for AF3, FASTA+restraints for Chai-1). Uploaded files replace the textarea sequence input; model configuration options still apply.
 
-#### 2.1 Make `BaseModelType` a proper ABC ✅
-
-**File**: `model_types/base.py`
-
-Current state: `BaseModelType` is a plain class. `validate()` silently returns `None`, `normalize_inputs()` returns a raw dict copy, and `resolve_runner_key()` raises `NotImplementedError` at runtime. There's no enforcement that subclasses implement required methods. This is inconsistent with `Runner` in `runners/__init__.py`, which correctly uses `ABC` + `@abstractmethod`.
-
-Changes:
-- Import `ABC` and `abstractmethod` from `abc`
-- Make `BaseModelType` inherit from `ABC`
-- Mark `validate`, `normalize_inputs`, and `resolve_runner_key` as `@abstractmethod`
-- Remove the default implementations of `validate` (silent `return None`) and `normalize_inputs` (`return dict(cleaned_data)`) -- these are footguns, not useful defaults
-- Keep `get_form` as a concrete method (the default is genuinely useful)
-
-```python
-from abc import ABC, abstractmethod
-from django import forms
-
-class BaseModelType(ABC):
-    key: str = ""
-    name: str = ""
-    template_name: str = ""
-    form_class: type[forms.Form] = forms.Form
-    help_text: str = ""
-
-    def get_form(self, *args, **kwargs) -> forms.Form:
-        return self.form_class(*args, **kwargs)
-
-    @abstractmethod
-    def validate(self, cleaned_data: dict) -> None: ...
-
-    @abstractmethod
-    def normalize_inputs(self, cleaned_data: dict) -> dict: ...
-
-    @abstractmethod
-    def resolve_runner_key(self, cleaned_data: dict) -> str: ...
-```
-
-#### 2.2 Define the `InputPayload` contract ✅
-
-**File**: `model_types/base.py` (add to the same file)
-
-Current state: `normalize_inputs` returns `dict` with no documented shape. The view (`jobs/views.py:61-70`) assumes `"sequences"` and `"params"` keys. `create_and_submit_job` (`jobs/services.py:47-56`) requires `sequences: str` and `params: dict` as positional kwargs. If a future model type returns a differently-shaped dict, the view silently passes empty strings/dicts to the service.
-
-Changes:
-- Define an `InputPayload` TypedDict in `model_types/base.py`:
-
-```python
-from typing import TypedDict
-
-class InputPayload(TypedDict):
-    sequences: str            # FASTA text; empty string for non-FASTA models
-    params: dict              # model-specific parameters (stored in Job.params)
-    files: dict[str, bytes]   # filename -> content for uploaded files to write to workdir
-```
-
-- Update `BaseModelType.normalize_inputs` return type annotation to `-> InputPayload`
-- Update both `Boltz2ModelType.normalize_inputs` and `RunnerModelType.normalize_inputs` to return dicts conforming to this shape (add `"files": {}` to both)
-- Export `InputPayload` from `model_types/__init__.py`
-
-This makes the contract between ModelType and the service layer explicit. A model type that only takes file uploads returns `{"sequences": "", "params": {...}, "files": {"backbone.pdb": b"..."}}`.
-
-#### 2.3 Clarify validation ownership ✅
-
-**Context**: Sequence-empty checks currently happen in three places:
-1. `Boltz2SubmitForm.sequences` is a required `CharField` (Django enforces non-empty)
-2. `Boltz2ModelType.validate()` checks sequences are non-empty
-3. `create_and_submit_job()` checks sequences are non-empty
-
-The form layer should own required-field checks. The service layer should own defense-in-depth checks at the API boundary. `ModelType.validate()` should only do things the form can't -- cross-field constraints, domain rules (e.g., "multi-chain complex requires 2+ sequences"), and input-format validation (e.g., "must be valid FASTA").
-
-Changes:
-- **`Boltz2ModelType.validate()`** (`model_types/boltz2.py`): Remove the `if not sequences: raise ValidationError` check. The form already enforces this. Instead, add a `pass` body (or add actual domain validation like FASTA format checking if desired now, otherwise leave it as a placeholder with a comment explaining what belongs here).
-- **`RunnerModelType.validate()`** (`model_types/runner.py`): Same -- remove the redundant sequences check.
-- **`create_and_submit_job()`** (`jobs/services.py`): Keep the `if not sequences` check but also check `if not sequences and not input_payload.get("files")` -- because non-FASTA models will have empty sequences but should have files. This becomes the defense-in-depth boundary check.
-- Add a docstring to `BaseModelType.validate()` explicitly stating: "Do not duplicate form-level required-field checks here. Use this for cross-field constraints and domain-specific validation only."
-
----
-
-### Phase 3: Generalize the Job Model and Service Layer ✅
-
-**Goal**: Make the data model and service layer work for models with non-FASTA inputs (file uploads, JSON configs, structure files) without breaking existing FASTA-based models.
-
-#### 3.1 Make `Job.sequences` optional ✅
-
-**File**: `jobs/models.py`
-
-Current state: `Job.sequences = models.TextField()` -- implicitly required (no `blank=True`). This works for Boltz-2 but breaks for models like ProteinMPNN where the primary input is a PDB file, not FASTA text.
-
-Changes:
-- [x] Change to `sequences = models.TextField(blank=True, default="")`.
-- [x] Create and run a migration. Existing rows all have sequences, so this is backwards-compatible.
-
-#### 3.2 Add `prepare_workdir` hook to `BaseModelType` ✅
+### 9.1 Remove batch/config infrastructure from BaseModelType
 
 **File**: `model_types/base.py`
 
-Current state: `create_and_submit_job()` in `jobs/services.py:97-101` hardcodes the workdir layout:
-```python
-(job.workdir / "input").mkdir(parents=True, exist_ok=True)
-(job.workdir / "output").mkdir(parents=True, exist_ok=True)
-(job.workdir / "input" / "sequences.fasta").write_text(sequences, encoding="utf-8")
-```
-A model that needs to write a PDB file, multiple files, or a JSON config has no hook to control this.
+Remove the `parse_batch` and `parse_config` methods entirely. These are being replaced by the file upload approach in `normalize_inputs`.
 
-Changes:
-- [x] Add a `prepare_workdir(self, job, input_payload: InputPayload) -> None` method to `BaseModelType` with a concrete default implementation:
+### 9.2 Remove batch/config from Boltz2ModelType
 
-```python
-def prepare_workdir(self, job, input_payload: InputPayload) -> None:
-    """Write input files to job.workdir.
+**File**: `model_types/boltz2.py`
 
-    Default implementation:
-    - Creates input/ and output/ subdirectories
-    - Writes sequences.fasta if sequences is non-empty
-    - Writes all files from input_payload["files"] into input/
+- Remove `parse_batch()` and `parse_config()` methods.
+- Update `normalize_inputs()` to handle the new `input_file` field: when an uploaded file is present, read its content and include it in `InputPayload["files"]` under its original filename, and set `sequences` to empty string (the file replaces the textarea).
 
-    Override for models that need custom workdir layouts
-    (e.g., nested directories, config files, specific filenames).
-    """
-    workdir = job.workdir
-    (workdir / "input").mkdir(parents=True, exist_ok=True)
-    (workdir / "output").mkdir(parents=True, exist_ok=True)
-    sequences = input_payload.get("sequences", "")
-    if sequences:
-        (workdir / "input" / "sequences.fasta").write_text(sequences, encoding="utf-8")
-    for filename, content in input_payload.get("files", {}).items():
-        (workdir / "input" / filename).write_bytes(content)
-```
+### 9.3 Replace batch/config form fields with input_file
 
-This is a concrete method (not abstract) because the default is genuinely useful for most models. Models with custom needs override it.
+**File**: `jobs/forms.py`
 
-#### 3.3 Refactor `create_and_submit_job` to use `prepare_workdir` ✅
+- Remove `batch_file` and `config_file` fields from `Boltz2SubmitForm`.
+- Add `input_file = forms.FileField(required=False, ...)` with help text explaining it accepts a Boltz-2 YAML input file.
+- Update the `clean()` method: require either `sequences` or `input_file` (not both -- file takes precedence, or error if neither provided).
 
-**File**: `jobs/services.py`
-
-Changes:
-- [x] Add `model_type: BaseModelType` as a parameter to `create_and_submit_job` (or resolve it internally from `model_key`).
-- [x] Replace the hardcoded workdir setup (lines 97-101) with a call to `model_type.prepare_workdir(job, input_payload)`.
-- [x] Update the `sequences` parameter: accept it as optional (`sequences: str = ""`). When empty, skip the old empty-check or gate it on whether the model provides files.
-- [x] Update the defense-in-depth input check: instead of `if not sequences: raise`, use `if not sequences and not (input_payload or {}).get("files"): raise ValidationError("No input provided.")`.
-- [x] Add `_sanitize_payload_for_storage()` to strip binary file content before DB storage.
-- The new function signature:
-
-```python
-def create_and_submit_job(
-    *,
-    owner,
-    model_type: BaseModelType,
-    name: str = "",
-    runner_key: str,
-    sequences: str = "",
-    params: dict,
-    model_key: str,
-    input_payload: dict | None = None,
-) -> Job:
-```
-
-- [x] In the view (`jobs/views.py`), pass `model_type=model_type` to `create_and_submit_job`.
-
-#### 3.4 Update the view to pass `input_payload` through properly ✅
+### 9.4 Update submission view
 
 **File**: `jobs/views.py`
 
-Current state (lines 59-71):
-```python
-model_type.validate(form.cleaned_data)
-input_payload = model_type.normalize_inputs(form.cleaned_data)
-runner_key = model_type.resolve_runner_key(form.cleaned_data)
-job = create_and_submit_job(
-    owner=request.user,
-    name=form.cleaned_data.get("name", ""),
-    runner_key=runner_key,
-    sequences=input_payload.get("sequences", ""),
-    params=input_payload.get("params", {}),
-    model_key=model_type.key,
-    input_payload=input_payload,
-)
-```
+- Remove all batch handling logic (batch_file detection, `parse_batch()` loop, `batch_id` generation).
+- Remove config handling logic (config_file detection, `parse_config()` call, `merged_data` merging).
+- Simplify the POST path: validate → `normalize_inputs(cleaned_data)` → `resolve_runner_key` → `create_and_submit_job`. The `normalize_inputs` method on each ModelType is now responsible for handling the file upload from `cleaned_data`.
 
-Changes:
-- [x] Add `model_type=model_type` to the `create_and_submit_job` call.
-- [x] The `input_payload` is already passed through. The service layer will now use it for `prepare_workdir` instead of reconstructing the workdir layout itself.
-- [x] When storing `input_payload` in the Job record, strip the `"files"` key (binary content shouldn't be stored in JSON). Store a version with filenames only (handled in `_sanitize_payload_for_storage` in the service layer):
+### 9.5 Remove batch_id from Job model
 
-```python
-# In the view, before passing to service:
-storage_payload = {
-    "sequences": input_payload.get("sequences", ""),
-    "params": input_payload.get("params", {}),
-    "files": list(input_payload.get("files", {}).keys()),  # filenames only
-}
-```
+**File**: `jobs/models.py`
 
-Or handle this inside `create_and_submit_job` before writing to the DB.
+- Remove `batch_id = models.UUIDField(null=True, blank=True, db_index=True)`.
+- Create a migration to drop the field.
+
+**File**: `jobs/services.py`
+
+- Remove `batch_id` parameter from `create_and_submit_job`.
+- Remove `batch_id` from `job_kwargs`.
+
+### 9.6 Update Boltz-2 submit template
+
+**File**: `jobs/templates/jobs/submit_boltz2.html`
+
+- Remove the "Advanced" section with `batch_file` and `config_file` fields.
+- Add an `input_file` field in the main form area, near the sequences textarea, with help text like: "Upload a Boltz-2 YAML input file. When provided, the sequences field is ignored."
+
+### 9.7 Rework parsers.py
+
+**File**: `model_types/parsers.py`
+
+- Remove `parse_json_config()` (no longer needed for config merging).
+- Keep `parse_fasta_batch()` -- it's still useful for FASTA validation in model types that accept FASTA input (Boltz-2 textarea, Chai-1 file upload).
+- Remove `parse_zip_entries()` unless there's a concrete use case. Can be re-added later if needed.
+- Rename or simplify the module to reflect its new purpose (FASTA validation utilities).
+
+### 9.8 Update tests
+
+**Files**: `model_types/tests.py`, `jobs/tests.py`
+
+- Remove all batch/config tests: `TestBaseModelTypeBatchConfig`, `TestBoltz2ParseBatch`, `TestBoltz2ParseConfig`, `TestJobBatchIdField`, `TestServiceBatchId`, `TestBatchSubmissionView`, `TestConfigSubmissionView`, `TestBoltz2TemplateAdvancedFields`.
+- Remove `TestParseJsonConfig` and `TestParseZipEntries` from parser tests.
+- Keep `TestParseFastaBatch` (still useful).
+- Add tests for the new `input_file` flow:
+  - `Boltz2SubmitForm` accepts either sequences or input_file.
+  - `Boltz2ModelType.normalize_inputs` includes file content in `InputPayload["files"]` when input_file is present.
+  - View submission with input_file creates a job with the file written to workdir.
+  - Form validation rejects submission with neither sequences nor input_file.
 
 ---
 
-### Phase 4: Templates and UX ✅
+## Phase 10: Remove Generic RunnerModelType
 
-**Goal**: Eliminate template duplication and resolve the awkward two-track submission system (generic `RunnerModelType` vs. specialized model types).
+**Goal**: Every model must have a dedicated ModelType. Remove the generic "runner" fallback entirely.
 
-#### 4.1 Create a shared base submission template ✅
+### 10.1 Delete RunnerModelType
 
-**File**: `jobs/templates/jobs/submit_base.html` (new)
+**File**: `model_types/runner.py` -- **delete this file**.
 
-Current state: `submit.html` and `submit_boltz2.html` share ~80% of their markup (maintenance banner, disabled runners banner, card layout, CSRF token, hidden model field, submit/cancel buttons). Every new model type would copy-paste this boilerplate.
+### 10.2 Remove runner registration and imports
 
-Changes:
-- [x] Create `jobs/templates/jobs/submit_base.html` with the shared structure:
+**File**: `model_types/__init__.py`
 
-```html
-{% extends "jobs/base.html" %}
+- Remove `from model_types.runner import RunnerModelType`.
+- Remove `register_model_type(RunnerModelType())`.
 
-{% block title %}{{ page_title }}{% endblock %}
+### 10.3 Simplify registry
 
-{% block content %}
-  <h1 class="mb-4">{{ page_title }}</h1>
+**File**: `model_types/registry.py`
 
-  {% if maintenance_mode %}
-  <div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
-    <!-- maintenance SVG icon -->
-    <div>
-      <strong>Maintenance Mode Active</strong>
-      <p class="mb-0">{{ maintenance_message }}</p>
-    </div>
-  </div>
-  {% endif %}
+- Remove `get_default_model_type()` (was returning the "runner" model type -- no longer exists). If a fallback is still needed for `job_detail` with old `model_key="runner"` jobs, use the first registered model type or handle the KeyError gracefully in the view.
+- Remove `get_dedicated_runner_keys()` (only existed to exclude dedicated runners from the generic dropdown -- no generic dropdown anymore).
+- Simplify `get_submittable_model_types()`: just return all registered model types (no special "runner" filtering logic).
 
-  {% if disabled_runners %}
-  <div class="alert alert-info mb-4" role="alert">
-    <strong>Some runners are temporarily unavailable:</strong>
-    <ul class="mb-0 mt-2">
-      {% for runner in disabled_runners %}
-      <li><strong>{{ runner.name }}</strong>: {{ runner.reason }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
+### 10.4 Delete generic submit template and form
 
-  <div class="card">
-    <div class="card-body">
-      <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <input type="hidden" name="model" value="{{ model_key }}">
-        {{ form.non_field_errors }}
+- **Delete**: `jobs/templates/jobs/submit.html`
+- **File**: `jobs/forms.py` -- Remove `JobForm` class and `get_enabled_runner_choices()` function. Keep `get_disabled_runners()` (still used in the view for the disabled runners banner) and `Boltz2SubmitForm`.
 
-        {% block form_fields %}{% endblock %}
+### 10.5 Update job_detail fallback
 
-        {% if maintenance_mode %}
-        <button class="btn btn-secondary" type="submit" disabled>
-          <!-- lock icon -->
-          Submissions Disabled
-        </button>
-        {% else %}
-        <button class="btn btn-primary" type="submit">Submit</button>
-        {% endif %}
-        <a class="btn btn-outline-secondary" href="{% url 'job_list' %}">Cancel</a>
-      </form>
-    </div>
-  </div>
-{% endblock %}
+**File**: `jobs/views.py`
+
+- Remove `from model_types.registry import get_default_model_type`.
+- In `job_detail`, handle `KeyError` from `get_model_type(job.model_key)` by using the base `get_output_context` default directly (instantiate a minimal fallback, or just return empty primary/aux lists).
+
+### 10.6 Update tests
+
+- Remove `test_runner_normalize_inputs`, `test_runner_strips_whitespace`, `test_runner_validate_does_not_check_empty_sequences`.
+- Remove `TestRunnerModelTypeExclusion`, `TestDedicatedRunnerKeys`.
+- Update `TestRegistry.test_both_model_types_registered` -- should only check for `boltz2`.
+- Update `TestSubmitBaseTemplate.test_runner_extends_submit_base` -- remove this test.
+- Update `TestJobDetailTemplateRendering.test_flat_file_list_for_base_model_type` -- use a different model_key for fallback testing (e.g., an unknown key).
+- Update any other tests referencing `model_key="runner"` or `get_model_type("runner")`.
+
+---
+
+## Phase 11: Model Categories on Landing Page
+
+**Goal**: Group models by category on the selection page. Categories include "Structure Prediction", "Inverse Folding", and will be extended as new model types are added.
+
+### 11.1 Add `category` to BaseModelType
+
+**File**: `model_types/base.py`
+
+Add a class attribute:
+```python
+class BaseModelType(ABC):
+    key: str = ""
+    name: str = ""
+    category: str = ""  # e.g., "Structure Prediction", "Inverse Folding"
+    ...
 ```
 
-Key additions vs. current templates:
-- `enctype="multipart/form-data"` on the form tag (required for file uploads)
-- `{{ page_title }}` variable instead of hardcoded title
-- `{% block form_fields %}` for model-specific content
+### 11.2 Set categories on existing model types
 
-- [x] Update `submit_boltz2.html` to extend `submit_base.html` and only define `{% block form_fields %}` with the Boltz-specific fields.
-- [x] Update `submit.html` to extend `submit_base.html` similarly.
-- [x] Add `page_title` to the template context in the view (e.g., `f"New {model_type.name} Job"`).
-
-#### 4.2 Resolve the generic vs. specialized model type tension ✅
-
-Current state: `RunnerModelType` (key="runner") is a generic catch-all that shows all registered runners in a dropdown. `Boltz2ModelType` (key="boltz2") provides a dedicated Boltz-2 form. Both paths can submit Boltz-2 jobs, but the generic path omits all Boltz-specific parameters. This creates a confusing dual-path UX that will get worse as more specialized model types are added.
-
-**Decision**: The generic `RunnerModelType` should serve as a minimal fallback for runners that don't yet have dedicated model types. Runners that DO have a dedicated model type should be excluded from the generic dropdown.
-
-Changes:
-- [x] **`jobs/forms.py`**: Update `get_enabled_runner_choices()` to accept an `exclude_keys` parameter:
+**File**: `model_types/boltz2.py`
 
 ```python
-def get_enabled_runner_choices(exclude_keys: set[str] | None = None) -> list[tuple[str, str]]:
-    enabled_keys = RunnerConfig.get_enabled_runners()
-    exclude = exclude_keys or set()
-    return [(r.key, r.name) for r in all_runners()
-            if r.key in enabled_keys and r.key not in exclude]
+class Boltz2ModelType(BaseModelType):
+    category = "Structure Prediction"
+    ...
 ```
 
-- [x] **`model_types/runner.py`**: In `RunnerModelType.get_form()`, compute the set of runner keys that have dedicated model types and exclude them:
+Future model types will set their category similarly.
+
+### 11.3 Add `get_model_types_by_category` to registry
+
+**File**: `model_types/registry.py`
 
 ```python
-def get_form(self, *args, **kwargs) -> forms.Form:
-    form = super().get_form(*args, **kwargs)
-    # Exclude runners that have their own dedicated ModelType
-    from model_types.registry import MODEL_TYPES
-    dedicated_runner_keys = set()
+def get_model_types_by_category() -> list[tuple[str, list[BaseModelType]]]:
+    """Return model types grouped by category, ordered.
+
+    Returns a list of (category_name, model_type_list) tuples.
+    Models without a category are grouped under "Other".
+    """
+    from collections import OrderedDict
+    groups: dict[str, list[BaseModelType]] = OrderedDict()
     for mt in MODEL_TYPES.values():
-        if mt.key != "runner":  # don't exclude ourselves
-            # Each dedicated ModelType maps to exactly one runner key
-            # Use a class attribute or inspect resolve_runner_key
-            if hasattr(mt, '_runner_key'):
-                dedicated_runner_keys.add(mt._runner_key)
-    form.fields["runner"].choices = get_enabled_runner_choices(
-        exclude_keys=dedicated_runner_keys
-    )
-    return form
+        cat = mt.category or "Other"
+        groups.setdefault(cat, []).append(mt)
+    return list(groups.items())
 ```
 
-- [x] **Simpler alternative**: Add a `_runner_key` class attribute to each dedicated ModelType (e.g., `Boltz2ModelType._runner_key = "boltz-2"`) and use that for exclusion. Added `get_dedicated_runner_keys()` to registry.
+### 11.4 Update landing page template
 
-- [x] **If the generic dropdown ends up empty** (all runners have dedicated model types), `get_submittable_model_types()` excludes the generic runner from the selection page.
+**File**: `jobs/templates/jobs/select_model.html`
 
-#### 4.3 Add a model selection landing page ✅
-
-**File**: `jobs/templates/jobs/select_model.html` (new)
-
-When the user navigates to `/jobs/new/` without a `?model=` parameter, instead of defaulting to the generic runner form, show a card grid of available model types:
-
+Replace the flat card grid with a grouped layout:
 ```html
-{% extends "jobs/base.html" %}
-{% block content %}
-  <h1 class="mb-4">New Job</h1>
-  <div class="row g-4">
-    {% for model in model_types %}
+{% for category, models in model_categories %}
+  <h4 class="mb-3 mt-4">{{ category }}</h4>
+  <div class="row g-4 mb-4">
+    {% for model in models %}
     <div class="col-md-4">
       <div class="card h-100">
-        <div class="card-body">
+        <div class="card-body d-flex flex-column">
           <h5 class="card-title">{{ model.name }}</h5>
-          <p class="card-text">{{ model.help_text }}</p>
-          <a href="{% url 'job_submit' %}?model={{ model.key }}" class="btn btn-primary">
-            Select
-          </a>
+          <p class="card-text flex-grow-1">{{ model.help_text }}</p>
+          {% if maintenance_mode %}
+          <button class="btn btn-secondary" disabled>Submissions Disabled</button>
+          {% else %}
+          <a href="{% url 'job_submit' %}?model={{ model.key }}" class="btn btn-primary">Select</a>
+          {% endif %}
         </div>
       </div>
     </div>
     {% endfor %}
   </div>
-{% endblock %}
+{% endfor %}
 ```
 
-Changes to the view (`jobs/views.py`):
-- [x] If no `model` param is provided and `request.method == "GET"`, render the selection page with all registered model types.
-- [x] Added `get_submittable_model_types()` to registry for smart filtering of the selection page.
-
----
-
-### Phase 5: RunnerConfig with SLURM Resources ✅
-
-**Goal**: Make SLURM resource requirements (partition, GPUs, memory, time limit) configurable per-runner via Django admin, and have runners use these settings when building sbatch scripts.
-
-#### 5.1 Add resource fields to `RunnerConfig` ✅
-
-**File**: `console/models.py`
-
-Current state: `RunnerConfig` has `runner_key`, `enabled`, `disabled_reason`, and timestamps. No resource fields.
-
-Changes (all done):
-- [x] Add these fields to `RunnerConfig`:
-```python
-# SLURM resource configuration
-partition = models.CharField(
-    max_length=50, blank=True,
-    help_text="SLURM partition (e.g., 'gpu', 'cpu'). Empty = cluster default.",
-)
-gpus = models.PositiveIntegerField(
-    default=0,
-    help_text="Number of GPUs (--gres=gpu:N). 0 = no GPU request.",
-)
-cpus = models.PositiveIntegerField(
-    default=1,
-    help_text="CPUs per task (--cpus-per-task).",
-)
-mem_gb = models.PositiveIntegerField(
-    default=8,
-    help_text="Memory in GB (--mem).",
-)
-time_limit = models.CharField(
-    max_length=20, blank=True,
-    help_text="Time limit (--time, e.g., '02:00:00'). Empty = cluster default.",
-)
-
-# Container configuration
-image_uri = models.CharField(
-    max_length=200, blank=True,
-    help_text="Container image override. Empty = use runner's default.",
-)
-extra_env = models.JSONField(
-    default=dict, blank=True,
-    help_text="Additional environment variables as JSON object.",
-)
-extra_mounts = models.JSONField(
-    default=list, blank=True,
-    help_text='Additional bind mounts as JSON array of {"source": "...", "target": "..."} objects.',
-)
-```
-
-- [x] Create and run migration (`0003_add_runnerconfig_resource_fields`).
-
-#### 5.2 Add a `get_slurm_directives` method to `RunnerConfig` ✅
-
-**File**: `console/models.py`
-
-```python
-def get_slurm_directives(self) -> str:
-    """Generate #SBATCH directive lines from resource config."""
-    lines = []
-    if self.partition:
-        lines.append(f"#SBATCH --partition={self.partition}")
-    if self.gpus:
-        lines.append(f"#SBATCH --gres=gpu:{self.gpus}")
-    if self.cpus > 1:
-        lines.append(f"#SBATCH --cpus-per-task={self.cpus}")
-    if self.mem_gb:
-        lines.append(f"#SBATCH --mem={self.mem_gb}G")
-    if self.time_limit:
-        lines.append(f"#SBATCH --time={self.time_limit}")
-    return "\n".join(lines)
-```
-
-#### 5.3 Update `Runner.build_script` to accept resource config ✅
-
-**File**: `runners/__init__.py`
-
-Changes:
-- [x] Update the `Runner` ABC to pass resource config into `build_script`:
-
-```python
-class Runner(ABC):
-    key: str
-    name: str
-
-    @abstractmethod
-    def build_script(self, job, config: RunnerConfig | None = None) -> str:
-        """Generate sbatch script content for a Job.
-        config provides SLURM resource settings and container overrides."""
-        ...
-```
-
-- [x] Update `jobs/services.py` to fetch the `RunnerConfig` and pass it:
-
-```python
-config = RunnerConfig.get_config(runner_key)
-script = runner.build_script(job, config=config)
-```
-
-#### 5.4 Update `BoltzRunner.build_script` to use config ✅
-
-**File**: `runners/boltz.py`
-
-Current state: The sbatch script has no resource directives -- only `--job-name`, `--output`, and `--error`. The container image is read from `settings.BOLTZ_IMAGE`.
-
-Changes:
-```python
-def build_script(self, job, config=None) -> str:
-    workdir = Path(job.workdir)
-    outdir = workdir / "output"
-    cache_dir = Path(settings.BOLTZ_CACHE_DIR)
-
-    # Use config image override, fall back to settings
-    image = (config.image_uri if config and config.image_uri
-             else settings.BOLTZ_IMAGE)
-
-    # Build SLURM directives from config
-    slurm_directives = config.get_slurm_directives() if config else ""
-
-    # ... build flags from params as before ...
-
-    return f"""#!/bin/bash
-#SBATCH --job-name=boltz-{job.id}
-#SBATCH --output={outdir}/slurm-%j.out
-#SBATCH --error={outdir}/slurm-%j.err
-{slurm_directives}
-
-set -euo pipefail
-mkdir -p {outdir} {cache_dir}
-
-docker run --rm --gpus all \\
-  -e BOLTZ_CACHE=/cache \\
-  -e BOLTZ_MSA_USERNAME \\
-  -e BOLTZ_MSA_PASSWORD \\
-  -v {workdir}:/work \\
-  -v {cache_dir}:/cache \\
-  {image} predict /work/input/sequences.fasta --out_dir /work/output --cache /cache {flag_str}
-"""
-```
-
-Also:
-- [x] Remove the unused `input_path` variable (was on line 18 of `runners/boltz.py`).
-- [x] Update stub runners (`alphafold.py`, `chai.py`) to accept `config` parameter and emit SLURM directives.
-
----
-
-### Phase 6: Output Presentation ✅
-
-**Goal**: Give model types control over how job outputs are displayed, enabling primary result highlighting, file grouping, and model-specific rendering.
-
-#### 6.1 Add `get_output_context` to `BaseModelType` ✅
-
-**File**: `model_types/base.py`
-
-Added a concrete (not abstract) method with a useful default:
-
-```python
-def get_output_context(self, job) -> dict:
-    """Return template context for rendering job outputs on the detail page.
-
-    Returns a dict with:
-      - files: list of all output file dicts (name, size)
-      - primary_files: list of "main result" file dicts
-      - aux_files: list of auxiliary/log file dicts
-
-    Override to customize grouping, add labels, or flag specific
-    files for inline preview.
-    """
-    outdir = job.workdir / "output"
-    files = []
-    if outdir.exists() and outdir.is_dir():
-        for p in sorted(outdir.iterdir()):
-            if p.is_file():
-                files.append({"name": p.name, "size": p.stat().st_size})
-    return {"files": files, "primary_files": [], "aux_files": []}
-```
-
-#### 6.2 Override in `Boltz2ModelType` ✅
-
-**File**: `model_types/boltz2.py`
-
-```python
-def get_output_context(self, job) -> dict:
-    outdir = job.workdir / "output"
-    primary, aux = [], []
-    if outdir.exists():
-        for p in sorted(outdir.iterdir()):
-            if not p.is_file():
-                continue
-            entry = {"name": p.name, "size": p.stat().st_size}
-            if p.suffix in (".pdb", ".cif", ".mmcif"):
-                primary.append(entry)
-            else:
-                aux.append(entry)
-    return {
-        "files": primary + aux,
-        "primary_files": primary,
-        "aux_files": aux,
-    }
-```
-
-#### 6.3 Update `job_detail` view to use `get_output_context` ✅
+### 11.5 Update view to pass grouped model types
 
 **File**: `jobs/views.py`
 
-Previous state:
+In the `job_submit` view, when rendering the model selection page:
 ```python
-def job_detail(request, job_id):
-    job = get_object_or_404(...)
-    outdir = job.workdir / "output"
-    files = []
-    if outdir.exists() and outdir.is_dir():
-        for p in sorted(outdir.iterdir()):
-            if p.is_file():
-                files.append(p.name)
-    return render(request, "jobs/detail.html", {"job": job, "files": files})
+from model_types.registry import get_model_types_by_category
+
+return render(request, "jobs/select_model.html", {
+    "model_categories": get_model_types_by_category(),
+    ...
+})
 ```
 
-Changes (all done):
-- [x] Resolve model type from `job.model_key` with fallback to `get_default_model_type()`
-- [x] Call `model_type.get_output_context(job)` and spread into template context
-- [x] Import `get_default_model_type` from registry
+### 11.6 Tests
 
-#### 6.4 Update `detail.html` template ✅
-
-**File**: `jobs/templates/jobs/detail.html`
-
-Updated the output files section to use the structured context:
-
-```html
-<h2 class="mb-3">Output Files</h2>
-<div class="card">
-  <div class="card-body">
-    {% if primary_files %}
-      <h6 class="text-muted mb-2">Results</h6>
-      <div class="table-responsive mb-3">
-        <table class="table table-hover mb-0">
-          <thead><tr><th>File</th><th>Size</th><th></th></tr></thead>
-          <tbody>
-            {% for f in primary_files %}
-            <tr>
-              <td class="font-monospace">{{ f.name }}</td>
-              <td class="text-muted">{{ f.size|filesizeformat }}</td>
-              <td><a class="btn btn-outline-primary btn-sm" href="{% url 'download_file' job_id=job.id filename=f.name %}">Download</a></td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% endif %}
-
-    {% if aux_files %}
-      <h6 class="text-muted mb-2">Logs &amp; Auxiliary</h6>
-      <!-- same table structure for aux_files -->
-    {% endif %}
-
-    {% if not files %}
-      <p class="text-muted mb-0">No output files found yet.</p>
-    {% endif %}
-  </div>
-</div>
-```
-
-Changes (all done):
-- [x] Primary files shown in a "Results" section with `btn-outline-primary` download buttons
-- [x] Auxiliary files shown in a "Logs & Auxiliary" section with `btn-outline-secondary` download buttons
-- [x] Flat file list fallback when no primary/aux classification (base model type default)
-- [x] File sizes displayed via `filesizeformat` filter
-- [x] "No output files found yet" message when no files exist
-- [x] Backwards-compatible: base model type returns empty primary/aux lists, template shows flat list
+- Test that `get_model_types_by_category()` returns grouped results.
+- Test that models with `category` set appear under the right heading.
+- Test that the landing page renders category headings.
 
 ---
-
-### Phase 7: Batch + Config Parsing ✅
-
-**Goal**: Support batch submissions (multi-FASTA file, ZIP of PDBs) and advanced configuration files (JSON config overrides).
-
-#### 7.1 Add shared parsing utilities ✅
-
-**File**: `model_types/parsers.py` (new)
-
-Changes (all done):
-- [x] `parse_fasta_batch(text)` — parses multi-FASTA into `[{"header", "sequence"}, ...]` with validation (empty text, missing headers, empty sequences, max 100 entries)
-- [x] `parse_zip_entries(upload, allowed_extensions, max_total_bytes)` — extracts ZIP entries with safety checks (path traversal rejection, extension filtering, size limits, max 100 entries, basename deduplication)
-- [x] `parse_json_config(upload)` — parses JSON config files with type validation (must be a dict)
-
-#### 7.2 Add batch/config methods to `BaseModelType` ✅
-
-**File**: `model_types/base.py`
-
-Changes (all done):
-- [x] Added `parse_batch(self, upload) -> list[dict]` — concrete method that raises `NotImplementedError` by default
-- [x] Added `parse_config(self, upload) -> dict` — concrete method that raises `NotImplementedError` by default
-- [x] Model types opt in to batch/config support by overriding these methods
-
-#### 7.3 Update submission view and service layer ✅
-
-Changes (all done):
-- [x] Added `batch_id = UUIDField(null=True, blank=True, db_index=True)` to Job model with migration `0007_add_batch_id`
-- [x] Updated `create_and_submit_job()` to accept optional `batch_id` parameter
-- [x] Updated `job_submit` view: detects `batch_file` in cleaned_data, calls `model_type.parse_batch()`, loops to create multiple jobs with shared `batch_id`, redirects to job list
-- [x] Updated `job_submit` view: detects `config_file` in cleaned_data, calls `model_type.parse_config()`, merges overrides into cleaned_data before `normalize_inputs()`
-- [x] Config merging happens before batch splitting, so batch + config works together
-
-#### 7.4 Add UI hints ✅
-
-Changes (all done):
-- [x] Added `batch_file` and `config_file` FileField to `Boltz2SubmitForm` with descriptive help text
-- [x] Made `sequences` field optional in `Boltz2SubmitForm` (required=False) with cross-field `clean()` that requires either sequences or batch_file
-- [x] Added "Advanced" section to `submit_boltz2.html` with batch file and config file upload fields
-- [x] `submit_base.html` already has `enctype="multipart/form-data"` for file uploads
-- [x] Implemented `Boltz2ModelType.parse_batch()` — splits multi-FASTA into per-sequence items with name from header
-- [x] Implemented `Boltz2ModelType.parse_config()` — parses JSON, filters to allowed Boltz-2 parameter keys only
-
----
-
-### Phase 8: Minor Fixes and Cleanup ✅
-
-These can be done at any point, ideally alongside the phase that touches the relevant file.
-
-#### 8.1 Remove unused variable in `BoltzRunner` ✅
-
-**File**: `runners/boltz.py:18`
-
-`input_path = workdir / "input" / "sequences.fasta"` was defined but never used. Already removed in Phase 5.
-
-#### 8.2 Fix `normalize_inputs` filter for boolean False ✅
-
-**File**: `model_types/boltz2.py:31`
-
-Filter already updated to `{k: v for k, v in params.items() if v not in (None, "", False)}` to exclude dead-weight `False` values from stored JSON.
-
-#### 8.3 Fix file handle in `download_file` ✅
-
-**File**: `jobs/views.py:153`
-
-Changed `open(file_path, "rb")` to `file_path.open("rb")` for idiomatic `Path` usage.
-
----
-
-## Open Questions
-- Should batch uploads create many independent jobs or one parent job with sub-tasks?
-- Should advanced config files be stored verbatim (as a file in the workdir) or parsed and merged into `input_payload`?
-- For the model selection landing page: should it replace the default "runner" form, or coexist alongside it?
 
 ## File Reference
 
@@ -995,8 +375,7 @@ Changed `open(file_path, "rb")` to `file_path.open("rb")` for idiomatic `Path` u
 - `model_types/base.py` -- `BaseModelType` ABC and `InputPayload` TypedDict
 - `model_types/registry.py` -- registry dict and lookup functions
 - `model_types/boltz2.py` -- Boltz-2 ModelType implementation
-- `model_types/runner.py` -- generic runner ModelType
-- `model_types/parsers.py` -- shared parsing utilities (FASTA, ZIP, JSON config) (Phase 7)
+- `model_types/parsers.py` -- FASTA parsing/validation utilities
 
 **Runners**:
 - `runners/__init__.py` -- `Runner` ABC, registry, `@register` decorator
@@ -1006,7 +385,7 @@ Changed `open(file_path, "rb")` to `file_path.open("rb")` for idiomatic `Path` u
 
 **Jobs app**:
 - `jobs/models.py` -- `Job` model
-- `jobs/forms.py` -- `JobForm`, `Boltz2SubmitForm`, runner helpers
+- `jobs/forms.py` -- `Boltz2SubmitForm`, runner helpers
 - `jobs/views.py` -- submission, detail, download, cancel, delete views
 - `jobs/services.py` -- `create_and_submit_job` orchestration
 - `jobs/urls.py` -- URL routing
@@ -1022,9 +401,8 @@ Changed `open(file_path, "rb")` to `file_path.open("rb")` for idiomatic `Path` u
 
 **Templates**:
 - `jobs/templates/jobs/base.html` -- base layout
-- `jobs/templates/jobs/submit_base.html` -- shared submission form (Phase 4)
-- `jobs/templates/jobs/select_model.html` -- model selection landing page (Phase 4)
-- `jobs/templates/jobs/submit.html` -- generic runner form (extends submit_base)
-- `jobs/templates/jobs/submit_boltz2.html` -- Boltz-2 form (extends submit_base)
+- `jobs/templates/jobs/submit_base.html` -- shared submission form
+- `jobs/templates/jobs/select_model.html` -- model selection landing page (grouped by category)
+- `jobs/templates/jobs/submit_boltz2.html` -- Boltz-2 form
 - `jobs/templates/jobs/detail.html` -- job detail / output files
 - `jobs/templates/jobs/list.html` -- job list

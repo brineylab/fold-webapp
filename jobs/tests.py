@@ -1,7 +1,6 @@
-"""Tests for jobs app (Phases 2-3, 6-7: service-layer validation, workdir delegation, output presentation, batch/config)."""
+"""Tests for jobs app (service-layer validation, workdir delegation, output presentation, input file upload)."""
 from __future__ import annotations
 
-import json
 import shutil
 import tempfile
 from pathlib import Path
@@ -38,7 +37,7 @@ class _StubModelType(BaseModelType):
 
 
 # ---------------------------------------------------------------------------
-# Phase 2: Defense-in-depth input checks
+# Defense-in-depth input checks
 # ---------------------------------------------------------------------------
 
 
@@ -148,7 +147,7 @@ class TestCreateAndSubmitJobValidation(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: payload sanitization
+# Payload sanitization
 # ---------------------------------------------------------------------------
 
 
@@ -184,7 +183,7 @@ class TestSanitizePayloadForStorage(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: prepare_workdir
+# prepare_workdir
 # ---------------------------------------------------------------------------
 
 
@@ -309,7 +308,7 @@ class TestPrepareWorkdirOverride(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: service calls prepare_workdir
+# Service calls prepare_workdir
 # ---------------------------------------------------------------------------
 
 
@@ -372,7 +371,7 @@ class TestServiceCallsPrepareWorkdir(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Phase 4: View-level tests (templates, model selection, page_title)
+# View-level tests (templates, model selection, page_title)
 # ---------------------------------------------------------------------------
 
 
@@ -424,11 +423,6 @@ class TestSubmitBaseTemplate(TestCase):
         self.assertTemplateUsed(response, "jobs/submit_base.html")
         self.assertTemplateUsed(response, "jobs/submit_boltz2.html")
 
-    def test_runner_extends_submit_base(self):
-        response = self.client.get("/jobs/new/?model=runner")
-        self.assertTemplateUsed(response, "jobs/submit_base.html")
-        self.assertTemplateUsed(response, "jobs/submit.html")
-
     def test_submit_form_has_multipart_enctype(self):
         response = self.client.get("/jobs/new/?model=boltz2")
         self.assertContains(response, 'enctype="multipart/form-data"')
@@ -439,7 +433,7 @@ class TestSubmitBaseTemplate(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Phase 6: Output presentation (view + template integration)
+# Output presentation (view + template integration)
 # ---------------------------------------------------------------------------
 
 
@@ -569,8 +563,8 @@ class TestJobDetailTemplateRendering(TestCase):
         self.assertContains(response, "No output files found yet")
 
     def test_flat_file_list_for_base_model_type(self):
-        """Generic runner jobs (no primary/aux split) show flat file list."""
-        job = self._create_job(model_key="runner")
+        """Jobs with unrecognized model_key (no primary/aux split) show flat file list."""
+        job = self._create_job(model_key="unknown_model")
         outdir = self.tmpdir / str(job.id) / "output"
         outdir.mkdir(parents=True)
         (outdir / "output.txt").write_text("result data")
@@ -605,251 +599,94 @@ class TestJobDetailTemplateRendering(TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Phase 7: Batch + Config (model, service, view integration)
+# Input file upload (view integration)
 # ---------------------------------------------------------------------------
 
 
-class TestJobBatchIdField(TestCase):
-    """Job model has a batch_id field for grouping batch submissions."""
+class TestInputFileSubmission(TestCase):
+    """Submitting a job with an input file via the view."""
 
     def setUp(self):
         self.user = User.objects.create_user(
-            username="batchuser", password="testpass"
+            username="fileuser", password="testpass"
         )
-
-    def test_batch_id_defaults_to_none(self):
-        job = Job.objects.create(
-            owner=self.user, runner="boltz-2", model_key="boltz2",
-        )
-        self.assertIsNone(job.batch_id)
-
-    def test_batch_id_can_be_set(self):
-        import uuid
-        bid = uuid.uuid4()
-        job = Job.objects.create(
-            owner=self.user, runner="boltz-2", model_key="boltz2",
-            batch_id=bid,
-        )
-        self.assertEqual(job.batch_id, bid)
-
-    def test_batch_id_queryable(self):
-        import uuid
-        bid = uuid.uuid4()
-        Job.objects.create(
-            owner=self.user, runner="boltz-2", model_key="boltz2", batch_id=bid,
-        )
-        Job.objects.create(
-            owner=self.user, runner="boltz-2", model_key="boltz2", batch_id=bid,
-        )
-        Job.objects.create(
-            owner=self.user, runner="boltz-2", model_key="boltz2",
-        )
-        self.assertEqual(Job.objects.filter(batch_id=bid).count(), 2)
-
-
-class TestServiceBatchId(TestCase):
-    """create_and_submit_job accepts and stores batch_id."""
-
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username="svcbatchuser", password="testpass"
-        )
+        self.client.login(username="fileuser", password="testpass")
 
     @patch("jobs.services.slurm")
-    def test_batch_id_stored_on_job(self, mock_slurm):
-        import uuid
-        mock_slurm.submit.return_value = "FAKE-BATCH"
-        bid = uuid.uuid4()
-        mt = get_model_type("boltz2")
-        job = create_and_submit_job(
-            owner=self.user,
-            model_type=mt,
-            runner_key="boltz-2",
-            sequences=">s\nMKTAYI",
-            params={},
-            model_key="boltz2",
-            input_payload={"sequences": ">s\nMKTAYI", "params": {}, "files": {}},
-            batch_id=bid,
-        )
-        self.assertEqual(job.batch_id, bid)
-
-    @patch("jobs.services.slurm")
-    def test_batch_id_defaults_to_none(self, mock_slurm):
-        mock_slurm.submit.return_value = "FAKE-SINGLE"
-        mt = get_model_type("boltz2")
-        job = create_and_submit_job(
-            owner=self.user,
-            model_type=mt,
-            runner_key="boltz-2",
-            sequences=">s\nMKTAYI",
-            params={},
-            model_key="boltz2",
-            input_payload={"sequences": ">s\nMKTAYI", "params": {}, "files": {}},
-        )
-        self.assertIsNone(job.batch_id)
-
-
-class TestBatchSubmissionView(TestCase):
-    """Batch file upload creates multiple jobs with shared batch_id."""
-
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username="batchviewuser", password="testpass"
-        )
-        self.client.login(username="batchviewuser", password="testpass")
-
-    @patch("jobs.services.slurm")
-    def test_batch_creates_multiple_jobs(self, mock_slurm):
-        mock_slurm.submit.return_value = "FAKE-BATCH-JOB"
-        fasta_content = b">seq1\nMKTAYI\n>seq2\nACDEFG\n>seq3\nHIKLMN"
-        batch_file = SimpleUploadedFile(
-            "batch.fasta", fasta_content, content_type="text/plain"
+    def test_input_file_creates_job(self, mock_slurm):
+        mock_slurm.submit.return_value = "FAKE-FILE"
+        yaml_content = b"version: 2\nsequences:\n  - protein:\n      id: A\n"
+        input_file = SimpleUploadedFile(
+            "complex.yaml", yaml_content, content_type="application/x-yaml"
         )
         response = self.client.post(
             "/jobs/new/?model=boltz2",
-            {"model": "boltz2", "batch_file": batch_file},
+            {"model": "boltz2", "input_file": input_file},
         )
-        # Should redirect to job list (not detail) for batch
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("", response.url)  # redirects to job_list
-
-        # 3 jobs created
-        jobs = Job.objects.filter(owner=self.user).order_by("created_at")
-        self.assertEqual(jobs.count(), 3)
-
-        # All share the same batch_id
-        batch_ids = set(j.batch_id for j in jobs)
-        self.assertEqual(len(batch_ids), 1)
-        self.assertIsNotNone(batch_ids.pop())
-
-        # Each has the right sequences
-        seqs = sorted(j.sequences for j in jobs)
-        self.assertIn(">seq1\nMKTAYI", seqs)
-        self.assertIn(">seq2\nACDEFG", seqs)
-        self.assertIn(">seq3\nHIKLMN", seqs)
+        self.assertEqual(response.status_code, 302)  # redirect to detail
+        job = Job.objects.get(owner=self.user)
+        # sequences should be empty since file replaces textarea
+        self.assertEqual(job.sequences, "")
+        # input_payload should record the filename
+        self.assertIn("complex.yaml", job.input_payload.get("files", []))
 
     @patch("jobs.services.slurm")
-    def test_batch_jobs_get_names_from_headers(self, mock_slurm):
-        mock_slurm.submit.return_value = "FAKE-BATCH-JOB"
-        fasta_content = b">my_protein\nMKTAYI\n>other_protein\nACDEFG"
-        batch_file = SimpleUploadedFile(
-            "batch.fasta", fasta_content, content_type="text/plain"
-        )
-        self.client.post(
+    def test_sequences_submission_still_works(self, mock_slurm):
+        mock_slurm.submit.return_value = "FAKE-SEQ"
+        response = self.client.post(
             "/jobs/new/?model=boltz2",
-            {"model": "boltz2", "batch_file": batch_file},
+            {"model": "boltz2", "sequences": ">s\nMKTAYI"},
         )
-        names = sorted(Job.objects.filter(owner=self.user).values_list("name", flat=True))
-        self.assertIn("my_protein", names)
-        self.assertIn("other_protein", names)
+        self.assertEqual(response.status_code, 302)
+        job = Job.objects.get(owner=self.user)
+        self.assertEqual(job.sequences, ">s\nMKTAYI")
 
-    def test_no_sequences_or_batch_shows_error(self):
-        """Submitting without sequences and without batch file should fail."""
+    def test_no_sequences_or_file_shows_error(self):
+        """Submitting without sequences and without input file should fail."""
         response = self.client.post(
             "/jobs/new/?model=boltz2",
             {"model": "boltz2"},
         )
         self.assertEqual(response.status_code, 200)
-        # Form should have errors
         self.assertTrue(response.context["form"].errors)
 
-
-class TestConfigSubmissionView(TestCase):
-    """Config file upload merges param overrides into the job."""
-
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username="configviewuser", password="testpass"
-        )
-        self.client.login(username="configviewuser", password="testpass")
-
     @patch("jobs.services.slurm")
-    def test_config_overrides_params(self, mock_slurm):
-        mock_slurm.submit.return_value = "FAKE-CONFIG"
-        config_data = {"recycling_steps": 10, "sampling_steps": 50}
-        config_file = SimpleUploadedFile(
-            "config.json",
-            json.dumps(config_data).encode(),
-            content_type="application/json",
+    def test_input_file_written_to_workdir(self, mock_slurm):
+        """The uploaded file should be written verbatim to the job workdir."""
+        mock_slurm.submit.return_value = "FAKE-WD"
+        yaml_content = b"version: 2\ndata: test\n"
+        input_file = SimpleUploadedFile(
+            "input.yaml", yaml_content, content_type="application/x-yaml"
         )
         response = self.client.post(
             "/jobs/new/?model=boltz2",
-            {
-                "model": "boltz2",
-                "sequences": ">s\nMKTAYI",
-                "config_file": config_file,
-            },
+            {"model": "boltz2", "input_file": input_file},
         )
-        self.assertEqual(response.status_code, 302)  # redirect to detail
-
+        self.assertEqual(response.status_code, 302)
         job = Job.objects.get(owner=self.user)
-        self.assertEqual(job.params.get("recycling_steps"), 10)
-        self.assertEqual(job.params.get("sampling_steps"), 50)
-
-    @patch("jobs.services.slurm")
-    def test_config_ignores_unknown_keys(self, mock_slurm):
-        mock_slurm.submit.return_value = "FAKE-CONFIG"
-        config_data = {"recycling_steps": 10, "malicious_key": "evil"}
-        config_file = SimpleUploadedFile(
-            "config.json",
-            json.dumps(config_data).encode(),
-            content_type="application/json",
-        )
-        self.client.post(
-            "/jobs/new/?model=boltz2",
-            {
-                "model": "boltz2",
-                "sequences": ">s\nMKTAYI",
-                "config_file": config_file,
-            },
-        )
-        job = Job.objects.get(owner=self.user)
-        self.assertNotIn("malicious_key", job.params)
-        self.assertEqual(job.params.get("recycling_steps"), 10)
-
-    @patch("jobs.services.slurm")
-    def test_batch_with_config(self, mock_slurm):
-        """Batch + config: all batch jobs should get config overrides."""
-        mock_slurm.submit.return_value = "FAKE-BOTH"
-        fasta_content = b">seq1\nMKTAYI\n>seq2\nACDEFG"
-        batch_file = SimpleUploadedFile(
-            "batch.fasta", fasta_content, content_type="text/plain"
-        )
-        config_data = {"recycling_steps": 7}
-        config_file = SimpleUploadedFile(
-            "config.json",
-            json.dumps(config_data).encode(),
-            content_type="application/json",
-        )
-        self.client.post(
-            "/jobs/new/?model=boltz2",
-            {
-                "model": "boltz2",
-                "batch_file": batch_file,
-                "config_file": config_file,
-            },
-        )
-        jobs = Job.objects.filter(owner=self.user)
-        self.assertEqual(jobs.count(), 2)
-        for job in jobs:
-            self.assertEqual(job.params.get("recycling_steps"), 7)
+        written = job.workdir / "input" / "input.yaml"
+        self.assertTrue(written.exists())
+        self.assertEqual(written.read_bytes(), yaml_content)
 
 
-class TestBoltz2TemplateAdvancedFields(TestCase):
-    """Boltz-2 submit template includes batch and config file fields."""
+class TestBoltz2TemplateInputFileField(TestCase):
+    """Boltz-2 submit template includes the input file field."""
 
     def setUp(self):
         self.user = User.objects.create_user(
-            username="advuser", password="testpass"
+            username="tplfileuser", password="testpass"
         )
-        self.client.login(username="advuser", password="testpass")
+        self.client.login(username="tplfileuser", password="testpass")
 
-    def test_batch_file_field_present(self):
+    def test_input_file_field_present(self):
         response = self.client.get("/jobs/new/?model=boltz2")
-        self.assertContains(response, "batch_file")
-        self.assertContains(response, "Batch file")
+        self.assertContains(response, "input_file")
+        self.assertContains(response, "Input file")
 
-    def test_config_file_field_present(self):
+    def test_batch_file_field_absent(self):
         response = self.client.get("/jobs/new/?model=boltz2")
-        self.assertContains(response, "config_file")
-        self.assertContains(response, "Config file")
+        self.assertNotContains(response, "batch_file")
+
+    def test_config_file_field_absent(self):
+        response = self.client.get("/jobs/new/?model=boltz2")
+        self.assertNotContains(response, "config_file")

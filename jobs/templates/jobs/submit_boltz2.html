@@ -15,6 +15,13 @@
         </div>
 
         <div class="mb-3">
+          <label for="{{ form.input_file.id_for_label }}" class="form-label">Input file</label>
+          {{ form.input_file }}
+          <div class="form-text">{{ form.input_file.help_text }}</div>
+          {{ form.input_file.errors }}
+        </div>
+
+        <div class="mb-3">
           <div class="form-check">
             {{ form.use_msa_server }}
             <label class="form-check-label" for="{{ form.use_msa_server.id_for_label }}">
@@ -64,21 +71,5 @@
           </div>
         </div>
 
-        <hr class="my-4">
-        <h6 class="text-muted mb-3">Advanced</h6>
 
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="{{ form.batch_file.id_for_label }}" class="form-label">Batch file</label>
-            {{ form.batch_file }}
-            <div class="form-text">{{ form.batch_file.help_text }}</div>
-            {{ form.batch_file.errors }}
-          </div>
-          <div class="col-md-6 mb-3">
-            <label for="{{ form.config_file.id_for_label }}" class="form-label">Config file</label>
-            {{ form.config_file }}
-            <div class="form-text">{{ form.config_file.help_text }}</div>
-            {{ form.config_file.errors }}
-          </div>
-        </div>
 {% endblock %}

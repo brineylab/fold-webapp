@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 from django.contrib.auth.decorators import login_required
@@ -15,7 +14,17 @@ from jobs.forms import get_disabled_runners
 from jobs.models import Job
 from jobs.services import create_and_submit_job
 from model_types import get_model_type, get_submittable_model_types
-from model_types.registry import get_default_model_type
+
+
+def _fallback_output_context(job):
+    """Output context for jobs whose model_key no longer has a registered ModelType."""
+    outdir = job.workdir / "output"
+    files = []
+    if outdir.exists() and outdir.is_dir():
+        for p in sorted(outdir.iterdir()):
+            if p.is_file():
+                files.append({"name": p.name, "size": p.stat().st_size})
+    return {"files": files, "primary_files": [], "aux_files": []}
 
 
 def _job_queryset_for(user):
@@ -68,43 +77,12 @@ def job_submit(request):
             if form.is_valid():
                 try:
                     model_type.validate(form.cleaned_data)
-
-                    # Config file: merge overrides into cleaned_data
-                    config_file = form.cleaned_data.get("config_file")
-                    merged_data = dict(form.cleaned_data)
-                    if config_file:
-                        config_overrides = model_type.parse_config(config_file)
-                        merged_data.update(config_overrides)
-
-                    # Batch file: create multiple jobs
-                    batch_file = form.cleaned_data.get("batch_file")
-                    if batch_file:
-                        batch_items = model_type.parse_batch(batch_file)
-                        batch_id = uuid.uuid4()
-                        for item in batch_items:
-                            item_data = {**merged_data, **item}
-                            input_payload = model_type.normalize_inputs(item_data)
-                            runner_key = model_type.resolve_runner_key(item_data)
-                            create_and_submit_job(
-                                owner=request.user,
-                                model_type=model_type,
-                                name=item.get("name", merged_data.get("name", "")),
-                                runner_key=runner_key,
-                                sequences=input_payload.get("sequences", ""),
-                                params=input_payload.get("params", {}),
-                                model_key=model_type.key,
-                                input_payload=input_payload,
-                                batch_id=batch_id,
-                            )
-                        return redirect("job_list")
-
-                    # Single job submission
-                    input_payload = model_type.normalize_inputs(merged_data)
-                    runner_key = model_type.resolve_runner_key(merged_data)
+                    input_payload = model_type.normalize_inputs(form.cleaned_data)
+                    runner_key = model_type.resolve_runner_key(form.cleaned_data)
                     job = create_and_submit_job(
                         owner=request.user,
                         model_type=model_type,
-                        name=merged_data.get("name", ""),
+                        name=form.cleaned_data.get("name", ""),
                         runner_key=runner_key,
                         sequences=input_payload.get("sequences", ""),
                         params=input_payload.get("params", {}),
@@ -135,8 +113,8 @@ def job_detail(request, job_id):
     try:
         model_type = get_model_type(job.model_key)
     except KeyError:
-        model_type = get_default_model_type()
-    output_context = model_type.get_output_context(job)
+        model_type = None
+    output_context = model_type.get_output_context(job) if model_type else _fallback_output_context(job)
 
     return render(request, "jobs/detail.html", {"job": job, **output_context})
 

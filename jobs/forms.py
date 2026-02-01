@@ -6,37 +6,16 @@ from console.models import RunnerConfig
 from runners import all_runners
 
 
-def get_enabled_runner_choices(
-    exclude_keys: set[str] | None = None,
-) -> list[tuple[str, str]]:
-    """Get list of enabled runners as form choices.
-
-    Args:
-        exclude_keys: Optional set of runner keys to exclude (e.g., runners
-            that have dedicated ModelTypes with their own forms).
-
-    Returns list of (key, name) tuples for runners that are currently enabled
-    and not in the exclusion set.
-    """
-    enabled_keys = RunnerConfig.get_enabled_runners()
-    exclude = exclude_keys or set()
-    return [
-        (r.key, r.name)
-        for r in all_runners()
-        if r.key in enabled_keys and r.key not in exclude
-    ]
-
-
 def get_disabled_runners() -> list[dict]:
     """
     Get list of disabled runners with their details.
-    
+
     Returns list of dicts with 'key', 'name', and 'reason' for disabled runners.
     """
     all_keys = {r.key for r in all_runners()}
     enabled_keys = RunnerConfig.get_enabled_runners()
     disabled_keys = all_keys - enabled_keys
-    
+
     result = []
     for runner in all_runners():
         if runner.key in disabled_keys:
@@ -47,38 +26,6 @@ def get_disabled_runners() -> list[dict]:
                 "reason": config.disabled_reason or "Temporarily unavailable",
             })
     return result
-
-
-class JobForm(forms.Form):
-    name = forms.CharField(
-        required=False,
-        widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                # "placeholder": "e.g., My first AF run",
-                # "placeholder": "optional job name",
-            }
-        ),
-        # help_text="Optional name for this run.",
-    )
-    runner = forms.ChoiceField(
-        choices=[],
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-    sequences = forms.CharField(
-        widget=forms.Textarea(
-            attrs={
-                "class": "form-control",
-                "rows": 12,
-                "placeholder": ">seq1\nMKTAYI...\n",
-            }
-        ),
-        help_text="Paste one or more FASTA-formatted sequences.",
-    )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["runner"].choices = get_enabled_runner_choices()
 
 
 class Boltz2SubmitForm(forms.Form):
@@ -97,16 +44,14 @@ class Boltz2SubmitForm(forms.Form):
         ),
         help_text="Paste one or more FASTA-formatted sequences.",
     )
-
-    def clean(self):
-        cleaned = super().clean()
-        has_sequences = bool((cleaned.get("sequences") or "").strip())
-        has_batch = bool(cleaned.get("batch_file"))
-        if not has_sequences and not has_batch:
-            raise forms.ValidationError(
-                "Provide either sequences or a batch file."
-            )
-        return cleaned
+    input_file = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
+        help_text=(
+            "Upload a Boltz-2 YAML input file. "
+            "When provided, the Sequences field is ignored."
+        ),
+    )
     use_msa_server = forms.BooleanField(
         required=False,
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
@@ -142,19 +87,13 @@ class Boltz2SubmitForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Optional number of diffusion samples (default: Boltz-2 setting).",
     )
-    batch_file = forms.FileField(
-        required=False,
-        widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
-        help_text=(
-            "Upload a multi-FASTA file to submit one job per sequence. "
-            "When provided, the Sequences text area is ignored."
-        ),
-    )
-    config_file = forms.FileField(
-        required=False,
-        widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
-        help_text=(
-            "Upload a JSON config file to override default parameters. "
-            "Keys should match parameter names (e.g., recycling_steps, sampling_steps)."
-        ),
-    )
+
+    def clean(self):
+        cleaned = super().clean()
+        has_sequences = bool((cleaned.get("sequences") or "").strip())
+        has_file = bool(cleaned.get("input_file"))
+        if not has_sequences and not has_file:
+            raise forms.ValidationError(
+                "Provide either sequences or an input file."
+            )
+        return cleaned
