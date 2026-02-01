@@ -11,5 +11,6 @@ class JobsConfig(AppConfig):
         import runners.alphafold  # noqa: F401
         import runners.boltz  # noqa: F401
         import runners.chai  # noqa: F401
+        import runners.ligandmpnn  # noqa: F401
 
 

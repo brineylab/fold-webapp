@@ -209,8 +209,10 @@ class TestValidationOwnership(TestCase):
 
 
 class TestRegistry(TestCase):
-    def test_boltz2_registered(self):
+    def test_all_model_types_registered(self):
         self.assertIn("boltz2", MODEL_TYPES)
+        self.assertIn("protein_mpnn", MODEL_TYPES)
+        self.assertIn("ligand_mpnn", MODEL_TYPES)
 
     def test_get_model_type_unknown_raises(self):
         with self.assertRaises(KeyError):
@@ -658,3 +660,191 @@ class TestBoltz2InputFile(TestCase):
         })
         self.assertIn("use_msa_server", payload["params"])
         self.assertIn("recycling_steps", payload["params"])
+
+
+# ---------------------------------------------------------------------------
+# 12-13  ProteinMPNN / LigandMPNN model types
+# ---------------------------------------------------------------------------
+
+
+class TestProteinMPNNInputPayload(TestCase):
+    """ProteinMPNNModelType.normalize_inputs returns correct structure."""
+
+    def _make_upload(self, name: str, content: bytes):
+        upload = io.BytesIO(content)
+        upload.name = name
+        return upload
+
+    def test_payload_shape(self):
+        mt = get_model_type("protein_mpnn")
+        upload = self._make_upload("test.pdb", b"ATOM 1 N ALA")
+        payload = mt.normalize_inputs({
+            "pdb_file": upload,
+            "noise_level": "v_48_020",
+            "temperature": 0.1,
+            "num_sequences": 8,
+        })
+        self.assertIsInstance(payload, dict)
+        self.assertEqual(set(payload.keys()), {"sequences", "params", "files"})
+        self.assertEqual(payload["sequences"], "")
+        self.assertIsInstance(payload["params"], dict)
+        self.assertIsInstance(payload["files"], dict)
+
+    def test_pdb_renamed_to_input_pdb(self):
+        mt = get_model_type("protein_mpnn")
+        upload = self._make_upload("my_structure.pdb", b"ATOM 1 N ALA")
+        payload = mt.normalize_inputs({
+            "pdb_file": upload,
+            "noise_level": "v_48_020",
+        })
+        self.assertIn("input.pdb", payload["files"])
+        self.assertEqual(payload["files"]["input.pdb"], b"ATOM 1 N ALA")
+
+    def test_model_variant_set(self):
+        mt = get_model_type("protein_mpnn")
+        upload = self._make_upload("test.pdb", b"ATOM")
+        payload = mt.normalize_inputs({
+            "pdb_file": upload,
+            "noise_level": "v_48_020",
+        })
+        self.assertEqual(payload["params"]["model_variant"], "protein_mpnn")
+
+    def test_strips_falsy_params(self):
+        mt = get_model_type("protein_mpnn")
+        upload = self._make_upload("test.pdb", b"ATOM")
+        payload = mt.normalize_inputs({
+            "pdb_file": upload,
+            "noise_level": "v_48_020",
+            "temperature": None,
+            "num_sequences": None,
+            "chains_to_design": "",
+            "fixed_residues": "",
+            "seed": None,
+        })
+        self.assertNotIn("temperature", payload["params"])
+        self.assertNotIn("chains_to_design", payload["params"])
+
+    def test_resolve_runner_key(self):
+        mt = get_model_type("protein_mpnn")
+        self.assertEqual(mt.resolve_runner_key({}), "ligandmpnn")
+
+
+class TestLigandMPNNInputPayload(TestCase):
+    """LigandMPNNModelType.normalize_inputs returns correct structure."""
+
+    def _make_upload(self, name: str, content: bytes):
+        upload = io.BytesIO(content)
+        upload.name = name
+        return upload
+
+    def test_model_variant_set(self):
+        mt = get_model_type("ligand_mpnn")
+        upload = self._make_upload("test.pdb", b"ATOM")
+        payload = mt.normalize_inputs({
+            "pdb_file": upload,
+            "noise_level": "v_32_010_25",
+        })
+        self.assertEqual(payload["params"]["model_variant"], "ligand_mpnn")
+
+    def test_pdb_renamed_to_input_pdb(self):
+        mt = get_model_type("ligand_mpnn")
+        upload = self._make_upload("complex.pdb", b"ATOM 1 N ALA")
+        payload = mt.normalize_inputs({
+            "pdb_file": upload,
+            "noise_level": "v_32_010_25",
+        })
+        self.assertIn("input.pdb", payload["files"])
+
+    def test_resolve_runner_key(self):
+        mt = get_model_type("ligand_mpnn")
+        self.assertEqual(mt.resolve_runner_key({}), "ligandmpnn")
+
+
+class TestInverseFoldingValidation(TestCase):
+    """validate() passes for valid data (cross-field checks deferred to form)."""
+
+    def test_protein_mpnn_validate_passes(self):
+        mt = get_model_type("protein_mpnn")
+        mt.validate({"pdb_file": "something", "noise_level": "v_48_020"})
+
+    def test_ligand_mpnn_validate_passes(self):
+        mt = get_model_type("ligand_mpnn")
+        mt.validate({"pdb_file": "something", "noise_level": "v_32_010_25"})
+
+
+class TestInverseFoldingCategories(TestCase):
+    """Inverse Folding category appears in get_model_types_by_category()."""
+
+    def test_inverse_folding_category_exists(self):
+        result = get_model_types_by_category()
+        categories = dict(result)
+        self.assertIn("Inverse Folding", categories)
+
+    def test_both_models_in_inverse_folding(self):
+        result = get_model_types_by_category()
+        categories = dict(result)
+        keys = [mt.key for mt in categories["Inverse Folding"]]
+        self.assertIn("protein_mpnn", keys)
+        self.assertIn("ligand_mpnn", keys)
+
+
+class TestInverseFoldingOutputContext(TestCase):
+    """get_output_context classifies files in nested subdirectories."""
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _make_fake_job(self):
+        class FakeJob:
+            workdir = self.tmpdir / "job"
+        return FakeJob()
+
+    def test_fasta_in_seqs_is_primary(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        (outdir / "seqs").mkdir(parents=True)
+        (outdir / "seqs" / "sample_1.fa").write_text(">designed\nACDEFG")
+        (outdir / "backbones").mkdir(parents=True)
+        (outdir / "backbones" / "sample_1.pdb").write_text("ATOM")
+
+        mt = get_model_type("protein_mpnn")
+        result = mt.get_output_context(job)
+        primary_names = [f["name"] for f in result["primary_files"]]
+        aux_names = [f["name"] for f in result["aux_files"]]
+        self.assertIn("seqs/sample_1.fa", primary_names)
+        self.assertIn("backbones/sample_1.pdb", aux_names)
+
+    def test_files_is_primary_plus_aux(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        (outdir / "seqs").mkdir(parents=True)
+        (outdir / "seqs" / "result.fasta").write_text(">s\nACDE")
+        (outdir / "stats").mkdir(parents=True)
+        (outdir / "stats" / "scores.pt").write_bytes(b"\x00")
+
+        mt = get_model_type("ligand_mpnn")
+        result = mt.get_output_context(job)
+        all_names = [f["name"] for f in result["files"]]
+        primary_names = [f["name"] for f in result["primary_files"]]
+        aux_names = [f["name"] for f in result["aux_files"]]
+        self.assertEqual(all_names, primary_names + aux_names)
+
+    def test_empty_output_dir(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+
+        mt = get_model_type("protein_mpnn")
+        result = mt.get_output_context(job)
+        self.assertEqual(result["files"], [])
+        self.assertEqual(result["primary_files"], [])
+        self.assertEqual(result["aux_files"], [])
+
+    def test_no_output_dir(self):
+        job = self._make_fake_job()
+        mt = get_model_type("protein_mpnn")
+        result = mt.get_output_context(job)
+        self.assertEqual(result, {"files": [], "primary_files": [], "aux_files": []})

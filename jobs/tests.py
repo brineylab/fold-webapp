@@ -702,3 +702,144 @@ class TestBoltz2TemplateInputFileField(TestCase):
     def test_config_file_field_absent(self):
         response = self.client.get("/jobs/new/?model=boltz2")
         self.assertNotContains(response, "config_file")
+
+
+# ---------------------------------------------------------------------------
+# ProteinMPNN / LigandMPNN forms
+# ---------------------------------------------------------------------------
+
+
+class TestProteinMPNNSubmitForm(TestCase):
+    """ProteinMPNNSubmitForm validation."""
+
+    def test_valid_with_pdb_file(self):
+        from jobs.forms import ProteinMPNNSubmitForm
+        pdb = SimpleUploadedFile("test.pdb", b"ATOM 1 N ALA", content_type="chemical/x-pdb")
+        form = ProteinMPNNSubmitForm(data={"noise_level": "v_48_020"}, files={"pdb_file": pdb})
+        self.assertTrue(form.is_valid())
+
+    def test_missing_pdb_file_is_invalid(self):
+        from jobs.forms import ProteinMPNNSubmitForm
+        form = ProteinMPNNSubmitForm(data={"noise_level": "v_48_020"})
+        self.assertFalse(form.is_valid())
+        self.assertIn("pdb_file", form.errors)
+
+
+class TestLigandMPNNSubmitForm(TestCase):
+    """LigandMPNNSubmitForm validation."""
+
+    def test_valid_with_pdb_file(self):
+        from jobs.forms import LigandMPNNSubmitForm
+        pdb = SimpleUploadedFile("test.pdb", b"ATOM 1 N ALA", content_type="chemical/x-pdb")
+        form = LigandMPNNSubmitForm(data={"noise_level": "v_32_010_25"}, files={"pdb_file": pdb})
+        self.assertTrue(form.is_valid())
+
+    def test_missing_pdb_file_is_invalid(self):
+        from jobs.forms import LigandMPNNSubmitForm
+        form = LigandMPNNSubmitForm(data={"noise_level": "v_32_010_25"})
+        self.assertFalse(form.is_valid())
+        self.assertIn("pdb_file", form.errors)
+
+
+# ---------------------------------------------------------------------------
+# ProteinMPNN / LigandMPNN templates
+# ---------------------------------------------------------------------------
+
+
+class TestProteinMPNNTemplate(TestCase):
+    """ProteinMPNN submit template extends submit_base.html."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="pmpnnuser", password="testpass")
+        self.client.login(username="pmpnnuser", password="testpass")
+
+    def test_extends_submit_base(self):
+        response = self.client.get("/jobs/new/?model=protein_mpnn")
+        self.assertTemplateUsed(response, "jobs/submit_base.html")
+        self.assertTemplateUsed(response, "jobs/submit_protein_mpnn.html")
+
+    def test_page_title(self):
+        response = self.client.get("/jobs/new/?model=protein_mpnn")
+        self.assertEqual(response.context["page_title"], "New ProteinMPNN Job")
+
+    def test_pdb_file_field_present(self):
+        response = self.client.get("/jobs/new/?model=protein_mpnn")
+        self.assertContains(response, "pdb_file")
+
+    def test_noise_level_field_present(self):
+        response = self.client.get("/jobs/new/?model=protein_mpnn")
+        self.assertContains(response, "noise_level")
+
+
+class TestLigandMPNNTemplate(TestCase):
+    """LigandMPNN submit template extends submit_base.html."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="lmpnnuser", password="testpass")
+        self.client.login(username="lmpnnuser", password="testpass")
+
+    def test_extends_submit_base(self):
+        response = self.client.get("/jobs/new/?model=ligand_mpnn")
+        self.assertTemplateUsed(response, "jobs/submit_base.html")
+        self.assertTemplateUsed(response, "jobs/submit_ligand_mpnn.html")
+
+    def test_page_title(self):
+        response = self.client.get("/jobs/new/?model=ligand_mpnn")
+        self.assertEqual(response.context["page_title"], "New LigandMPNN Job")
+
+    def test_pdb_file_field_present(self):
+        response = self.client.get("/jobs/new/?model=ligand_mpnn")
+        self.assertContains(response, "pdb_file")
+
+
+# ---------------------------------------------------------------------------
+# Download file with subdirectory support
+# ---------------------------------------------------------------------------
+
+
+class TestDownloadFileSubdirectory(TestCase):
+    """download_file view supports subdirectory paths and blocks traversal."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="dluser", password="testpass")
+        self.client.login(username="dluser", password="testpass")
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _create_job(self):
+        job = Job.objects.create(
+            owner=self.user,
+            runner="ligandmpnn",
+            model_key="protein_mpnn",
+            status=Job.Status.COMPLETED,
+        )
+        return job
+
+    def test_subdirectory_download(self):
+        job = self._create_job()
+        outdir = self.tmpdir / str(job.id) / "output" / "seqs"
+        outdir.mkdir(parents=True)
+        (outdir / "sample.fa").write_text(">designed\nACDEFG")
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/download/seqs/sample.fa")
+        self.assertEqual(response.status_code, 200)
+
+    def test_traversal_blocked(self):
+        job = self._create_job()
+        outdir = self.tmpdir / str(job.id) / "output"
+        outdir.mkdir(parents=True)
+        # Create a file outside output dir
+        (self.tmpdir / str(job.id) / "secret.txt").write_text("secret")
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/download/../secret.txt")
+        self.assertEqual(response.status_code, 404)
+
+    def test_nonexistent_file_404(self):
+        job = self._create_job()
+        outdir = self.tmpdir / str(job.id) / "output"
+        outdir.mkdir(parents=True)
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/download/nofile.txt")
+        self.assertEqual(response.status_code, 404)

@@ -124,12 +124,16 @@ def job_detail(request, job_id):
 def download_file(request, job_id, filename):
     job = get_object_or_404(_job_queryset_for(request.user), id=job_id)
 
-    safe_name = Path(filename).name  # prevent directory traversal
-    file_path = job.workdir / "output" / safe_name
+    outdir = (job.workdir / "output").resolve()
+    file_path = (outdir / filename).resolve()
+
+    # Prevent directory traversal
+    if not file_path.is_relative_to(outdir):
+        raise Http404
     if not file_path.exists() or not file_path.is_file():
         raise Http404
 
-    return FileResponse(file_path.open("rb"), as_attachment=True, filename=safe_name)
+    return FileResponse(file_path.open("rb"), as_attachment=True, filename=file_path.name)
 
 
 @login_required

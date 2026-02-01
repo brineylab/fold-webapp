@@ -90,6 +90,75 @@ class TestBoltzRunnerBuildScript(TestCase):
         self.assertNotIn("input_path", source)
 
 
+class TestLigandMPNNRunnerBuildScript(TestCase):
+    """LigandMPNNRunner.build_script generates correct scripts for both model variants."""
+
+    def setUp(self):
+        self.runner = get_runner("ligandmpnn")
+
+    def test_without_config(self):
+        job = _FakeJob(params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"})
+        script = self.runner.build_script(job)
+        self.assertIn("#!/bin/bash", script)
+        self.assertIn("#SBATCH --job-name=ligandmpnn-", script)
+        self.assertNotIn("--partition", script)
+
+    def test_with_config_directives(self):
+        config = RunnerConfig(
+            runner_key="ligandmpnn",
+            partition="gpu",
+            gpus=1,
+            cpus=4,
+            mem_gb=32,
+            time_limit="01:00:00",
+        )
+        job = _FakeJob(params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"})
+        script = self.runner.build_script(job, config=config)
+        self.assertIn("#SBATCH --partition=gpu", script)
+        self.assertIn("#SBATCH --gres=gpu:1", script)
+        self.assertIn("#SBATCH --cpus-per-task=4", script)
+        self.assertIn("#SBATCH --mem=32G", script)
+        self.assertIn("#SBATCH --time=01:00:00", script)
+
+    def test_config_image_override(self):
+        config = RunnerConfig(
+            runner_key="ligandmpnn",
+            image_uri="custom-ligandmpnn:v1",
+        )
+        job = _FakeJob(params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"})
+        script = self.runner.build_script(job, config=config)
+        self.assertIn("custom-ligandmpnn:v1", script)
+
+    def test_protein_mpnn_variant(self):
+        job = _FakeJob(params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"})
+        script = self.runner.build_script(job)
+        self.assertIn("--model_type protein_mpnn", script)
+        self.assertIn("--checkpoint_protein_mpnn /app/model_params/proteinmpnn_v_48_020.pt", script)
+
+    def test_ligand_mpnn_variant(self):
+        job = _FakeJob(params={"model_variant": "ligand_mpnn", "noise_level": "v_32_010_25"})
+        script = self.runner.build_script(job)
+        self.assertIn("--model_type ligand_mpnn", script)
+        self.assertIn("--checkpoint_ligand_mpnn /app/model_params/ligandmpnn_v_32_010_25.pt", script)
+
+    def test_params_flags(self):
+        job = _FakeJob(params={
+            "model_variant": "protein_mpnn",
+            "noise_level": "v_48_020",
+            "temperature": 0.1,
+            "num_sequences": 8,
+            "seed": 42,
+            "chains_to_design": "A,B",
+            "fixed_residues": "1 2 3 4",
+        })
+        script = self.runner.build_script(job)
+        self.assertIn('--sampling_temp "0.1"', script)
+        self.assertIn("--number_of_batches 8", script)
+        self.assertIn("--seed 42", script)
+        self.assertIn('--chains_to_design "A,B"', script)
+        self.assertIn('--fixed_positions "1 2 3 4"', script)
+
+
 class TestStubRunnersBuildScript(TestCase):
     """Stub runners accept config parameter."""
 
