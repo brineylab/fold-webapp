@@ -31,7 +31,10 @@ def get_disabled_runners() -> list[dict]:
 class Boltz2SubmitForm(forms.Form):
     name = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control"}),
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "spellcheck": "false",
+        }),
     )
     sequences = forms.CharField(
         required=False,
@@ -39,7 +42,9 @@ class Boltz2SubmitForm(forms.Form):
             attrs={
                 "class": "form-control",
                 "rows": 12,
-                "placeholder": ">seq1\nMKTAYI...\n",
+                "placeholder": ">seq1\nMKTAYI\u2026\n",
+                "autocomplete": "off",
+                "spellcheck": "false",
             }
         ),
         help_text=(
@@ -106,7 +111,10 @@ class Boltz2SubmitForm(forms.Form):
 class ProteinMPNNSubmitForm(forms.Form):
     name = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control"}),
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "spellcheck": "false",
+        }),
     )
     pdb_file = forms.FileField(
         required=True,
@@ -141,12 +149,22 @@ class ProteinMPNNSubmitForm(forms.Form):
     )
     chains_to_design = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "A,B"}),
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "A, B\u2026",
+            "autocomplete": "off",
+            "spellcheck": "false",
+        }),
         help_text="Comma-separated chain IDs (e.g., A,B). Leave blank to design all chains.",
     )
     fixed_residues = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "1 2 3 4"}),
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "1 2 3 4\u2026",
+            "autocomplete": "off",
+            "spellcheck": "false",
+        }),
         help_text="Space-separated residue numbers to keep fixed.",
     )
     seed = forms.IntegerField(
@@ -160,7 +178,10 @@ class ProteinMPNNSubmitForm(forms.Form):
 class Chai1SubmitForm(forms.Form):
     name = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control"}),
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "spellcheck": "false",
+        }),
     )
     sequences = forms.CharField(
         required=False,
@@ -168,7 +189,9 @@ class Chai1SubmitForm(forms.Form):
             attrs={
                 "class": "form-control",
                 "rows": 12,
-                "placeholder": ">protein_A\nMKTAYI...\n>protein_B\nMAGFL...\n",
+                "placeholder": ">protein_A\nMKTAYI\u2026\n>protein_B\nMAGFL\u2026\n",
+                "autocomplete": "off",
+                "spellcheck": "false",
             }
         ),
         help_text=(
@@ -226,7 +249,10 @@ class Chai1SubmitForm(forms.Form):
 class LigandMPNNSubmitForm(forms.Form):
     name = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control"}),
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "spellcheck": "false",
+        }),
     )
     pdb_file = forms.FileField(
         required=True,
@@ -261,12 +287,22 @@ class LigandMPNNSubmitForm(forms.Form):
     )
     chains_to_design = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "A,B"}),
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "A, B\u2026",
+            "autocomplete": "off",
+            "spellcheck": "false",
+        }),
         help_text="Comma-separated chain IDs (e.g., A,B). Leave blank to design all chains.",
     )
     fixed_residues = forms.CharField(
         required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "1 2 3 4"}),
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "1 2 3 4\u2026",
+            "autocomplete": "off",
+            "spellcheck": "false",
+        }),
         help_text="Space-separated residue numbers to keep fixed.",
     )
     seed = forms.IntegerField(

@@ -24,8 +24,17 @@
               {{ form.password.errors }}
             </div>
 
-            <button class="btn btn-primary w-100" type="submit">Login</button>
+            <button class="btn btn-primary w-100" type="submit" id="loginBtn">Login</button>
           </form>
+          <script>
+          document.querySelector('form').addEventListener('submit', function() {
+            var btn = document.getElementById('loginBtn');
+            if (btn && !btn.disabled) {
+              btn.disabled = true;
+              btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Logging in\u2026';
+            }
+          });
+          </script>
         </div>
       </div>
     </div>

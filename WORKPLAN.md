@@ -204,3 +204,213 @@ Phases 1-17 have been implemented. Summary of what was built:
 - `jobs/templates/jobs/submit_ligand_mpnn.html` -- LigandMPNN form
 - `jobs/templates/jobs/detail.html` -- job detail / output files
 - `jobs/templates/jobs/list.html` -- job list
+
+---
+
+## Phase 18: Accessibility (High Priority)
+
+Evaluated against [Vercel Web Interface Guidelines](https://github.com/vercel-labs/web-interface-guidelines).
+
+### 18.1 Add "Skip to content" link
+**File:** `jobs/templates/jobs/base.html`
+
+Add a visually-hidden skip link as the first child of `<body>`, targeting a `#main-content` id on the content container.
+
+```html
+<a href="#main-content" class="visually-hidden-focusable position-absolute top-0 start-0 p-2 bg-primary text-white z-3">
+  Skip to content
+</a>
+```
+
+Add `id="main-content"` to the `<div class="container py-4">` wrapper.
+
+### 18.2 Add `aria-live` to message container
+**File:** `jobs/templates/jobs/base.html`
+
+Wrap the Django messages block in a `<div aria-live="polite" aria-atomic="true">` so screen readers announce flash messages.
+
+### 18.3 Replace `:focus` with `:focus-visible` in custom CSS
+**File:** `jobs/templates/jobs/base.html`
+
+Change the custom form focus styles from `form input:focus` to `form input:focus-visible` (and same for select/textarea). Remove `outline: 0` -- Bootstrap's `:focus-visible` handles this properly. The spec says "never apply `outline: none` without a visible replacement" and the current code suppresses outline.
+
+### 18.4 Add `color-scheme` CSS property
+**File:** `jobs/templates/jobs/base.html`
+
+Add to the `<style>` block:
+```css
+html[data-bs-theme="dark"] { color-scheme: dark; }
+html[data-bs-theme="light"] { color-scheme: light; }
+```
+Ensures native form controls, scrollbars, and system UI match the theme.
+
+### 18.5 Honor `prefers-reduced-motion`
+**File:** `jobs/templates/jobs/base.html`
+
+Add to the `<style>` block:
+```css
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+```
+
+---
+
+## Phase 19: Forms (High Priority)
+
+### 19.1 Submit button loading state
+**File:** `jobs/templates/jobs/submit_base.html`
+
+Add JS to the submit form that, on submit: (a) disables the button, (b) shows a spinner, (c) preserves the original label text. Prevents double-submission and gives feedback.
+
+```html
+<button class="btn btn-primary" type="submit" id="submitBtn">Submit</button>
+<script>
+document.querySelector('form').addEventListener('submit', function() {
+  const btn = document.getElementById('submitBtn');
+  if (btn && !btn.disabled) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Submit';
+  }
+});
+</script>
+```
+
+Apply the same pattern to: login form, console settings forms, and any other POST forms.
+
+### 19.2 Login form `autocomplete` attributes
+**File:** `templates/registration/login.html` and new form class
+
+Django renders fields from `AuthenticationForm`. Create a `CustomLoginForm` that extends `AuthenticationForm` and sets widget attrs:
+- Username: `autocomplete="username"`, `spellcheck="false"`
+- Password: `autocomplete="current-password"`
+
+Wire it in `bioportal/urls.py`.
+
+### 19.3 Add `autocomplete` and `spellcheck` to job forms
+**File:** `jobs/forms.py`
+
+- Add `spellcheck="false"` to the `name` field widgets across all forms (identifiers, not prose)
+- Add `autocomplete="off"` to scientific input fields (sequences, residues, etc.)
+
+### 19.4 Placeholder ellipsis consistency
+**Files:** `jobs/forms.py` and console templates
+
+Replace `...` with `…` (proper ellipsis character) in all placeholders. Update placeholders to end with `…` where they demonstrate expected patterns.
+
+- `"placeholder": "A,B"` → `"placeholder": "A, B…"`
+- `"placeholder": "1 2 3 4"` → `"placeholder": "1 2 3 4…"`
+- Console templates: `"Job ID, name, owner, SLURM ID..."` → `"Job ID, name, owner, SLURM ID…"`
+
+### 19.5 Extend checkbox/radio hit targets
+**Files:** `jobs/templates/jobs/submit_boltz2.html` and other submit templates
+
+Ensure `<label>` elements wrap or reference checkbox inputs via `for` attribute so the entire label is clickable.
+
+---
+
+## Phase 20: UX & Navigation (Medium Priority)
+
+### 20.1 Unsaved changes warning on forms
+**File:** `jobs/templates/jobs/submit_base.html`
+
+Add a `beforeunload` listener that fires when form inputs have been modified but not submitted:
+
+```js
+let formDirty = false;
+document.querySelector('form').addEventListener('input', () => formDirty = true);
+document.querySelector('form').addEventListener('submit', () => formDirty = false);
+window.addEventListener('beforeunload', (e) => {
+  if (formDirty) { e.preventDefault(); }
+});
+```
+
+### 20.2 `scroll-margin-top` on headings
+**File:** `jobs/templates/jobs/base.html` (global styles)
+
+```css
+h1, h2, h3, h4, h5, h6, [id] { scroll-margin-top: 4rem; }
+```
+
+Accounts for the fixed navbar when using anchor links.
+
+### 20.3 `<meta name="theme-color">`
+**File:** `jobs/templates/jobs/base.html`
+
+Add a theme-color meta tag and update it dynamically when theme changes:
+
+```html
+<meta name="theme-color" content="#f8f9fa">
+```
+
+Update the `applyTheme()` JS function to also set `theme-color` based on the resolved theme (light: `#f8f9fa`, dark: `#212529`).
+
+### 20.4 `font-variant-numeric: tabular-nums` for data displays
+**File:** `jobs/templates/jobs/base.html` (global styles)
+
+```css
+.table td, .badge { font-variant-numeric: tabular-nums; }
+```
+
+Ensures numbers in tables and badges align properly for comparison.
+
+---
+
+## Phase 21: Performance & Polish (Lower Priority)
+
+### 21.1 Add `<link rel="preconnect">` for CDN
+**File:** `jobs/templates/jobs/base.html`
+
+Add before the Bootstrap CSS link:
+```html
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+```
+
+### 21.2 `touch-action: manipulation` on interactive elements
+**File:** `jobs/templates/jobs/base.html` (global styles)
+
+```css
+a, button, [role="button"], input, select, textarea { touch-action: manipulation; }
+```
+
+Prevents double-tap zoom delay on mobile.
+
+### 21.3 `overscroll-behavior: contain` on modals
+**File:** `jobs/templates/jobs/base.html` (global styles)
+
+```css
+.modal { overscroll-behavior: contain; }
+```
+
+### 21.4 `text-wrap: balance` on headings
+**File:** `jobs/templates/jobs/base.html` (global styles)
+
+```css
+h1, h2, h3 { text-wrap: balance; }
+```
+
+### 21.5 Non-breaking spaces between values and units
+**Files:** Console templates (dashboard, stats, cleanup)
+
+Use `&nbsp;` between numbers and units: `{{ value }}&nbsp;GB`, `{{ count }}&nbsp;MB`, etc.
+
+### 21.6 Use `…` character instead of `...`
+**Files:** All templates
+
+Replace all `...` in user-facing text with `…`.
+
+---
+
+## Verification (Phases 18-21)
+
+1. **Accessibility:** Use browser devtools or axe-core to verify skip link, aria-live announcements, focus rings, and no bare `outline: none`
+2. **Forms:** Test submit spinners, beforeunload warnings, login autocomplete
+3. **Theme:** Verify `color-scheme` property and `theme-color` meta update on toggle
+4. **Reduced motion:** Enable OS "Reduce motion" setting and verify animations suppressed
+5. **Mobile:** Confirm no double-tap delay, modal scroll containment
+6. **Visual:** Verify tabular number alignment in tables
