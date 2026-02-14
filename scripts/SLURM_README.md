@@ -92,6 +92,7 @@ Main Slurm configuration. Key settings:
 |---------|-------|---------|
 | `ClusterName` | `fold` | Cluster identifier |
 | `SlurmctldHost` | auto-detected node identity (`slurmd -C`) | Controller node |
+| `SlurmUser` | `slurm` (fallback `root`) | Controller/daemon RPC identity |
 | `SelectType` | `select/cons_tres` | Enables GPU GRES scheduling |
 | `ProctrackType` | `proctrack/cgroup` | Process tracking via cgroups |
 | `TaskPlugin` | `task/cgroup,task/affinity` | Resource isolation |
@@ -200,6 +201,20 @@ This means `AutoDetect=nvml` was requested but the Slurm NVML plugin is not pres
 
 ```bash
 sudo ./scripts/setup-slurm.sh --force-reconfig
+```
+
+### slurmd logs "Security violation ... uid ..."
+
+```
+slurmd: error: Security violation, batch launch RPC from uid <uid>
+```
+
+This indicates a `SlurmUser` mismatch between daemons. Re-generate config so `SlurmUser` matches the local service account, then restart services:
+
+```bash
+sudo ./scripts/setup-slurm.sh --force-reconfig --skip-test
+grep -E "^(SlurmUser|SlurmdUser)=" /etc/slurm/slurm.conf
+sudo systemctl restart slurmctld slurmd
 ```
 
 ### Test job fails or times out
