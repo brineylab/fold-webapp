@@ -171,7 +171,7 @@ journalctl -u slurmctld -n 50
 journalctl -u slurmd -n 50
 
 # Verify config syntax
-slurmctld -t -f /etc/slurm/slurm.conf
+slurmctld -h | grep -qE '(^|[[:space:]])-t([[:space:]]|$)' && slurmctld -t -f /etc/slurm/slurm.conf || echo "slurmctld -t not supported on this host"
 
 # Regenerate configs from scratch
 sudo ./scripts/setup-slurm.sh --force-reconfig
