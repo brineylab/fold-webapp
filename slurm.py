@@ -102,11 +102,10 @@ def submit(script_content: str, workdir: Path, host_workdir: Path | None = None)
 
     script_path = workdir / "job.sbatch"
     script_path.write_text(script_content, encoding="utf-8")
-    host_script_path = host_workdir / "job.sbatch"
 
     try:
         p = subprocess.run(
-            ["sbatch", str(host_script_path)],
+            ["sbatch", f"--chdir={host_workdir}", str(script_path)],
             cwd=str(workdir),
             check=True,
             capture_output=True,
