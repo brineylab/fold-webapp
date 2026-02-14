@@ -620,6 +620,16 @@ elif [[ "$DRY_RUN" == true ]]; then
 else
     info "Phase 11: Running verification..."
 
+    EXISTING_QUEUE_COUNT=$(squeue -h 2>/dev/null | wc -l | xargs)
+    if [[ "${EXISTING_QUEUE_COUNT:-0}" -gt 0 ]]; then
+        warn "Skipping verification: found ${EXISTING_QUEUE_COUNT} existing job(s) already in the queue."
+        warn "Existing jobs can block or distort the setup verification test."
+        squeue -h -o "%i %P %j %u %T %R" 2>/dev/null | head -5 | while read -r line; do
+            [[ -n "$line" ]] && step "queue: $line"
+        done
+        warn "After clearing existing jobs, re-run verification with:"
+        warn "sudo ./scripts/setup-slurm.sh --force-reconfig"
+    else
     step "Submitting test job..."
     TEST_JOB_ID=$(sbatch --parsable --wrap="hostname")
     TEST_OUTPUT_FILE="slurm-${TEST_JOB_ID}.out"
@@ -695,6 +705,7 @@ else
 
     # Clean up test output
     rm -f "slurm-${TEST_JOB_ID}.out"
+    fi
 fi
 
 # =====================================================================
