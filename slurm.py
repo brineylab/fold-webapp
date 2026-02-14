@@ -11,6 +11,54 @@ class SlurmError(Exception):
     pass
 
 
+def _normalize_state(raw_state: str) -> str:
+    """Map raw Slurm state strings to app-level states."""
+    state = raw_state.split()[0].split("+")[0].strip().upper()
+    if state == "COMPLETED":
+        return "COMPLETED"
+    if state in {"PENDING", "CONFIGURING"}:
+        return "PENDING"
+    if state in {"RUNNING", "COMPLETING", "SUSPENDED"}:
+        return "RUNNING"
+    if state in {"CANCELLED", "FAILED", "TIMEOUT", "NODE_FAIL", "OUT_OF_MEMORY", "PREEMPTED"}:
+        return "FAILED"
+    return "FAILED"
+
+
+def _state_from_sacct(slurm_job_id: str) -> str | None:
+    """Read job state from sacct, returning None when unavailable."""
+    sacct = subprocess.run(
+        ["sacct", "-j", slurm_job_id, "-n", "-o", "State", "-X"],
+        capture_output=True,
+        text=True,
+    )
+    if sacct.returncode != 0:
+        return None
+
+    lines = [ln.strip() for ln in sacct.stdout.splitlines() if ln.strip()]
+    if not lines:
+        return None
+
+    return lines[0]
+
+
+def _state_from_scontrol(slurm_job_id: str) -> str | None:
+    """Fallback state lookup for setups without sacct accounting configured."""
+    scontrol = subprocess.run(
+        ["scontrol", "show", "job", slurm_job_id, "-o"],
+        capture_output=True,
+        text=True,
+    )
+    if scontrol.returncode != 0:
+        return None
+
+    match = re.search(r"\bJobState=([A-Z_+]+)", scontrol.stdout)
+    if not match:
+        return None
+
+    return match.group(1)
+
+
 def _job_base_dir() -> Path:
     try:
         from django.conf import settings  # type: ignore
@@ -120,32 +168,12 @@ def check_status(slurm_job_id: str) -> str:
         # Unknown active state, still treat as running-ish
         return "RUNNING"
 
-    # Completed jobs: sacct (may include step lines; pick first non-empty)
-    sacct = subprocess.run(
-        ["sacct", "-j", slurm_job_id, "-n", "-o", "State", "-X"],
-        capture_output=True,
-        text=True,
-    )
-    if sacct.returncode != 0:
+    # Completed jobs: prefer sacct, fallback to scontrol when no accounting DB exists
+    raw_state = _state_from_sacct(slurm_job_id) or _state_from_scontrol(slurm_job_id)
+    if not raw_state:
         return "UNKNOWN"
 
-    lines = [ln.strip() for ln in sacct.stdout.splitlines() if ln.strip()]
-    if not lines:
-        return "UNKNOWN"
-
-    raw_state = lines[0].split()[0]
-    raw_state = raw_state.split("+")[0]  # e.g. CANCELLED+ => CANCELLED
-
-    if raw_state == "COMPLETED":
-        return "COMPLETED"
-    if raw_state in {"PENDING", "CONFIGURING"}:
-        return "PENDING"
-    if raw_state in {"RUNNING", "COMPLETING"}:
-        return "RUNNING"
-    if raw_state in {"CANCELLED", "FAILED", "TIMEOUT", "NODE_FAIL", "OUT_OF_MEMORY", "PREEMPTED"}:
-        return "FAILED"
-
-    return "FAILED"
+    return _normalize_state(raw_state)
 
 
 def cancel(slurm_job_id: str) -> None:
@@ -160,5 +188,3 @@ def cancel(slurm_job_id: str) -> None:
         return
 
     subprocess.run(["scancel", slurm_job_id], check=False, capture_output=True, text=True)
-
-

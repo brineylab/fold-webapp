@@ -23,10 +23,10 @@ The script runs 12 phases in order:
 5. **Generate `slurm.conf`** — writes `/etc/slurm/slurm.conf` with detected hardware
 6. **Generate `gres.conf`** — writes `/etc/slurm/gres.conf` for GPU scheduling (`AutoDetect=nvml`)
 7. **Generate `cgroup.conf`** — writes `/etc/slurm/cgroup.conf` for resource isolation
-8. **Configure accounting** — creates the accounting log file for `sacct`
+8. **Configure job completion logging** — creates a local completion log file
 9. **Enable and start services** — starts munge, slurmctld, and slurmd; sets node to IDLE
 10. **Generate `docker-compose.override.yml`** — mounts Slurm binaries, config, munge socket, and shared libraries into web/poller containers
-11. **Verification** — submits a test job and confirms `sacct` reports it as COMPLETED
+11. **Verification** — submits a test job and confirms completion via scheduler state (`squeue`/`sacct`/`scontrol`)
 12. **Print summary** — shows detected hardware, config paths, service status, and next steps
 
 ## When to Run
@@ -95,7 +95,7 @@ Main Slurm configuration. Key settings:
 | `SelectType` | `select/cons_tres` | Enables GPU GRES scheduling |
 | `ProctrackType` | `proctrack/cgroup` | Process tracking via cgroups |
 | `TaskPlugin` | `task/cgroup,task/affinity` | Resource isolation |
-| `AccountingStorageType` | `accounting_storage/filetxt` | File-based job accounting |
+| `JobCompType` | `jobcomp/filetxt` | File-based job completion logging |
 | `GresTypes` | `gpu` | Generic resource types |
 | `ReturnToService` | `2` | Auto-return node after reboot |
 
@@ -113,7 +113,6 @@ GPU resource configuration:
 Cgroup resource isolation:
 
 ```
-CgroupAutomount=yes
 ConstrainCores=yes
 ConstrainRAMSpace=yes
 ConstrainDevices=yes
@@ -172,7 +171,7 @@ journalctl -u slurmctld -n 50
 journalctl -u slurmd -n 50
 
 # Verify config syntax
-slurmd -C
+slurmctld -t -f /etc/slurm/slurm.conf
 
 # Regenerate configs from scratch
 sudo ./scripts/setup-slurm.sh --force-reconfig
@@ -210,22 +209,23 @@ journalctl -u slurmd -n 50
 
 # Check if the job is stuck
 squeue
-sacct -j <job_id>
+sacct -j <job_id>    # optional; may be empty without slurmdbd
+scontrol show job <job_id> -o
 ```
 
 ### sacct returns no results
 
 ```
-ERROR: sacct returned no results for job <id>. Accounting may not be configured.
+WARNING: sacct returned no results for job <id> (no accounting DB configured).
 ```
 
-**Solution**: Ensure accounting is configured in `slurm.conf`:
+This is expected on single-node setups without `slurmdbd`.
 
 ```bash
-grep -i accounting /etc/slurm/slurm.conf
+grep -E "JobCompType|JobCompLoc|JobAcctGatherType" /etc/slurm/slurm.conf
 ```
 
-The script sets `AccountingStorageType=accounting_storage/filetxt`. If this is missing, re-run with `--force-reconfig`.
+Status polling still works because the app falls back to `scontrol` when `sacct` is unavailable.
 
 ### Munge authentication errors
 
