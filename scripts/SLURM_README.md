@@ -291,16 +291,18 @@ If the override is not being loaded, ensure it is in the project root alongside 
 ### Shared library errors in containers
 
 ```
-sbatch: error while loading shared libraries: libslurm.so
+sbatch: error while loading shared libraries: libslurmfull.so: cannot open shared object file
 ```
 
-The script auto-discovers Slurm shared libraries via `ldconfig -p` and mounts them into containers. If libraries are in a non-standard location:
+The script auto-discovers Slurm shared libraries using multiple methods (`ldconfig`, `ldd`, and common paths like `/usr/lib/*/slurm-wlm/`). If discovery still fails:
 
 ```bash
-# Find the library
-ldconfig -p | grep slurm
+# Find the library manually
+find / -name "libslurmfull.so*" 2>/dev/null
+# or
+ldd $(which sbatch) | grep slurm
 
-# Regenerate the override
+# Regenerate the override with --force-reconfig
 sudo ./scripts/setup-slurm.sh --force-reconfig
 ```
 

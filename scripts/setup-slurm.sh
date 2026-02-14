@@ -556,23 +556,44 @@ elif [[ "$DRY_RUN" == true ]]; then
 else
     # Auto-discover Slurm shared libraries
     SLURM_LIB_PATHS=()
+    _add_lib_dir() {
+        local lib_dir="$1"
+        for existing in "${SLURM_LIB_PATHS[@]+"${SLURM_LIB_PATHS[@]}"}"; do
+            if [[ "$existing" == "$lib_dir" ]]; then return; fi
+        done
+        SLURM_LIB_PATHS+=("$lib_dir")
+    }
+
+    # Method 1: ldconfig cache
     while IFS= read -r lib_line; do
         lib_path=$(echo "$lib_line" | grep -oP '=>\s*\K/[^\s]+')
         if [[ -n "$lib_path" ]]; then
-            lib_dir=$(dirname "$lib_path")
-            # Deduplicate
-            local_found=false
-            for existing in "${SLURM_LIB_PATHS[@]+"${SLURM_LIB_PATHS[@]}"}"; do
-                if [[ "$existing" == "$lib_dir" ]]; then
-                    local_found=true
-                    break
-                fi
-            done
-            if [[ "$local_found" == false ]]; then
-                SLURM_LIB_PATHS+=("$lib_dir")
-            fi
+            _add_lib_dir "$(dirname "$lib_path")"
         fi
     done < <(ldconfig -p 2>/dev/null | grep -i slurm || true)
+
+    # Method 2: ldd on sbatch (catches libs not registered with ldconfig)
+    if command -v sbatch &>/dev/null; then
+        while IFS= read -r ldd_line; do
+            lib_path=$(echo "$ldd_line" | grep -oP '=>\s*\K/[^\s]+')
+            if [[ -n "$lib_path" && "$lib_path" == *slurm* ]]; then
+                _add_lib_dir "$(dirname "$lib_path")"
+            fi
+        done < <(ldd "$(which sbatch)" 2>/dev/null || true)
+    fi
+
+    # Method 3: check common paths for libslurmfull.so (e.g. slurm-wlm packages)
+    for search_dir in /usr/lib/*/slurm-wlm /usr/lib/slurm-wlm /usr/lib64/slurm-wlm; do
+        if [[ -d "$search_dir" ]] && ls "$search_dir"/libslurm*.so* &>/dev/null; then
+            _add_lib_dir "$search_dir"
+        fi
+    done
+
+    if [[ ${#SLURM_LIB_PATHS[@]} -eq 0 ]]; then
+        warn "No Slurm shared libraries found. sbatch may fail inside containers."
+        warn "Run 'ldd \$(which sbatch)' to find library paths, then add them"
+        warn "manually to docker-compose.override.yml."
+    fi
 
     # Build LD_LIBRARY_PATH from discovered paths
     LD_LIB_PATH=""
