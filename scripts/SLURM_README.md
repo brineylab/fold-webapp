@@ -91,7 +91,7 @@ Main Slurm configuration. Key settings:
 | Setting | Value | Purpose |
 |---------|-------|---------|
 | `ClusterName` | `fold` | Cluster identifier |
-| `SlurmctldHost` | auto-detected hostname | Controller node |
+| `SlurmctldHost` | auto-detected node identity (`slurmd -C`) | Controller node |
 | `SelectType` | `select/cons_tres` | Enables GPU GRES scheduling |
 | `ProctrackType` | `proctrack/cgroup` | Process tracking via cgroups |
 | `TaskPlugin` | `task/cgroup,task/affinity` | Resource isolation |
@@ -99,6 +99,7 @@ Main Slurm configuration. Key settings:
 | `GresTypes` | `gpu` | Generic resource types |
 | `ReturnToService` | `2` | Auto-return node after reboot |
 
+Node identity is sourced from `slurmd -C` when available to avoid hostname mismatch issues.
 Node resources (CPUs, RAM, GPUs) are auto-detected from hardware.
 
 ### `/etc/slurm/gres.conf`
