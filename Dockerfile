@@ -17,6 +17,13 @@ COPY . .
 # Collect static files
 RUN python manage.py collectstatic --noinput
 
+# Create slurm user so sbatch can validate SlurmUser in slurm.conf.
+# UID/GID must match the host slurm user; override at build time if needed.
+ARG SLURM_UID=64030
+ARG SLURM_GID=64030
+RUN groupadd -g "$SLURM_GID" slurm && \
+    useradd -u "$SLURM_UID" -g slurm -s /usr/sbin/nologin -M slurm
+
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser && \
     chown -R appuser:appuser /app
