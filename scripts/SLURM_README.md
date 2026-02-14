@@ -116,7 +116,7 @@ Cgroup resource isolation:
 ```
 ConstrainCores=yes
 ConstrainRAMSpace=yes
-ConstrainDevices=yes
+ConstrainDevices=yes   # set to no automatically when static /dev/nvidiaN GPU mapping is used
 ```
 
 ### `docker-compose.override.yml`
