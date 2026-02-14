@@ -114,8 +114,8 @@ LOGOUT_REDIRECT_URL = "login"
 #
 JOB_BASE_DIR = Path(os.environ.get("JOB_BASE_DIR", str(BASE_DIR / "job_data")))
 
-# set to "1" for normal use, "0" for development without SLURM (which means the runners won't actually launch SLURM jobs)
-FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "0"
+# Set to "1" for development without SLURM (fake job IDs), "0" for production with real SLURM.
+FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "1"
 
 # Boltz-2 configuration
 BOLTZ_IMAGE = os.environ.get("BOLTZ_IMAGE", "boltz2:latest")
