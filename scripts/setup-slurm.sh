@@ -251,6 +251,16 @@ else
     step "Slurm packages installed."
 fi
 
+SLURM_SERVICE_USER="root"
+SLURM_SERVICE_UID="0"
+if id -u slurm >/dev/null 2>&1; then
+    SLURM_SERVICE_USER="slurm"
+    SLURM_SERVICE_UID="$(id -u slurm)"
+else
+    warn "System user 'slurm' not found. Falling back to SlurmUser=root."
+fi
+step "SlurmUser: $SLURM_SERVICE_USER (uid=$SLURM_SERVICE_UID)"
+
 if [[ "$HAS_GPU" == true ]]; then
     if NVML_PLUGIN_PATH=$(find_nvml_plugin); then
         HAS_NVML_PLUGIN=true
@@ -313,6 +323,7 @@ if [[ -f "$SLURM_CONF" && "$FORCE_RECONFIG" != true ]]; then
 elif [[ "$DRY_RUN" == true ]]; then
     step "[dry-run] Would write $SLURM_CONF"
     step "[dry-run] ClusterName=fold, SlurmctldHost=$NODE_NAME"
+    step "[dry-run] SlurmUser=$SLURM_SERVICE_USER SlurmdUser=root"
     step "[dry-run] NodeName=$NODE_NAME CPUs=$CPU_COUNT RealMemory=$REAL_MEMORY $GRES_CONFIG"
     step "[dry-run] PartitionName=$PARTITION_NAME"
 else
@@ -331,6 +342,8 @@ else
 
 ClusterName=fold
 SlurmctldHost=$NODE_NAME
+SlurmUser=$SLURM_SERVICE_USER
+SlurmdUser=root
 
 # Scheduling
 SelectType=select/cons_tres
