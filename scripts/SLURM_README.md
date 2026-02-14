@@ -140,6 +140,7 @@ The script is safe to re-run:
 - All config file writes are guarded by existence checks (use `--force-reconfig` to overwrite)
 - `systemctl enable` is idempotent
 - `docker-compose.override.yml` is guarded the same way as config files
+- Verification test is skipped automatically when jobs already exist in the queue
 
 Re-running the script on an already-configured node will print warnings about existing files and skip those phases.
 
