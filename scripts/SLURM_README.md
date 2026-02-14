@@ -21,7 +21,7 @@ The script runs 12 phases in order:
 3. **Install Slurm packages** — installs `slurm-wlm` and `slurm-client` from Ubuntu repos
 4. **Hardware auto-detection** — discovers CPUs, RAM, GPU count and type
 5. **Generate `slurm.conf`** — writes `/etc/slurm/slurm.conf` with detected hardware
-6. **Generate `gres.conf`** — writes `/etc/slurm/gres.conf` for GPU scheduling (`AutoDetect=nvml`)
+6. **Generate `gres.conf`** — writes `/etc/slurm/gres.conf` for GPU scheduling (`AutoDetect=nvml` when available, static `/dev/nvidiaN` fallback otherwise)
 7. **Generate `cgroup.conf`** — writes `/etc/slurm/cgroup.conf` for resource isolation
 8. **Configure job completion logging** — creates a local completion log file
 9. **Enable and start services** — starts munge, slurmctld, and slurmd; sets node to IDLE
@@ -106,7 +106,7 @@ Node resources (CPUs, RAM, GPUs) are auto-detected from hardware.
 
 GPU resource configuration:
 
-- With GPUs: uses `AutoDetect=nvml` (supported on Slurm 21.08+) to automatically detect NVIDIA GPUs
+- With GPUs: prefers `AutoDetect=nvml` when the Slurm NVML plugin is available; otherwise writes static `Name=gpu File=/dev/nvidiaN` entries
 - Without GPUs: comment-only placeholder file
 
 ### `/etc/slurm/cgroup.conf`
@@ -163,6 +163,7 @@ ERROR: slurmctld failed to start. Check: journalctl -u slurmctld -n 50
 - Config syntax error in `slurm.conf`
 - Port conflict (another Slurm instance running)
 - Permissions on spool directories
+- NVML GPU plugin not available with `AutoDetect=nvml`
 
 **Solution**:
 
@@ -186,6 +187,18 @@ sinfo
 
 # Manually set to IDLE
 sudo scontrol update NodeName=$(hostname -s) State=IDLE
+```
+
+### slurmd fails with gpu/nvml errors
+
+```
+slurmd: error: cannot find gpu plugin for gpu/nvml
+```
+
+This means `AutoDetect=nvml` was requested but the Slurm NVML plugin is not present. The setup script automatically falls back to static `/dev/nvidiaN` entries on reconfigure.
+
+```bash
+sudo ./scripts/setup-slurm.sh --force-reconfig
 ```
 
 ### Test job fails or times out
@@ -293,7 +306,7 @@ The script installs Slurm from Ubuntu default repositories:
 | 22.04 | 21.08 |
 | 24.04 | 23.02 |
 
-Both versions support the features used by this script (GRES scheduling, `AutoDetect=nvml`, cgroup integration). For newer Slurm versions, consider adding the [SchedMD PPA](https://packages.schedmd.com/).
+Both versions support the features used by this script (GRES scheduling with NVML-or-static fallback, cgroup integration). For newer Slurm versions, consider adding the [SchedMD PPA](https://packages.schedmd.com/).
 
 ## Integration with deploy.sh
 
