@@ -376,18 +376,31 @@ fi
 
 info "Phase 9: Enabling and starting Slurm services..."
 
+SLURMCTLD_SUPPORTS_TEST=false
+if slurmctld -h 2>&1 | grep -qE '(^|[[:space:]])-t([[:space:]]|$)'; then
+    SLURMCTLD_SUPPORTS_TEST=true
+fi
+
 if [[ "$DRY_RUN" == true ]]; then
-    step "[dry-run] Would validate: slurmctld -t -f $SLURM_CONF"
+    if [[ "$SLURMCTLD_SUPPORTS_TEST" == true ]]; then
+        step "[dry-run] Would validate: slurmctld -t -f $SLURM_CONF"
+    else
+        step "[dry-run] slurmctld on this host does not support -t; would skip preflight validation"
+    fi
     step "[dry-run] Would enable and restart: munge, slurmctld, slurmd"
     step "[dry-run] Would set node $HOSTNAME_SHORT to IDLE state"
 else
-    step "Validating Slurm config syntax..."
-    if slurmctld -t -f "$SLURM_CONF" >/tmp/slurmctld-validate.log 2>&1; then
-        step "slurm.conf validation passed."
+    if [[ "$SLURMCTLD_SUPPORTS_TEST" == true ]]; then
+        step "Validating Slurm config syntax..."
+        if slurmctld -t -f "$SLURM_CONF" >/tmp/slurmctld-validate.log 2>&1; then
+            step "slurm.conf validation passed."
+        else
+            error "slurm.conf validation failed. See: /tmp/slurmctld-validate.log"
+            tail -n 20 /tmp/slurmctld-validate.log || true
+            exit 1
+        fi
     else
-        error "slurm.conf validation failed. See: /tmp/slurmctld-validate.log"
-        tail -n 20 /tmp/slurmctld-validate.log || true
-        exit 1
+        warn "slurmctld on this host does not support -t; skipping preflight validation."
     fi
 
     for svc in munge slurmctld slurmd; do
