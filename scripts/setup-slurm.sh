@@ -636,6 +636,7 @@ services:
       - /usr/bin/squeue:/usr/bin/squeue:ro
       - /usr/bin/sacct:/usr/bin/sacct:ro
       - /usr/bin/scancel:/usr/bin/scancel:ro
+      - /usr/bin/scontrol:/usr/bin/scontrol:ro
       - /etc/slurm:/etc/slurm:ro
       - /var/run/munge:/var/run/munge:ro${LIB_VOLUME_MOUNTS}${ENV_SECTION}
 
@@ -644,6 +645,7 @@ services:
       - /usr/bin/squeue:/usr/bin/squeue:ro
       - /usr/bin/sacct:/usr/bin/sacct:ro
       - /usr/bin/scancel:/usr/bin/scancel:ro
+      - /usr/bin/scontrol:/usr/bin/scontrol:ro
       - /etc/slurm:/etc/slurm:ro
       - /var/run/munge:/var/run/munge:ro${LIB_VOLUME_MOUNTS}${ENV_SECTION}
 OVERRIDE_EOF
