@@ -136,7 +136,19 @@ if [[ "$REAL_MEMORY" -lt 1024 ]]; then
     REAL_MEMORY=1024
 fi
 
+NODE_NAME="$HOSTNAME_SHORT"
+if command -v slurmd &>/dev/null; then
+    SLURMD_CAPS=$(slurmd -C 2>/dev/null | head -1 || true)
+    if [[ -n "$SLURMD_CAPS" ]]; then
+        SLURMD_NODE_NAME=$(echo "$SLURMD_CAPS" | sed -n 's/.*NodeName=\([^ ]*\).*/\1/p')
+        if [[ -n "$SLURMD_NODE_NAME" ]]; then
+            NODE_NAME="$SLURMD_NODE_NAME"
+        fi
+    fi
+fi
+
 step "Hostname: $HOSTNAME_SHORT"
+step "NodeName: $NODE_NAME"
 step "CPUs: $CPU_COUNT"
 step "RAM: ${TOTAL_RAM_MB}MB total, ${REAL_MEMORY}MB allocated to Slurm"
 
@@ -228,14 +240,14 @@ if [[ -f "$SLURM_CONF" && "$FORCE_RECONFIG" != true ]]; then
     fi
 elif [[ "$DRY_RUN" == true ]]; then
     step "[dry-run] Would write $SLURM_CONF"
-    step "[dry-run] ClusterName=fold, SlurmctldHost=$HOSTNAME_SHORT"
-    step "[dry-run] NodeName=$HOSTNAME_SHORT CPUs=$CPU_COUNT RealMemory=$REAL_MEMORY $GRES_CONFIG"
+    step "[dry-run] ClusterName=fold, SlurmctldHost=$NODE_NAME"
+    step "[dry-run] NodeName=$NODE_NAME CPUs=$CPU_COUNT RealMemory=$REAL_MEMORY $GRES_CONFIG"
     step "[dry-run] PartitionName=$PARTITION_NAME"
 else
     mkdir -p /etc/slurm
 
     # Build NodeName line
-    NODE_LINE="NodeName=$HOSTNAME_SHORT CPUs=$CPU_COUNT RealMemory=$REAL_MEMORY"
+    NODE_LINE="NodeName=$NODE_NAME CPUs=$CPU_COUNT RealMemory=$REAL_MEMORY"
     if [[ -n "$GRES_CONFIG" ]]; then
         NODE_LINE="$NODE_LINE $GRES_CONFIG"
     fi
@@ -246,7 +258,7 @@ else
 # See: https://slurm.schedmd.com/slurm.conf.html
 
 ClusterName=fold
-SlurmctldHost=$HOSTNAME_SHORT
+SlurmctldHost=$NODE_NAME
 
 # Scheduling
 SelectType=select/cons_tres
@@ -282,7 +294,7 @@ ReturnToService=2
 $NODE_LINE
 
 # Partitions
-PartitionName=$PARTITION_NAME Nodes=$HOSTNAME_SHORT Default=YES MaxTime=INFINITE State=UP
+PartitionName=$PARTITION_NAME Nodes=$NODE_NAME Default=YES MaxTime=INFINITE State=UP
 SLURM_EOF
 
     chown slurm:slurm "$SLURM_CONF"
@@ -388,7 +400,7 @@ if [[ "$DRY_RUN" == true ]]; then
         step "[dry-run] slurmctld on this host does not support -t; would skip preflight validation"
     fi
     step "[dry-run] Would enable and restart: munge, slurmctld, slurmd"
-    step "[dry-run] Would set node $HOSTNAME_SHORT to IDLE state"
+    step "[dry-run] Would set node $NODE_NAME to IDLE state"
 else
     if [[ "$SLURMCTLD_SUPPORTS_TEST" == true ]]; then
         step "Validating Slurm config syntax..."
@@ -411,17 +423,24 @@ else
             step "$svc is running."
         else
             error "$svc failed to start. Check: journalctl -u $svc -n 50"
+            journalctl -u "$svc" -n 50 --no-pager || true
+            if [[ "$svc" == "slurmd" ]]; then
+                warn "Configured NodeName line:"
+                grep -E '^NodeName=' "$SLURM_CONF" | head -1 || true
+                warn "slurmd -C identity line:"
+                slurmd -C 2>/dev/null | head -1 || true
+            fi
             exit 1
         fi
     done
 
     # Transition node from UNKNOWN to IDLE
     sleep 2
-    scontrol update NodeName="$HOSTNAME_SHORT" State=IDLE || {
+    scontrol update NodeName="$NODE_NAME" State=IDLE || {
         warn "Could not set node to IDLE. It may need manual intervention."
-        warn "Run: scontrol update NodeName=$HOSTNAME_SHORT State=IDLE"
+        warn "Run: scontrol update NodeName=$NODE_NAME State=IDLE"
     }
-    step "Node $HOSTNAME_SHORT set to IDLE."
+    step "Node $NODE_NAME set to IDLE."
 fi
 
 # =====================================================================
@@ -597,6 +616,7 @@ info "Phase 12: Setup complete!"
 echo
 echo "  Hardware:"
 echo "    Hostname:   $HOSTNAME_SHORT"
+echo "    NodeName:   $NODE_NAME"
 echo "    CPUs:       $CPU_COUNT"
 echo "    RAM:        ${REAL_MEMORY}MB (allocated to Slurm)"
 if [[ "$HAS_GPU" == true ]]; then
