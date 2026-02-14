@@ -13,7 +13,7 @@ class BoltzRunner(Runner):
     name = "Boltz-2"
 
     def build_script(self, job, config=None) -> str:
-        workdir = Path(job.workdir)
+        workdir = Path(job.host_workdir)
         outdir = workdir / "output"
         cache_dir = Path(settings.BOLTZ_CACHE_DIR)
 

@@ -77,13 +77,19 @@ def _fake_slurm_enabled() -> bool:
         return os.environ.get("FAKE_SLURM", "0") == "1"
 
 
-def submit(script_content: str, workdir: Path) -> str:
+def submit(script_content: str, workdir: Path, host_workdir: Path | None = None) -> str:
     """
     Write script to workdir/job.sbatch, call sbatch, return SLURM job ID.
+
+    *workdir* is the local (container) path used to write files.
+    *host_workdir*, when provided, is the path as seen by the SLURM host and
+    is passed to sbatch so that slurmctld can find the script and working
+    directory.  Falls back to *workdir* when not set (non-Docker usage).
 
     In FAKE_SLURM mode, returns FAKE-<job_uuid> and stores timestamp in workdir.
     """
     workdir = Path(workdir)
+    host_workdir = Path(host_workdir) if host_workdir else workdir
     workdir.mkdir(parents=True, exist_ok=True)
 
     if _fake_slurm_enabled():
@@ -96,10 +102,11 @@ def submit(script_content: str, workdir: Path) -> str:
 
     script_path = workdir / "job.sbatch"
     script_path.write_text(script_content, encoding="utf-8")
+    host_script_path = host_workdir / "job.sbatch"
 
     try:
         p = subprocess.run(
-            ["sbatch", str(script_path)],
+            ["sbatch", str(host_script_path)],
             cwd=str(workdir),
             check=True,
             capture_output=True,

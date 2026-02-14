@@ -13,7 +13,7 @@ class ChaiRunner(Runner):
     name = "Chai-1"
 
     def build_script(self, job, config=None) -> str:
-        workdir = Path(job.workdir)
+        workdir = Path(job.host_workdir)
         outdir = workdir / "output"
         cache_dir = Path(settings.CHAI_CACHE_DIR)
 
@@ -38,7 +38,7 @@ class ChaiRunner(Runner):
 
         # Restraints file: check filesystem first, fall back to params flag
         constraint_flag = ""
-        if (workdir / "input" / "restraints.csv").exists():
+        if (Path(job.workdir) / "input" / "restraints.csv").exists():
             constraint_flag = "--constraint-path /work/input/restraints.csv"
         elif params.get("has_restraints"):
             constraint_flag = "--constraint-path /work/input/restraints.csv"

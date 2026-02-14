@@ -114,6 +114,11 @@ LOGOUT_REDIRECT_URL = "login"
 #
 JOB_BASE_DIR = Path(os.environ.get("JOB_BASE_DIR", str(BASE_DIR / "job_data")))
 
+# Host-side path to the jobs directory. SLURM runs on the host, so sbatch
+# scripts must reference host paths, not container paths. When unset (local
+# dev or non-Docker), falls back to JOB_BASE_DIR.
+JOB_BASE_DIR_HOST = Path(os.environ.get("JOB_BASE_DIR_HOST", str(JOB_BASE_DIR)))
+
 # Set to "1" for development without SLURM (fake job IDs), "0" for production with real SLURM.
 FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "1"
 

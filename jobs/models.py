@@ -46,6 +46,14 @@ class Job(models.Model):
             base = Path(".")
         return Path(base) / str(self.id)
 
+    @property
+    def host_workdir(self) -> Path:
+        """Workdir as seen by the host (for SLURM sbatch scripts)."""
+        base = getattr(settings, "JOB_BASE_DIR_HOST", None)
+        if base is None:
+            return self.workdir
+        return Path(base) / str(self.id)
+
     def __str__(self) -> str:
         return f"{self.id} ({self.runner})"
 

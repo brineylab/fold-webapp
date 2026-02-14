@@ -13,7 +13,7 @@ class LigandMPNNRunner(Runner):
     name = "LigandMPNN"
 
     def build_script(self, job, config=None) -> str:
-        workdir = Path(job.workdir)
+        workdir = Path(job.host_workdir)
         outdir = workdir / "output"
 
         # Use config image override, fall back to settings
