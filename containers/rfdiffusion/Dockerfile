@@ -30,8 +30,10 @@ RUN git clone https://github.com/RosettaCommons/RFdiffusion.git /app/RFdiffusion
 RUN mamba env create -f /tmp/SE3nv.yml -n SE3nv \
     && mamba clean -afy
 
-# Install RFdiffusion in editable mode
-RUN conda run -n SE3nv pip install --no-cache-dir -e /app/RFdiffusion
+# Install SE3Transformer (bundled in repo) and RFdiffusion
+RUN mamba run -n SE3nv pip install --no-cache-dir \
+    /app/RFdiffusion/env/SE3Transformer \
+    -e /app/RFdiffusion
 
 # Download model weights
 RUN mkdir -p /app/RFdiffusion/models \
