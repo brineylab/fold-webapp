@@ -1,50 +1,34 @@
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+FROM nvcr.io/nvidia/cuda:11.6.2-cudnn8-runtime-ubuntu20.04
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV CONDA_DIR=/opt/conda
-ENV PATH=${CONDA_DIR}/bin:${PATH}
+RUN apt-get -q update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
+  git \
+  python3.9 \
+  python3-pip \
+  && python3.9 -m pip install -q -U --no-cache-dir pip \
+  && rm -rf /var/lib/apt/lists/* \
+  && apt-get autoremove -y \
+  && apt-get clean
 
-WORKDIR /app
-
-# System dependencies
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-       wget git build-essential ca-certificates \
-    && update-ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Miniforge (mamba)
-RUN wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-$(uname -m).sh -O /tmp/miniforge.sh \
-    && bash /tmp/miniforge.sh -b -p ${CONDA_DIR} \
-    && rm /tmp/miniforge.sh \
-    && mamba clean -afy \
-    && conda config --remove channels defaults 2>/dev/null || true
-
-# Copy our custom environment file (unpinned deps, no defaults channel)
-COPY containers/rfdiffusion/SE3nv.yml /tmp/SE3nv.yml
-
-# Clone RFdiffusion
 RUN git clone https://github.com/RosettaCommons/RFdiffusion.git /app/RFdiffusion
 
-# Create conda environment from our custom environment file
-RUN mamba env create -f /tmp/SE3nv.yml -n SE3nv \
-    && mamba clean -afy
+RUN pip install -q --no-cache-dir \
+  dgl==1.0.2+cu116 -f https://data.dgl.ai/wheels/cu116/repo.html \
+  torch==1.12.1+cu116 --extra-index-url https://download.pytorch.org/whl/cu116 \
+  e3nn==0.3.3 \
+  wandb==0.12.0 \
+  pynvml==11.0.0 \
+  git+https://github.com/NVIDIA/dllogger#egg=dllogger \
+  decorator==5.1.0 \
+  hydra-core==1.3.2 \
+  pyrsistent==0.19.3 \
+  /app/RFdiffusion/env/SE3Transformer \
+  && pip install --no-cache-dir /app/RFdiffusion --no-deps
 
-# Install SE3Transformer (bundled in repo) and RFdiffusion
-RUN mamba run -n SE3nv pip install --no-cache-dir \
-    /app/RFdiffusion/env/SE3Transformer \
-    -e /app/RFdiffusion
-
-# Model weights directory — mount from host via RunnerConfig extra_mounts
-# e.g. {"source": "/data/rfdiffusion/models", "target": "/app/RFdiffusion/models"}
 RUN mkdir -p /app/RFdiffusion/models
 
-# Set workdir to RFdiffusion root for correct Hydra config resolution
 WORKDIR /app/RFdiffusion
 
-# Make conda env the default
-ENV CONDA_DEFAULT_ENV=SE3nv
-RUN echo "conda activate SE3nv" >> ~/.bashrc
-SHELL ["conda", "run", "-n", "SE3nv", "/bin/bash", "-c"]
+ENV DGLBACKEND="pytorch"
 
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "SE3nv"]
+ENTRYPOINT ["python3.9", "scripts/run_inference.py"]

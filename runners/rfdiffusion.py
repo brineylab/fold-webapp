@@ -81,10 +81,10 @@ class RFdiffusionRunner(Runner):
                 docker_args.append(f"-e {k}={v}")
             for mount in config.extra_mounts or []:
                 docker_args.append(f"-v {mount['source']}:{mount['target']}")
+        docker_args.append("-e PYTHONUNBUFFERED=1")
         docker_args.append(image)
         docker_args.append(
-            f"python -u scripts/run_inference.py \\\n"
-            f"    --config-name {config_name} \\\n"
+            f"--config-name {config_name} \\\n"
             f"    {override_str}"
         )
         docker_cmd = " \\\n  ".join(docker_args)
