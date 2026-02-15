@@ -98,8 +98,11 @@ if docker compose -f "$PROJECT_DIR/docker-compose.yml" ps --status running 2>/de
     docker compose -f "$PROJECT_DIR/docker-compose.yml" down
 fi
 
-# Ensure data directories exist
+# Ensure data directories exist and are writable by the Docker container user
 mkdir -p "$DATA_DIR/db" "$DATA_DIR/jobs"
+if ! chown 1000:1000 "$DATA_DIR/db" "$DATA_DIR/jobs" 2>/dev/null; then
+    chmod a+rwx "$DATA_DIR/db" "$DATA_DIR/jobs"
+fi
 
 # Restore database
 if [ -f "$WORK_DIR/db.sqlite3" ]; then

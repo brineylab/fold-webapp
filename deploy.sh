@@ -23,6 +23,20 @@ ensure_data_dirs() {
         [ -n "$env_val" ] && data_dir="$env_val"
     fi
     mkdir -p "$data_dir/db" "$data_dir/jobs"
+    # Ensure the Docker container user (appuser) can write to these directories.
+    # Try chown to the typical appuser UID first; fall back to world-writable.
+    if ! chown 1000:1000 "$data_dir/db" "$data_dir/jobs" 2>/dev/null; then
+        chmod a+rwx "$data_dir/db" "$data_dir/jobs"
+    fi
+    # Ensure JOB_BASE_DIR_HOST is set in .env (needed for SLURM host paths).
+    # If missing, derive it from DATA_DIR.
+    if [ -f .env ] && ! grep -q '^JOB_BASE_DIR_HOST=' .env 2>/dev/null; then
+        local abs_data_dir="$data_dir"
+        if [[ "$abs_data_dir" != /* ]]; then
+            abs_data_dir="$(cd "$abs_data_dir" && pwd)"
+        fi
+        echo "JOB_BASE_DIR_HOST=$abs_data_dir/jobs" >> .env
+    fi
 }
 
 usage() {
@@ -108,6 +122,7 @@ cmd_install() {
             data_dir="$(cd "$SCRIPT_DIR" && cd "$data_dir" && pwd)"
         fi
         sed -i "s|^# DATA_DIR=.*|DATA_DIR=$data_dir|" .env
+        sed -i "s|^# JOB_BASE_DIR_HOST=.*|JOB_BASE_DIR_HOST=$data_dir/jobs|" .env
 
         info ".env created. You can edit it later at: $SCRIPT_DIR/.env"
     else

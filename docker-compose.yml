@@ -25,7 +25,6 @@ services:
     environment:
       - DATABASE_PATH=/app/data/db/db.sqlite3
       - JOB_BASE_DIR=/app/data/jobs
-      - JOB_BASE_DIR_HOST=${PWD}/data/jobs
     volumes:
       - ${DATA_DIR:-./data}/db:/app/data/db
       - ${DATA_DIR:-./data}/jobs:/app/data/jobs
