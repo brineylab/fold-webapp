@@ -131,6 +131,13 @@
               <strong>{{ item.name }}</strong>
               <br>
               <small class="text-muted font-monospace">{{ item.key }}</small>
+              <br>
+              <small class="text-muted">
+                {% if item.config.gpus %}{{ item.config.gpus }} GPU{{ item.config.gpus|pluralize }}{% else %}No GPU{% endif %} &middot;
+                {{ item.config.cpus }} CPU{{ item.config.cpus|pluralize }} &middot;
+                {{ item.config.mem_gb }} GB
+                {% if item.config.time_limit %} &middot; {{ item.config.time_limit }}{% endif %}
+              </small>
             </td>
             <td>
               {% if item.config.enabled %}
@@ -149,12 +156,17 @@
               {% endif %}
             </td>
             <td class="text-end">
+              <!-- Configure button -->
+              <button type="button" class="btn btn-outline-secondary btn-sm me-1" data-bs-toggle="modal" data-bs-target="#configModal{{ forloop.counter }}">
+                Configure
+              </button>
+
               {% if item.config.enabled %}
               <!-- Disable button with modal trigger -->
               <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#disableModal{{ forloop.counter }}">
                 Disable
               </button>
-              
+
               <!-- Disable Modal -->
               <div class="modal fade" id="disableModal{{ forloop.counter }}" tabindex="-1" aria-labelledby="disableModalLabel{{ forloop.counter }}" aria-hidden="true">
                 <div class="modal-dialog">
@@ -188,6 +200,75 @@
                 <button type="submit" class="btn btn-outline-success btn-sm">Enable</button>
               </form>
               {% endif %}
+
+              <!-- Configure Modal -->
+              <div class="modal fade" id="configModal{{ forloop.counter }}" tabindex="-1" aria-labelledby="configModalLabel{{ forloop.counter }}" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                  <div class="modal-content">
+                    <form method="post" action="{% url 'console:update_runner_config' runner_key=item.key %}">
+                      {% csrf_token %}
+                      <div class="modal-header">
+                        <h5 class="modal-title" id="configModalLabel{{ forloop.counter }}">Configure {{ item.name }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body text-start">
+                        <h6 class="text-muted mb-3">SLURM Resources</h6>
+                        <div class="row mb-3">
+                          <div class="col-md-6">
+                            <label for="partition_{{ forloop.counter }}" class="form-label">Partition</label>
+                            <input type="text" name="partition" id="partition_{{ forloop.counter }}" class="form-control" value="{{ item.config.partition }}" placeholder="e.g., gpu, cpu">
+                            <div class="form-text">SLURM partition. Leave empty for cluster default.</div>
+                          </div>
+                          <div class="col-md-6">
+                            <label for="time_limit_{{ forloop.counter }}" class="form-label">Time Limit</label>
+                            <input type="text" name="time_limit" id="time_limit_{{ forloop.counter }}" class="form-control" value="{{ item.config.time_limit }}" placeholder="e.g., 02:00:00">
+                            <div class="form-text">--time value. Leave empty for cluster default.</div>
+                          </div>
+                        </div>
+                        <div class="row mb-3">
+                          <div class="col-md-4">
+                            <label for="gpus_{{ forloop.counter }}" class="form-label">GPUs</label>
+                            <input type="number" name="gpus" id="gpus_{{ forloop.counter }}" class="form-control" value="{{ item.config.gpus }}" min="0">
+                            <div class="form-text">Number of GPUs (--gres=gpu:N). 0 = no GPU.</div>
+                          </div>
+                          <div class="col-md-4">
+                            <label for="cpus_{{ forloop.counter }}" class="form-label">CPUs</label>
+                            <input type="number" name="cpus" id="cpus_{{ forloop.counter }}" class="form-control" value="{{ item.config.cpus }}" min="1">
+                            <div class="form-text">CPUs per task (--cpus-per-task).</div>
+                          </div>
+                          <div class="col-md-4">
+                            <label for="mem_gb_{{ forloop.counter }}" class="form-label">Memory (GB)</label>
+                            <input type="number" name="mem_gb" id="mem_gb_{{ forloop.counter }}" class="form-control" value="{{ item.config.mem_gb }}" min="0">
+                            <div class="form-text">Memory in GB (--mem).</div>
+                          </div>
+                        </div>
+
+                        <hr>
+                        <h6 class="text-muted mb-3">Container</h6>
+                        <div class="mb-3">
+                          <label for="image_uri_{{ forloop.counter }}" class="form-label">Image URI</label>
+                          <input type="text" name="image_uri" id="image_uri_{{ forloop.counter }}" class="form-control" value="{{ item.config.image_uri }}" placeholder="e.g., registry/image:tag">
+                          <div class="form-text">Container image override. Leave empty to use runner's default.</div>
+                        </div>
+                        <div class="mb-3">
+                          <label for="extra_env_{{ forloop.counter }}" class="form-label">Extra Environment Variables</label>
+                          <textarea name="extra_env" id="extra_env_{{ forloop.counter }}" class="form-control font-monospace" rows="3" placeholder='{"KEY": "value"}'>{{ item.extra_env_json }}</textarea>
+                          <div class="form-text">JSON object of additional environment variables.</div>
+                        </div>
+                        <div class="mb-3">
+                          <label for="extra_mounts_{{ forloop.counter }}" class="form-label">Extra Mounts</label>
+                          <textarea name="extra_mounts" id="extra_mounts_{{ forloop.counter }}" class="form-control font-monospace" rows="3" placeholder='[{"source": "/host/path", "target": "/container/path"}]'>{{ item.extra_mounts_json }}</textarea>
+                          <div class="form-text">JSON array of bind mounts.</div>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Configuration</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
             </td>
           </tr>
           {% empty %}

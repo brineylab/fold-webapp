@@ -49,5 +49,6 @@ urlpatterns = [
     path("settings/maintenance/message/", views.update_maintenance_message, name="update_maintenance_message"),
     path("settings/runners/<str:runner_key>/toggle/", views.toggle_runner, name="toggle_runner"),
     path("settings/runners/<str:runner_key>/reason/", views.update_runner_reason, name="update_runner_reason"),
+    path("settings/runners/<str:runner_key>/config/", views.update_runner_config, name="update_runner_config"),
 ]
 

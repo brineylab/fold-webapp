@@ -28,6 +28,7 @@ from console.views.settings import (
     update_maintenance_message,
     toggle_runner,
     update_runner_reason,
+    update_runner_config,
 )
 
 __all__ = [
@@ -60,5 +61,6 @@ __all__ = [
     "update_maintenance_message",
     "toggle_runner",
     "update_runner_reason",
+    "update_runner_config",
 ]
 
