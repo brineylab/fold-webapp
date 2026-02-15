@@ -319,6 +319,198 @@ class BindCraftSubmitForm(forms.Form):
         return cleaned
 
 
+class RFdiffusionSubmitForm(forms.Form):
+    MODE_CHOICES = [
+        ("unconditional", "Unconditional generation"),
+        ("binder", "Binder design"),
+        ("motif", "Motif scaffolding"),
+        ("partial", "Partial diffusion"),
+        ("symmetric", "Symmetric oligomer"),
+    ]
+    SYMMETRY_CHOICES = [
+        ("cyclic", "Cyclic (Cn)"),
+        ("dihedral", "Dihedral (Dn)"),
+    ]
+
+    name = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "spellcheck": "false",
+        }),
+    )
+    mode = forms.ChoiceField(
+        choices=MODE_CHOICES,
+        initial="unconditional",
+        widget=forms.Select(attrs={"class": "form-select", "id": "id_mode"}),
+        help_text="Select the RFdiffusion inference mode.",
+    )
+    num_designs = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=1000,
+        initial=10,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Number of designs to generate.",
+    )
+    timesteps = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=1000,
+        initial=50,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Number of diffusion timesteps (default: 50).",
+    )
+
+    # Unconditional fields
+    length_min = forms.IntegerField(
+        required=False,
+        min_value=10,
+        max_value=1000,
+        initial=100,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Minimum backbone length.",
+    )
+    length_max = forms.IntegerField(
+        required=False,
+        min_value=10,
+        max_value=1000,
+        initial=200,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Maximum backbone length.",
+    )
+
+    # Binder design fields
+    target_pdb = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".pdb"}),
+        help_text="Upload the target protein structure in PDB format.",
+    )
+    target_chain = forms.CharField(
+        required=False,
+        initial="A",
+        widget=forms.TextInput(attrs={"class": "form-control"}),
+        help_text="Chain ID of the target protein.",
+    )
+    binder_length_min = forms.IntegerField(
+        required=False,
+        min_value=10,
+        max_value=500,
+        initial=70,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Minimum binder length.",
+    )
+    binder_length_max = forms.IntegerField(
+        required=False,
+        min_value=10,
+        max_value=500,
+        initial=100,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Maximum binder length.",
+    )
+    hotspot_residues = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "e.g. A30,A33,A34",
+        }),
+        help_text="Target hotspot residues (e.g. A30,A33,A34). Leave blank for no hotspot bias.",
+    )
+
+    # Motif scaffolding / Partial diffusion fields
+    input_pdb = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".pdb"}),
+        help_text="Upload the input PDB structure.",
+    )
+    contigs = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": "e.g. 10-40/A163-181/10-40",
+        }),
+        help_text="RFdiffusion contig string specifying fixed and designable regions.",
+    )
+
+    # Partial diffusion field
+    partial_T = forms.IntegerField(
+        required=False,
+        min_value=1,
+        max_value=1000,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Number of noising steps for partial diffusion (must be less than timesteps).",
+    )
+
+    # Symmetric oligomer fields
+    symmetry_type = forms.ChoiceField(
+        required=False,
+        choices=SYMMETRY_CHOICES,
+        initial="cyclic",
+        widget=forms.Select(attrs={"class": "form-select"}),
+        help_text="Symmetry type for oligomer design.",
+    )
+    symmetry_order = forms.IntegerField(
+        required=False,
+        min_value=2,
+        max_value=24,
+        initial=3,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Order of symmetry (e.g. 3 for C3 or D3).",
+    )
+    subunit_length = forms.IntegerField(
+        required=False,
+        min_value=10,
+        max_value=500,
+        initial=100,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        help_text="Length of each subunit in residues.",
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        mode = cleaned.get("mode")
+
+        if mode == "unconditional":
+            if not cleaned.get("length_min"):
+                self.add_error("length_min", "Required for unconditional generation.")
+            if not cleaned.get("length_max"):
+                self.add_error("length_max", "Required for unconditional generation.")
+            if (cleaned.get("length_min") and cleaned.get("length_max")
+                    and cleaned["length_min"] > cleaned["length_max"]):
+                self.add_error("length_max", "Max length must be >= min length.")
+
+        elif mode == "binder":
+            if not cleaned.get("target_pdb"):
+                self.add_error("target_pdb", "Required for binder design.")
+            if not cleaned.get("target_chain"):
+                self.add_error("target_chain", "Required for binder design.")
+            if not cleaned.get("binder_length_min"):
+                self.add_error("binder_length_min", "Required for binder design.")
+            if not cleaned.get("binder_length_max"):
+                self.add_error("binder_length_max", "Required for binder design.")
+            if (cleaned.get("binder_length_min") and cleaned.get("binder_length_max")
+                    and cleaned["binder_length_min"] > cleaned["binder_length_max"]):
+                self.add_error("binder_length_max", "Max length must be >= min length.")
+
+        elif mode in ("motif", "partial"):
+            if not cleaned.get("input_pdb"):
+                self.add_error("input_pdb", f"Required for {mode} mode.")
+            if not cleaned.get("contigs"):
+                self.add_error("contigs", f"Required for {mode} mode.")
+            if mode == "partial" and not cleaned.get("partial_T"):
+                self.add_error("partial_T", "Required for partial diffusion.")
+
+        elif mode == "symmetric":
+            if not cleaned.get("symmetry_type"):
+                self.add_error("symmetry_type", "Required for symmetric oligomer.")
+            if not cleaned.get("symmetry_order"):
+                self.add_error("symmetry_order", "Required for symmetric oligomer.")
+            if not cleaned.get("subunit_length"):
+                self.add_error("subunit_length", "Required for symmetric oligomer.")
+
+        return cleaned
+
+
 class LigandMPNNSubmitForm(forms.Form):
     name = forms.CharField(
         required=False,

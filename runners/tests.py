@@ -273,3 +273,138 @@ class TestBindCraftRunnerBuildScript(TestCase):
         self.assertIn("--settings /work/input/target_settings.json", script)
         self.assertIn("--filters /work/input/filters.json", script)
         self.assertIn("--advanced /work/input/advanced.json", script)
+
+
+class TestRFdiffusionRunnerBuildScript(TestCase):
+    """RFdiffusionRunner.build_script generates correct scripts for all modes."""
+
+    def setUp(self):
+        self.runner = get_runner("rfdiffusion")
+
+    def test_without_config(self):
+        job = _FakeJob(params={"mode": "unconditional", "contigs": "[100-200]"})
+        script = self.runner.build_script(job)
+        self.assertIn("#!/bin/bash", script)
+        self.assertIn("#SBATCH --job-name=rfdiffusion-", script)
+        self.assertNotIn("--partition", script)
+
+    def test_with_config_directives(self):
+        config = RunnerConfig(
+            runner_key="rfdiffusion",
+            partition="gpu",
+            gpus=1,
+            cpus=4,
+            mem_gb=32,
+            time_limit="02:00:00",
+        )
+        job = _FakeJob(params={"mode": "unconditional", "contigs": "[100-200]"})
+        script = self.runner.build_script(job, config=config)
+        self.assertIn("#SBATCH --partition=gpu", script)
+        self.assertIn("#SBATCH --gres=gpu:1", script)
+        self.assertIn("#SBATCH --cpus-per-task=4", script)
+        self.assertIn("#SBATCH --mem=32G", script)
+        self.assertIn("#SBATCH --time=02:00:00", script)
+
+    def test_config_image_override(self):
+        config = RunnerConfig(
+            runner_key="rfdiffusion",
+            image_uri="custom-rfdiffusion:v1",
+        )
+        job = _FakeJob(params={"mode": "unconditional", "contigs": "[100-200]"})
+        script = self.runner.build_script(job, config=config)
+        self.assertIn("custom-rfdiffusion:v1", script)
+
+    def test_config_empty_image_falls_back_to_settings(self):
+        config = RunnerConfig(runner_key="rfdiffusion", image_uri="")
+        job = _FakeJob(params={"mode": "unconditional", "contigs": "[100-200]"})
+        script = self.runner.build_script(job, config=config)
+        from django.conf import settings
+        self.assertIn(settings.RFDIFFUSION_IMAGE, script)
+
+    def test_unconditional_mode(self):
+        job = _FakeJob(params={
+            "mode": "unconditional",
+            "num_designs": 10,
+            "timesteps": 50,
+            "contigs": "[100-200]",
+        })
+        script = self.runner.build_script(job)
+        self.assertIn("inference.num_designs=10", script)
+        self.assertIn("diffuser.T=50", script)
+        self.assertIn("contigmap.contigs=[100-200]", script)
+        self.assertIn("--config-name base", script)
+
+    def test_binder_mode(self):
+        job = _FakeJob(params={
+            "mode": "binder",
+            "num_designs": 5,
+            "timesteps": 50,
+            "contigs": "[A1-1000/0 70-100]",
+            "hotspot_residues": "A30,A33,A34",
+        })
+        script = self.runner.build_script(job)
+        self.assertIn("inference.input_pdb=/work/input/target.pdb", script)
+        self.assertIn("contigmap.contigs=[A1-1000/0 70-100]", script)
+        self.assertIn("ppi.hotspot_res=[A30,A33,A34]", script)
+        self.assertIn("inference.num_designs=5", script)
+
+    def test_binder_mode_no_hotspot(self):
+        job = _FakeJob(params={
+            "mode": "binder",
+            "contigs": "[A1-1000/0 70-100]",
+        })
+        script = self.runner.build_script(job)
+        self.assertNotIn("hotspot_res", script)
+
+    def test_motif_mode(self):
+        job = _FakeJob(params={
+            "mode": "motif",
+            "contigs": "[10-40/A163-181/10-40]",
+        })
+        script = self.runner.build_script(job)
+        self.assertIn("inference.input_pdb=/work/input/input.pdb", script)
+        self.assertIn("contigmap.contigs=[10-40/A163-181/10-40]", script)
+        self.assertNotIn("partial_T", script)
+
+    def test_partial_diffusion_mode(self):
+        job = _FakeJob(params={
+            "mode": "partial",
+            "timesteps": 50,
+            "contigs": "[A1-100]",
+            "partial_T": 20,
+        })
+        script = self.runner.build_script(job)
+        self.assertIn("inference.input_pdb=/work/input/input.pdb", script)
+        self.assertIn("diffuser.partial_T=20", script)
+
+    def test_symmetric_mode(self):
+        job = _FakeJob(params={
+            "mode": "symmetric",
+            "symmetry_type": "cyclic",
+            "symmetry_order": 3,
+            "contigs": "[100-100]",
+        })
+        script = self.runner.build_script(job)
+        self.assertIn("--config-name symmetry", script)
+        self.assertIn("inference.symmetry=cyclic", script)
+        self.assertIn("inference.symmetry_order=3", script)
+        self.assertNotIn("inference.input_pdb", script)
+
+    def test_symmetric_dihedral(self):
+        job = _FakeJob(params={
+            "mode": "symmetric",
+            "symmetry_type": "dihedral",
+            "symmetry_order": 4,
+            "contigs": "[80-80]",
+        })
+        script = self.runner.build_script(job)
+        self.assertIn("inference.symmetry=dihedral", script)
+        self.assertIn("inference.symmetry_order=4", script)
+
+    def test_default_params(self):
+        """Runner uses defaults when params are empty."""
+        job = _FakeJob(params={})
+        script = self.runner.build_script(job)
+        self.assertIn("inference.num_designs=10", script)
+        self.assertIn("diffuser.T=50", script)
+        self.assertIn("--config-name base", script)

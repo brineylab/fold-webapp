@@ -1,0 +1,183 @@
+{% extends "jobs/submit_base.html" %}
+
+{% block form_fields %}
+        <div class="mb-3">
+          <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+          {{ form.name }}
+          {{ form.name.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.mode.id_for_label }}" class="form-label">Mode</label>
+          {{ form.mode }}
+          <div class="form-text">{{ form.mode.help_text }}</div>
+          {{ form.mode.errors }}
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label for="{{ form.num_designs.id_for_label }}" class="form-label">Number of designs</label>
+            {{ form.num_designs }}
+            <div class="form-text">{{ form.num_designs.help_text }}</div>
+            {{ form.num_designs.errors }}
+          </div>
+          <div class="col-md-6 mb-3">
+            <label for="{{ form.timesteps.id_for_label }}" class="form-label">Timesteps</label>
+            {{ form.timesteps }}
+            <div class="form-text">{{ form.timesteps.help_text }}</div>
+            {{ form.timesteps.errors }}
+          </div>
+        </div>
+
+        <!-- Unconditional fields -->
+        <div id="group-unconditional" class="mode-group">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Unconditional Generation</h6>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.length_min.id_for_label }}" class="form-label">Min backbone length</label>
+              {{ form.length_min }}
+              <div class="form-text">{{ form.length_min.help_text }}</div>
+              {{ form.length_min.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.length_max.id_for_label }}" class="form-label">Max backbone length</label>
+              {{ form.length_max }}
+              <div class="form-text">{{ form.length_max.help_text }}</div>
+              {{ form.length_max.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Binder design fields -->
+        <div id="group-binder" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Binder Design</h6>
+          <div class="mb-3">
+            <label for="{{ form.target_pdb.id_for_label }}" class="form-label">Target structure (PDB)</label>
+            {{ form.target_pdb }}
+            <div class="form-text">{{ form.target_pdb.help_text }}</div>
+            {{ form.target_pdb.errors }}
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.target_chain.id_for_label }}" class="form-label">Target chain</label>
+              {{ form.target_chain }}
+              <div class="form-text">{{ form.target_chain.help_text }}</div>
+              {{ form.target_chain.errors }}
+            </div>
+            <div class="col-md-8 mb-3">
+              <label for="{{ form.hotspot_residues.id_for_label }}" class="form-label">Hotspot residues</label>
+              {{ form.hotspot_residues }}
+              <div class="form-text">{{ form.hotspot_residues.help_text }}</div>
+              {{ form.hotspot_residues.errors }}
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.binder_length_min.id_for_label }}" class="form-label">Min binder length</label>
+              {{ form.binder_length_min }}
+              <div class="form-text">{{ form.binder_length_min.help_text }}</div>
+              {{ form.binder_length_min.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.binder_length_max.id_for_label }}" class="form-label">Max binder length</label>
+              {{ form.binder_length_max }}
+              <div class="form-text">{{ form.binder_length_max.help_text }}</div>
+              {{ form.binder_length_max.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Motif scaffolding fields -->
+        <div id="group-motif" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Motif Scaffolding</h6>
+          <div class="mb-3">
+            <label for="{{ form.input_pdb.id_for_label }}" class="form-label">Input structure (PDB)</label>
+            {{ form.input_pdb }}
+            <div class="form-text">{{ form.input_pdb.help_text }}</div>
+            {{ form.input_pdb.errors }}
+          </div>
+          <div class="mb-3">
+            <label for="{{ form.contigs.id_for_label }}" class="form-label">Contigs</label>
+            {{ form.contigs }}
+            <div class="form-text">{{ form.contigs.help_text }}</div>
+            {{ form.contigs.errors }}
+          </div>
+        </div>
+
+        <!-- Partial diffusion fields (reuses input_pdb + contigs from motif, plus partial_T) -->
+        <div id="group-partial" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Partial Diffusion</h6>
+          <div class="mb-3">
+            <label class="form-label">Input structure (PDB)</label>
+            <div class="form-text text-muted">Uses the same Input PDB and Contigs fields as motif scaffolding.</div>
+          </div>
+          <div class="mb-3">
+            <label for="{{ form.partial_T.id_for_label }}" class="form-label">Partial T (noising steps)</label>
+            {{ form.partial_T }}
+            <div class="form-text">{{ form.partial_T.help_text }}</div>
+            {{ form.partial_T.errors }}
+          </div>
+        </div>
+
+        <!-- Symmetric oligomer fields -->
+        <div id="group-symmetric" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Symmetric Oligomer</h6>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.symmetry_type.id_for_label }}" class="form-label">Symmetry type</label>
+              {{ form.symmetry_type }}
+              <div class="form-text">{{ form.symmetry_type.help_text }}</div>
+              {{ form.symmetry_type.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.symmetry_order.id_for_label }}" class="form-label">Symmetry order</label>
+              {{ form.symmetry_order }}
+              <div class="form-text">{{ form.symmetry_order.help_text }}</div>
+              {{ form.symmetry_order.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.subunit_length.id_for_label }}" class="form-label">Subunit length</label>
+              {{ form.subunit_length }}
+              <div class="form-text">{{ form.subunit_length.help_text }}</div>
+              {{ form.subunit_length.errors }}
+            </div>
+          </div>
+        </div>
+
+<script>
+(function() {
+  var modeSelect = document.getElementById('id_mode');
+  var groups = {
+    unconditional: document.getElementById('group-unconditional'),
+    binder: document.getElementById('group-binder'),
+    motif: document.getElementById('group-motif'),
+    partial: document.getElementById('group-partial'),
+    symmetric: document.getElementById('group-symmetric'),
+  };
+
+  function updateVisibility() {
+    var mode = modeSelect.value;
+    for (var key in groups) {
+      if (groups[key]) {
+        groups[key].style.display = 'none';
+      }
+    }
+    if (groups[mode]) {
+      groups[mode].style.display = '';
+    }
+    // Partial diffusion also shows the motif group (input_pdb + contigs)
+    if (mode === 'partial' && groups.motif) {
+      groups.motif.style.display = '';
+    }
+  }
+
+  modeSelect.addEventListener('change', updateVisibility);
+  updateVisibility();
+})();
+</script>
+{% endblock %}

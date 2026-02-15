@@ -136,6 +136,9 @@ LIGANDMPNN_IMAGE = os.environ.get("LIGANDMPNN_IMAGE", "ligandmpnn:latest")
 # BindCraft configuration
 BINDCRAFT_IMAGE = os.environ.get("BINDCRAFT_IMAGE", "bindcraft:latest")
 
+# RFdiffusion configuration
+RFDIFFUSION_IMAGE = os.environ.get("RFDIFFUSION_IMAGE", "rfdiffusion:latest")
+
 
 #
 # Default quota settings for new users.
