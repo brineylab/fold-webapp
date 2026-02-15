@@ -62,7 +62,8 @@ The core design separates **product concerns** (ModelType) from **operations con
 
 ### Container vs Host Paths
 
-The app runs in Docker but SLURM runs on the host. Two path settings handle this:
+The app runs in Docker but SLURM runs on the host. Path settings handle this:
+- `DATA_DIR` — root directory for all persistent data (DB, jobs, weight caches). Defaults to `./data`. All other data paths derive from this unless explicitly overridden.
 - `JOB_BASE_DIR` — container path (e.g., `/app/data/jobs`)
 - `JOB_BASE_DIR_HOST` — host path passed to sbatch `--chdir`
 

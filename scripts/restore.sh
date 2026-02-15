@@ -4,6 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Resolve DATA_DIR from .env (fallback to PROJECT_DIR/data)
+DATA_DIR="$PROJECT_DIR/data"
+if [ -f "$PROJECT_DIR/.env" ]; then
+    _env_val="$(grep '^DATA_DIR=' "$PROJECT_DIR/.env" 2>/dev/null | cut -d= -f2-)"
+    [ -n "$_env_val" ] && DATA_DIR="$_env_val"
+fi
+
 SKIP_CONFIRM=false
 RESTORE_ENV=false
 
@@ -92,18 +99,18 @@ if docker compose -f "$PROJECT_DIR/docker-compose.yml" ps --status running 2>/de
 fi
 
 # Ensure data directories exist
-mkdir -p "$PROJECT_DIR/data/db" "$PROJECT_DIR/data/jobs"
+mkdir -p "$DATA_DIR/db" "$DATA_DIR/jobs"
 
 # Restore database
 if [ -f "$WORK_DIR/db.sqlite3" ]; then
     echo "Restoring database..."
-    cp "$WORK_DIR/db.sqlite3" "$PROJECT_DIR/data/db/db.sqlite3"
+    cp "$WORK_DIR/db.sqlite3" "$DATA_DIR/db/db.sqlite3"
 fi
 
 # Restore job data
 if [ -f "$WORK_DIR/jobs.tar.gz" ]; then
     echo "Restoring job data..."
-    tar -xzf "$WORK_DIR/jobs.tar.gz" -C "$PROJECT_DIR/data/jobs"
+    tar -xzf "$WORK_DIR/jobs.tar.gz" -C "$DATA_DIR/jobs"
 fi
 
 # Restore .env if requested

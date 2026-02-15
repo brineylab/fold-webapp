@@ -148,10 +148,10 @@ WARNING: Boltz-2 pre-warm failed. Weights may not be fully cached.
 
 ### Cache directory permissions
 
-**Solution**: Ensure cache directories are writable:
+**Solution**: Ensure cache directories are writable. Replace `$DATA_DIR` with your configured data directory (defaults to `./data`):
 
 ```bash
-sudo chown -R $(whoami):$(whoami) data/jobs/boltz_cache data/jobs/chai_cache
+sudo chown -R $(whoami):$(whoami) $DATA_DIR/jobs/boltz_cache $DATA_DIR/jobs/chai_cache
 ```
 
 ## Performance Impact

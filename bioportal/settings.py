@@ -68,8 +68,10 @@ TEMPLATES = [
 WSGI_APPLICATION = "bioportal.wsgi.application"
 
 
+DATA_DIR = Path(os.environ.get("DATA_DIR", str(BASE_DIR / "data")))
+
 DATABASE_PATH = Path(
-    os.environ.get("DATABASE_PATH", str(BASE_DIR / "db.sqlite3"))
+    os.environ.get("DATABASE_PATH", str(DATA_DIR / "db" / "db.sqlite3"))
 )
 DATABASES = {
     "default": {
@@ -112,7 +114,7 @@ LOGOUT_REDIRECT_URL = "login"
 # to a dedicated filesystem path (e.g. /mnt/bioportal/jobs). The default is a
 # repo-local directory for convenience.
 #
-JOB_BASE_DIR = Path(os.environ.get("JOB_BASE_DIR", str(BASE_DIR / "job_data")))
+JOB_BASE_DIR = Path(os.environ.get("JOB_BASE_DIR", str(DATA_DIR / "jobs")))
 
 # Host-side path to the jobs directory. SLURM runs on the host, so sbatch
 # scripts must reference host paths, not container paths. When unset (local

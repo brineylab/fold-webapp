@@ -126,9 +126,10 @@ The installer will:
 
 1. Create `.env` from `env.example` with a randomly generated `SECRET_KEY` and `DEBUG=false`
 2. Prompt you for `ALLOWED_HOSTS` — enter the hostname or IP your users will access (e.g., `fold.example.com,localhost`)
-3. Build the Docker image for the web application
-4. Start all services (runs database migrations automatically)
-5. Prompt you to create an admin (superuser) account
+3. Prompt you for `DATA_DIR` — the root directory for all persistent data (database, jobs, weight caches). Defaults to `./data`. For production, use an absolute path outside the repo (e.g., `/opt/fold-webapp/data`)
+4. Build the Docker image for the web application
+5. Start all services (runs database migrations automatically)
+6. Prompt you to create an admin (superuser) account
 
 After it finishes, verify the app is running:
 
@@ -150,15 +151,16 @@ Key variables to review:
 
 | Variable | What to set | Example |
 |----------|-------------|---------|
+| `DATA_DIR` | Root directory for all persistent data | `/opt/fold-webapp/data` |
 | `ALLOWED_HOSTS` | Hostnames/IPs users will use | `fold.lab.org,10.0.1.50` |
 | `FAKE_SLURM` | Keep as `0` for production | `0` |
 | `BOLTZ_IMAGE` | Boltz-2 container image name | `brineylab/boltz2:latest` |
-| `BOLTZ_CACHE_DIR` | Where Boltz-2 caches model weights | `./data/jobs/boltz_cache` |
+| `BOLTZ_CACHE_DIR` | Where Boltz-2 caches model weights | `$DATA_DIR/jobs/boltz_cache` |
 | `CHAI_IMAGE` | Chai-1 container image name | `brineylab/chai1:latest` |
-| `CHAI_CACHE_DIR` | Where Chai-1 caches model weights | `./data/jobs/chai_cache` |
+| `CHAI_CACHE_DIR` | Where Chai-1 caches model weights | `$DATA_DIR/jobs/chai_cache` |
 | `LIGANDMPNN_IMAGE` | LigandMPNN container image name | `brineylab/ligandmpnn:latest` |
 
-Set the cache directories to paths with enough disk space. The defaults under `./data/jobs/` work well for single-node setups.
+Set `DATA_DIR` to a path with enough disk space. All other data paths (`DATABASE_PATH`, `JOB_BASE_DIR`, cache directories) default to subdirectories of `DATA_DIR`. The default `./data` works well for single-node setups.
 
 After editing, restart to pick up changes:
 
@@ -408,6 +410,7 @@ sudo systemctl restart docker
 
 ```bash
 # The web container runs as UID 1000 (appuser)
+# Replace ./data with your DATA_DIR if you changed it
 sudo chown -R 1000:1000 data/
 ```
 
@@ -430,11 +433,6 @@ fold-webapp/
 ├── Dockerfile                     # Web application image
 ├── .env                           # Environment config (git-ignored)
 ├── env.example                    # Environment template
-├── data/
-│   ├── db/                        # SQLite database
-│   └── jobs/                      # Job working directories
-│       ├── boltz_cache/           # Boltz-2 model weight cache
-│       └── chai_cache/            # Chai-1 model weight cache
 ├── containers/
 │   ├── boltz2/Dockerfile          # Boltz-2 runner image
 │   ├── chai1/Dockerfile           # Chai-1 runner image
@@ -447,6 +445,36 @@ fold-webapp/
 │   ├── restore.sh                 # Restore script
 │   └── build_image.sh             # Container build helper
 └── backups/                       # Backup archives (git-ignored)
+
+$DATA_DIR/                         # Persistent data (default: ./data)
+├── db/
+│   └── db.sqlite3                 # SQLite database
+└── jobs/                          # Job working directories
+    ├── boltz_cache/               # Boltz-2 model weight cache
+    ├── chai_cache/                # Chai-1 model weight cache
+    ├── boltzgen_cache/            # BoltzGen model weight cache
+    └── rfdiffusion_models/        # RFdiffusion model weights
+```
+
+## Migrating Existing Data
+
+If you have an existing deployment with data in `./data/` and want to move it to a new location:
+
+```bash
+# 1. Stop services
+./deploy.sh stop
+
+# 2. Move the data directory
+sudo mv ./data /opt/fold-webapp/data
+
+# 3. Set DATA_DIR in .env
+echo "DATA_DIR=/opt/fold-webapp/data" >> .env
+
+# 4. Fix ownership (web container runs as UID 1000)
+sudo chown -R 1000:1000 /opt/fold-webapp/data
+
+# 5. Start services
+./deploy.sh start
 ```
 
 ## Quick Reference

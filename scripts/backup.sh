@@ -4,6 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Resolve DATA_DIR from .env (fallback to PROJECT_DIR/data)
+DATA_DIR="$PROJECT_DIR/data"
+if [ -f "$PROJECT_DIR/.env" ]; then
+    _env_val="$(grep '^DATA_DIR=' "$PROJECT_DIR/.env" 2>/dev/null | cut -d= -f2-)"
+    [ -n "$_env_val" ] && DATA_DIR="$_env_val"
+fi
+
 # Defaults
 BACKUP_DIR="${BACKUP_DIR:-$PROJECT_DIR/backups}"
 RETENTION_DAYS="${BACKUP_RETENTION:-30}"
@@ -62,7 +69,7 @@ if docker compose -f "$PROJECT_DIR/docker-compose.yml" ps --status running 2>/de
     docker compose -f "$PROJECT_DIR/docker-compose.yml" exec -T web rm -f /tmp/backup_db.sqlite3
 else
     # Containers not running — back up the file directly from bind mount
-    DB_FILE="$PROJECT_DIR/data/db/db.sqlite3"
+    DB_FILE="$DATA_DIR/db/db.sqlite3"
     if [ -f "$DB_FILE" ]; then
         cp "$DB_FILE" "$WORK_DIR/db.sqlite3"
     else
@@ -71,7 +78,7 @@ else
 fi
 
 # --- Job data backup ---
-JOB_DATA_DIR="$PROJECT_DIR/data/jobs"
+JOB_DATA_DIR="$DATA_DIR/jobs"
 if [ -d "$JOB_DATA_DIR" ] && [ "$(ls -A "$JOB_DATA_DIR" 2>/dev/null)" ]; then
     log "  Backing up job data..."
     tar -czf "$WORK_DIR/jobs.tar.gz" -C "$JOB_DATA_DIR" .

@@ -10,8 +10,8 @@ services:
       - DATABASE_PATH=/app/data/db/db.sqlite3
       - JOB_BASE_DIR=/app/data/jobs
     volumes:
-      - ./data/db:/app/data/db
-      - ./data/jobs:/app/data/jobs
+      - ${DATA_DIR:-./data}/db:/app/data/db
+      - ${DATA_DIR:-./data}/jobs:/app/data/jobs
     # Only run once, then exit
     restart: "no"
 
@@ -27,8 +27,8 @@ services:
       - JOB_BASE_DIR=/app/data/jobs
       - JOB_BASE_DIR_HOST=${PWD}/data/jobs
     volumes:
-      - ./data/db:/app/data/db
-      - ./data/jobs:/app/data/jobs
+      - ${DATA_DIR:-./data}/db:/app/data/db
+      - ${DATA_DIR:-./data}/jobs:/app/data/jobs
       - static_files:/app/staticfiles
       # Uncomment below to mount SLURM binaries from host (production only)
       # - /usr/bin/sbatch:/usr/bin/sbatch:ro
@@ -53,8 +53,8 @@ services:
       - DATABASE_PATH=/app/data/db/db.sqlite3
       - JOB_BASE_DIR=/app/data/jobs
     volumes:
-      - ./data/db:/app/data/db
-      - ./data/jobs:/app/data/jobs
+      - ${DATA_DIR:-./data}/db:/app/data/db
+      - ${DATA_DIR:-./data}/jobs:/app/data/jobs
       # Uncomment below to mount SLURM binaries from host (production only)
       # - /usr/bin/squeue:/usr/bin/squeue:ro
       # - /usr/bin/sacct:/usr/bin/sacct:ro

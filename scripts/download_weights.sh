@@ -88,16 +88,18 @@ set -a
 source "$ENV_FILE"
 set +a
 
+DATA_DIR="${DATA_DIR:-./data}"
+
 BOLTZ_IMAGE="${BOLTZ_IMAGE:-brineylab/boltz2:latest}"
-BOLTZ_CACHE_DIR="${BOLTZ_CACHE_DIR:-./data/jobs/boltz_cache}"
+BOLTZ_CACHE_DIR="${BOLTZ_CACHE_DIR:-$DATA_DIR/jobs/boltz_cache}"
 
 CHAI_IMAGE="${CHAI_IMAGE:-brineylab/chai1:latest}"
-CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-./data/jobs/chai_cache}"
+CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-$DATA_DIR/jobs/chai_cache}"
 
 BOLTZGEN_IMAGE="${BOLTZGEN_IMAGE:-brineylab/boltzgen:latest}"
-BOLTZGEN_CACHE_DIR="${BOLTZGEN_CACHE_DIR:-./data/jobs/boltzgen_cache}"
+BOLTZGEN_CACHE_DIR="${BOLTZGEN_CACHE_DIR:-$DATA_DIR/jobs/boltzgen_cache}"
 
-RFDIFFUSION_MODELS_DIR="${RFDIFFUSION_MODELS_DIR:-./data/jobs/rfdiffusion_models}"
+RFDIFFUSION_MODELS_DIR="${RFDIFFUSION_MODELS_DIR:-$DATA_DIR/jobs/rfdiffusion_models}"
 
 # ---------- prerequisite checks ----------
 

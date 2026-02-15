@@ -15,6 +15,16 @@ info()  { echo -e "${GREEN}==>${NC} $*"; }
 warn()  { echo -e "${YELLOW}WARNING:${NC} $*"; }
 error() { echo -e "${RED}ERROR:${NC} $*" >&2; }
 
+ensure_data_dirs() {
+    local data_dir="./data"
+    if [ -f .env ]; then
+        local env_val
+        env_val="$(grep '^DATA_DIR=' .env 2>/dev/null | cut -d= -f2-)"
+        [ -n "$env_val" ] && data_dir="$env_val"
+    fi
+    mkdir -p "$data_dir/db" "$data_dir/jobs"
+}
+
 usage() {
     cat <<EOF
 Fold Webapp — deployment helper
@@ -88,6 +98,17 @@ cmd_install() {
         hosts="${hosts:-localhost}"
         sed -i "s|^ALLOWED_HOSTS=.*|ALLOWED_HOSTS=$hosts|" .env
 
+        # Prompt for DATA_DIR
+        echo
+        read -rp "Enter data directory path [./data]: " data_dir
+        data_dir="${data_dir:-./data}"
+        # Resolve relative paths to absolute
+        if [[ "$data_dir" != /* ]]; then
+            mkdir -p "$data_dir"
+            data_dir="$(cd "$SCRIPT_DIR" && cd "$data_dir" && pwd)"
+        fi
+        sed -i "s|^# DATA_DIR=.*|DATA_DIR=$data_dir|" .env
+
         info ".env created. You can edit it later at: $SCRIPT_DIR/.env"
     else
         info ".env already exists (use --force to overwrite)."
@@ -95,7 +116,7 @@ cmd_install() {
 
     # --- Create data directories ---
     info "Creating data directories..."
-    mkdir -p data/db data/jobs
+    ensure_data_dirs
 
     # --- Build ---
     info "Building Docker image..."
@@ -128,7 +149,7 @@ cmd_install() {
 cmd_start() {
     check_docker
     info "Starting services..."
-    mkdir -p data/db data/jobs
+    ensure_data_dirs
     docker compose up -d
     info "Services started. Access at http://localhost:8000"
 }
@@ -144,7 +165,7 @@ cmd_restart() {
     check_docker
     info "Restarting services..."
     docker compose down
-    mkdir -p data/db data/jobs
+    ensure_data_dirs
     docker compose up -d
     info "Services restarted."
 }
@@ -173,7 +194,7 @@ cmd_update() {
 
     info "Restarting services..."
     docker compose down
-    mkdir -p data/db data/jobs
+    ensure_data_dirs
     docker compose up -d
 
     info "Update complete."

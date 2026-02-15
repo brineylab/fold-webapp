@@ -94,9 +94,10 @@ BOLTZ_IMAGE="${BOLTZ_IMAGE:-brineylab/boltz2:latest}"
 CHAI_IMAGE="${CHAI_IMAGE:-brineylab/chai1:latest}"
 LIGANDMPNN_IMAGE="${LIGANDMPNN_IMAGE:-brineylab/ligandmpnn:latest}"
 RFDIFFUSION_IMAGE="${RFDIFFUSION_IMAGE:-brineylab/rfdiffusion:latest}"
-BOLTZ_CACHE_DIR="${BOLTZ_CACHE_DIR:-./data/jobs/boltz_cache}"
-CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-./data/jobs/chai_cache}"
-RFDIFFUSION_MODELS_DIR="${RFDIFFUSION_MODELS_DIR:-./data/jobs/rfdiffusion_models}"
+DATA_DIR="${DATA_DIR:-./data}"
+BOLTZ_CACHE_DIR="${BOLTZ_CACHE_DIR:-$DATA_DIR/jobs/boltz_cache}"
+CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-$DATA_DIR/jobs/chai_cache}"
+RFDIFFUSION_MODELS_DIR="${RFDIFFUSION_MODELS_DIR:-$DATA_DIR/jobs/rfdiffusion_models}"
 
 # Add registry prefix if specified
 if [ -n "$REGISTRY" ]; then
