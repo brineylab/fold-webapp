@@ -99,9 +99,12 @@ if docker compose -f "$PROJECT_DIR/docker-compose.yml" ps --status running 2>/de
 fi
 
 # Ensure data directories exist and are writable by the Docker container user
-mkdir -p "$DATA_DIR/db" "$DATA_DIR/jobs"
+mkdir -p "$DATA_DIR/db" "$DATA_DIR/jobs" 2>/dev/null || true
 if ! chown 1000:1000 "$DATA_DIR/db" "$DATA_DIR/jobs" 2>/dev/null; then
-    chmod a+rwx "$DATA_DIR/db" "$DATA_DIR/jobs"
+    if ! chmod a+rwx "$DATA_DIR/db" "$DATA_DIR/jobs" 2>/dev/null; then
+        echo "WARNING: Cannot set permissions on $DATA_DIR/db and $DATA_DIR/jobs" >&2
+        echo "Fix with: sudo chown -R \$(id -u):\$(id -g) $DATA_DIR" >&2
+    fi
 fi
 
 # Restore database

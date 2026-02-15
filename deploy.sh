@@ -22,11 +22,15 @@ ensure_data_dirs() {
         env_val="$(grep '^DATA_DIR=' .env 2>/dev/null | cut -d= -f2-)"
         [ -n "$env_val" ] && data_dir="$env_val"
     fi
-    mkdir -p "$data_dir/db" "$data_dir/jobs"
+    mkdir -p "$data_dir/db" "$data_dir/jobs" 2>/dev/null || true
     # Ensure the Docker container user (appuser) can write to these directories.
-    # Try chown to the typical appuser UID first; fall back to world-writable.
+    # Try chown first (works as root), then chmod (works if we own the dirs).
+    # If both fail, the dirs may be root-owned from a previous Docker run.
     if ! chown 1000:1000 "$data_dir/db" "$data_dir/jobs" 2>/dev/null; then
-        chmod a+rwx "$data_dir/db" "$data_dir/jobs"
+        if ! chmod a+rwx "$data_dir/db" "$data_dir/jobs" 2>/dev/null; then
+            warn "Cannot set permissions on $data_dir/db and $data_dir/jobs"
+            warn "Fix with: sudo chown -R \$(id -u):\$(id -g) $data_dir"
+        fi
     fi
     # Ensure JOB_BASE_DIR_HOST is set in .env (needed for SLURM host paths).
     # If missing, derive it from DATA_DIR.
