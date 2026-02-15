@@ -1,0 +1,336 @@
+{% extends "jobs/submit_base.html" %}
+
+{% block form_fields %}
+        <div class="mb-3">
+          <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+          {{ form.name }}
+          {{ form.name.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.mode.id_for_label }}" class="form-label">Mode</label>
+          {{ form.mode }}
+          <div class="form-text">{{ form.mode.help_text }}</div>
+          {{ form.mode.errors }}
+        </div>
+
+        <div class="row">
+          <div class="col-md-3 mb-3">
+            <label for="{{ form.num_designs.id_for_label }}" class="form-label">Designs per batch</label>
+            {{ form.num_designs }}
+            <div class="form-text">{{ form.num_designs.help_text }}</div>
+            {{ form.num_designs.errors }}
+          </div>
+          <div class="col-md-3 mb-3">
+            <label for="{{ form.n_batches.id_for_label }}" class="form-label">Batches</label>
+            {{ form.n_batches }}
+            <div class="form-text">{{ form.n_batches.help_text }}</div>
+            {{ form.n_batches.errors }}
+          </div>
+          <div class="col-md-3 mb-3">
+            <label for="{{ form.timesteps.id_for_label }}" class="form-label">Timesteps</label>
+            {{ form.timesteps }}
+            <div class="form-text">{{ form.timesteps.help_text }}</div>
+            {{ form.timesteps.errors }}
+          </div>
+          <div class="col-md-3 mb-3">
+            <label for="{{ form.step_scale.id_for_label }}" class="form-label">Step scale</label>
+            {{ form.step_scale }}
+            <div class="form-text">{{ form.step_scale.help_text }}</div>
+            {{ form.step_scale.errors }}
+          </div>
+        </div>
+
+        <!-- Unconditional fields -->
+        <div id="group-unconditional" class="mode-group">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Unconditional Generation</h6>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.length_min.id_for_label }}" class="form-label">Min protein length</label>
+              {{ form.length_min }}
+              <div class="form-text">{{ form.length_min.help_text }}</div>
+              {{ form.length_min.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.length_max.id_for_label }}" class="form-label">Max protein length</label>
+              {{ form.length_max }}
+              <div class="form-text">{{ form.length_max.help_text }}</div>
+              {{ form.length_max.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Protein binder design fields -->
+        <div id="group-protein_binder" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Protein Binder Design</h6>
+          <div class="mb-3">
+            <label for="{{ form.target_pdb.id_for_label }}" class="form-label">Target structure (PDB/CIF)</label>
+            {{ form.target_pdb }}
+            <div class="form-text">{{ form.target_pdb.help_text }}</div>
+            {{ form.target_pdb.errors }}
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.target_chain.id_for_label }}" class="form-label">Target chain</label>
+              {{ form.target_chain }}
+              <div class="form-text">{{ form.target_chain.help_text }}</div>
+              {{ form.target_chain.errors }}
+            </div>
+            <div class="col-md-8 mb-3">
+              <label for="{{ form.hotspot_residues.id_for_label }}" class="form-label">Hotspot residues</label>
+              {{ form.hotspot_residues }}
+              <div class="form-text">{{ form.hotspot_residues.help_text }}</div>
+              {{ form.hotspot_residues.errors }}
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.binder_length_min.id_for_label }}" class="form-label">Min binder length</label>
+              {{ form.binder_length_min }}
+              <div class="form-text">{{ form.binder_length_min.help_text }}</div>
+              {{ form.binder_length_min.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.binder_length_max.id_for_label }}" class="form-label">Max binder length</label>
+              {{ form.binder_length_max }}
+              <div class="form-text">{{ form.binder_length_max.help_text }}</div>
+              {{ form.binder_length_max.errors }}
+            </div>
+            <div class="col-md-4 mb-3 d-flex align-items-end">
+              <div class="form-check mb-2">
+                {{ form.is_non_loopy }}
+                <label for="{{ form.is_non_loopy.id_for_label }}" class="form-check-label">Non-loopy binders</label>
+                <div class="form-text">{{ form.is_non_loopy.help_text }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Small molecule binder fields -->
+        <div id="group-small_molecule_binder" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Small Molecule Binder Design</h6>
+          <div class="mb-3">
+            <label for="{{ form.sm_target_pdb.id_for_label }}" class="form-label">Target structure with ligand (PDB/CIF)</label>
+            {{ form.sm_target_pdb }}
+            <div class="form-text">{{ form.sm_target_pdb.help_text }}</div>
+            {{ form.sm_target_pdb.errors }}
+          </div>
+          <div class="mb-3">
+            <label for="{{ form.sm_ligand_name.id_for_label }}" class="form-label">Ligand name(s)</label>
+            {{ form.sm_ligand_name }}
+            <div class="form-text">{{ form.sm_ligand_name.help_text }}</div>
+            {{ form.sm_ligand_name.errors }}
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.sm_binder_length_min.id_for_label }}" class="form-label">Min binder length</label>
+              {{ form.sm_binder_length_min }}
+              <div class="form-text">{{ form.sm_binder_length_min.help_text }}</div>
+              {{ form.sm_binder_length_min.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.sm_binder_length_max.id_for_label }}" class="form-label">Max binder length</label>
+              {{ form.sm_binder_length_max }}
+              <div class="form-text">{{ form.sm_binder_length_max.help_text }}</div>
+              {{ form.sm_binder_length_max.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Nucleic acid binder fields -->
+        <div id="group-nucleic_acid_binder" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Nucleic Acid Binder Design</h6>
+          <div class="mb-3">
+            <label for="{{ form.na_target_pdb.id_for_label }}" class="form-label">Target nucleic acid structure (PDB/CIF)</label>
+            {{ form.na_target_pdb }}
+            <div class="form-text">{{ form.na_target_pdb.help_text }}</div>
+            {{ form.na_target_pdb.errors }}
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.na_target_chain.id_for_label }}" class="form-label">Target chain</label>
+              {{ form.na_target_chain }}
+              <div class="form-text">{{ form.na_target_chain.help_text }}</div>
+              {{ form.na_target_chain.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.na_binder_length_min.id_for_label }}" class="form-label">Min binder length</label>
+              {{ form.na_binder_length_min }}
+              <div class="form-text">{{ form.na_binder_length_min.help_text }}</div>
+              {{ form.na_binder_length_min.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.na_binder_length_max.id_for_label }}" class="form-label">Max binder length</label>
+              {{ form.na_binder_length_max }}
+              <div class="form-text">{{ form.na_binder_length_max.help_text }}</div>
+              {{ form.na_binder_length_max.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Enzyme design fields -->
+        <div id="group-enzyme" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Enzyme Design</h6>
+          <div class="mb-3">
+            <label for="{{ form.enzyme_target_pdb.id_for_label }}" class="form-label">Target structure with substrate (PDB/CIF)</label>
+            {{ form.enzyme_target_pdb }}
+            <div class="form-text">{{ form.enzyme_target_pdb.help_text }}</div>
+            {{ form.enzyme_target_pdb.errors }}
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.enzyme_ligand_name.id_for_label }}" class="form-label">Substrate/ligand name</label>
+              {{ form.enzyme_ligand_name }}
+              <div class="form-text">{{ form.enzyme_ligand_name.help_text }}</div>
+              {{ form.enzyme_ligand_name.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.enzyme_catalytic_residues.id_for_label }}" class="form-label">Catalytic residues</label>
+              {{ form.enzyme_catalytic_residues }}
+              <div class="form-text">{{ form.enzyme_catalytic_residues.help_text }}</div>
+              {{ form.enzyme_catalytic_residues.errors }}
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.enzyme_scaffold_length_min.id_for_label }}" class="form-label">Min scaffold length</label>
+              {{ form.enzyme_scaffold_length_min }}
+              <div class="form-text">{{ form.enzyme_scaffold_length_min.help_text }}</div>
+              {{ form.enzyme_scaffold_length_min.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.enzyme_scaffold_length_max.id_for_label }}" class="form-label">Max scaffold length</label>
+              {{ form.enzyme_scaffold_length_max }}
+              <div class="form-text">{{ form.enzyme_scaffold_length_max.help_text }}</div>
+              {{ form.enzyme_scaffold_length_max.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Motif scaffolding fields -->
+        <div id="group-motif" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Motif Scaffolding</h6>
+          <div class="mb-3">
+            <label for="{{ form.motif_input_pdb.id_for_label }}" class="form-label">Input structure (PDB/CIF)</label>
+            {{ form.motif_input_pdb }}
+            <div class="form-text">{{ form.motif_input_pdb.help_text }}</div>
+            {{ form.motif_input_pdb.errors }}
+          </div>
+          <div class="mb-3">
+            <label for="{{ form.motif_contig.id_for_label }}" class="form-label">Contig</label>
+            {{ form.motif_contig }}
+            <div class="form-text">{{ form.motif_contig.help_text }}</div>
+            {{ form.motif_contig.errors }}
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.motif_length_min.id_for_label }}" class="form-label">Min scaffold length</label>
+              {{ form.motif_length_min }}
+              <div class="form-text">{{ form.motif_length_min.help_text }}</div>
+              {{ form.motif_length_min.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.motif_length_max.id_for_label }}" class="form-label">Max scaffold length</label>
+              {{ form.motif_length_max }}
+              <div class="form-text">{{ form.motif_length_max.help_text }}</div>
+              {{ form.motif_length_max.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Partial diffusion fields -->
+        <div id="group-partial" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Partial Diffusion</h6>
+          <div class="mb-3">
+            <label for="{{ form.partial_input_pdb.id_for_label }}" class="form-label">Input structure (PDB/CIF)</label>
+            {{ form.partial_input_pdb }}
+            <div class="form-text">{{ form.partial_input_pdb.help_text }}</div>
+            {{ form.partial_input_pdb.errors }}
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.partial_contig.id_for_label }}" class="form-label">Contig</label>
+              {{ form.partial_contig }}
+              <div class="form-text">{{ form.partial_contig.help_text }}</div>
+              {{ form.partial_contig.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.partial_t.id_for_label }}" class="form-label">Noise level (angstroms)</label>
+              {{ form.partial_t }}
+              <div class="form-text">{{ form.partial_t.help_text }}</div>
+              {{ form.partial_t.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Symmetric design fields -->
+        <div id="group-symmetric" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Symmetric Design</h6>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.sym_contig.id_for_label }}" class="form-label">Subunit contig</label>
+              {{ form.sym_contig }}
+              <div class="form-text">{{ form.sym_contig.help_text }}</div>
+              {{ form.sym_contig.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.sym_type.id_for_label }}" class="form-label">Symmetry type</label>
+              {{ form.sym_type }}
+              <div class="form-text">{{ form.sym_type.help_text }}</div>
+              {{ form.sym_type.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- JSON upload fields -->
+        <div id="group-json_upload" class="mode-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Upload JSON Specification</h6>
+          <div class="mb-3">
+            <label for="{{ form.input_json.id_for_label }}" class="form-label">Input specification (JSON/YAML)</label>
+            {{ form.input_json }}
+            <div class="form-text">{{ form.input_json.help_text }}</div>
+            {{ form.input_json.errors }}
+          </div>
+        </div>
+
+<script>
+(function() {
+  var modeSelect = document.getElementById('id_mode');
+  var groups = {
+    unconditional: document.getElementById('group-unconditional'),
+    protein_binder: document.getElementById('group-protein_binder'),
+    small_molecule_binder: document.getElementById('group-small_molecule_binder'),
+    nucleic_acid_binder: document.getElementById('group-nucleic_acid_binder'),
+    enzyme: document.getElementById('group-enzyme'),
+    motif: document.getElementById('group-motif'),
+    partial: document.getElementById('group-partial'),
+    symmetric: document.getElementById('group-symmetric'),
+    json_upload: document.getElementById('group-json_upload'),
+  };
+
+  function updateVisibility() {
+    var mode = modeSelect.value;
+    for (var key in groups) {
+      if (groups[key]) {
+        groups[key].style.display = 'none';
+      }
+    }
+    if (groups[mode]) {
+      groups[mode].style.display = '';
+    }
+  }
+
+  modeSelect.addEventListener('change', updateVisibility);
+  updateVisibility();
+})();
+</script>
+{% endblock %}

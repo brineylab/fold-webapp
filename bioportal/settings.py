@@ -139,6 +139,9 @@ BINDCRAFT_IMAGE = os.environ.get("BINDCRAFT_IMAGE", "bindcraft:latest")
 # RFdiffusion configuration
 RFDIFFUSION_IMAGE = os.environ.get("RFDIFFUSION_IMAGE", "rfdiffusion:latest")
 
+# RFdiffusion3 configuration
+RFDIFFUSION3_IMAGE = os.environ.get("RFDIFFUSION3_IMAGE", "rfdiffusion3:latest")
+
 
 #
 # Default quota settings for new users.
