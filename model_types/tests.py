@@ -848,3 +848,277 @@ class TestInverseFoldingOutputContext(TestCase):
         mt = get_model_type("protein_mpnn")
         result = mt.get_output_context(job)
         self.assertEqual(result, {"files": [], "primary_files": [], "aux_files": []})
+
+
+# ---------------------------------------------------------------------------
+# 14  BindCraft model type
+# ---------------------------------------------------------------------------
+
+
+class TestBindCraftInputPayload(TestCase):
+    """BindCraftModelType.normalize_inputs returns correct structure."""
+
+    def _make_upload(self, name: str, content: bytes):
+        upload = io.BytesIO(content)
+        upload.name = name
+        return upload
+
+    def test_payload_shape(self):
+        mt = get_model_type("bindcraft")
+        upload = self._make_upload("target.pdb", b"ATOM 1 N ALA")
+        payload = mt.normalize_inputs({
+            "pdb_file": upload,
+            "target_chain": "A",
+            "length_min": 65,
+            "length_max": 150,
+            "number_of_final_designs": 10,
+        })
+        self.assertIsInstance(payload, dict)
+        self.assertEqual(set(payload.keys()), {"sequences", "params", "files"})
+        self.assertEqual(payload["sequences"], "")
+        self.assertIsInstance(payload["params"], dict)
+        self.assertIsInstance(payload["files"], dict)
+
+    def test_pdb_renamed_to_target_pdb(self):
+        mt = get_model_type("bindcraft")
+        upload = self._make_upload("my_protein.pdb", b"ATOM 1 N ALA")
+        payload = mt.normalize_inputs({
+            "pdb_file": upload,
+            "target_chain": "A",
+            "length_min": 65,
+            "length_max": 150,
+            "number_of_final_designs": 10,
+        })
+        self.assertIn("target.pdb", payload["files"])
+        self.assertEqual(payload["files"]["target.pdb"], b"ATOM 1 N ALA")
+
+    def test_params_populated(self):
+        mt = get_model_type("bindcraft")
+        upload = self._make_upload("target.pdb", b"ATOM")
+        payload = mt.normalize_inputs({
+            "pdb_file": upload,
+            "target_chain": "B",
+            "hotspot_residues": "56,78,102",
+            "length_min": 50,
+            "length_max": 200,
+            "number_of_final_designs": 20,
+        })
+        self.assertEqual(payload["params"]["target_chain"], "B")
+        self.assertEqual(payload["params"]["hotspot_residues"], "56,78,102")
+        self.assertEqual(payload["params"]["length_min"], 50)
+        self.assertEqual(payload["params"]["length_max"], 200)
+        self.assertEqual(payload["params"]["number_of_final_designs"], 20)
+
+    def test_strips_empty_hotspot(self):
+        mt = get_model_type("bindcraft")
+        upload = self._make_upload("target.pdb", b"ATOM")
+        payload = mt.normalize_inputs({
+            "pdb_file": upload,
+            "target_chain": "A",
+            "hotspot_residues": "",
+            "length_min": 65,
+            "length_max": 150,
+            "number_of_final_designs": 10,
+        })
+        self.assertNotIn("hotspot_residues", payload["params"])
+
+    def test_optional_config_files_included(self):
+        mt = get_model_type("bindcraft")
+        pdb = self._make_upload("target.pdb", b"ATOM")
+        filters = self._make_upload("filters.json", b'{"key": "val"}')
+        advanced = self._make_upload("advanced.json", b'{"adv": true}')
+        payload = mt.normalize_inputs({
+            "pdb_file": pdb,
+            "target_chain": "A",
+            "length_min": 65,
+            "length_max": 150,
+            "number_of_final_designs": 10,
+            "filters_file": filters,
+            "advanced_file": advanced,
+        })
+        self.assertIn("filters.json", payload["files"])
+        self.assertIn("advanced.json", payload["files"])
+        self.assertTrue(payload["params"]["has_custom_filters"])
+        self.assertTrue(payload["params"]["has_custom_advanced"])
+
+    def test_no_optional_config_files(self):
+        mt = get_model_type("bindcraft")
+        pdb = self._make_upload("target.pdb", b"ATOM")
+        payload = mt.normalize_inputs({
+            "pdb_file": pdb,
+            "target_chain": "A",
+            "length_min": 65,
+            "length_max": 150,
+            "number_of_final_designs": 10,
+        })
+        self.assertNotIn("filters.json", payload["files"])
+        self.assertNotIn("advanced.json", payload["files"])
+        self.assertNotIn("has_custom_filters", payload["params"])
+        self.assertNotIn("has_custom_advanced", payload["params"])
+
+    def test_resolve_runner_key(self):
+        mt = get_model_type("bindcraft")
+        self.assertEqual(mt.resolve_runner_key({}), "bindcraft")
+
+
+class TestBindCraftCategory(TestCase):
+    """BindCraft appears in Protein Design category."""
+
+    def test_protein_design_category_exists(self):
+        result = get_model_types_by_category()
+        categories = dict(result)
+        self.assertIn("Protein Design", categories)
+
+    def test_bindcraft_in_protein_design(self):
+        result = get_model_types_by_category()
+        categories = dict(result)
+        keys = [mt.key for mt in categories["Protein Design"]]
+        self.assertIn("bindcraft", keys)
+
+
+class TestBindCraftPrepareWorkdir(TestCase):
+    """BindCraft prepare_workdir generates target_settings.json."""
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_generates_target_settings_json(self):
+        import json
+
+        class FakeJob:
+            id = "test-uuid-1234"
+            workdir = self.tmpdir / "job"
+
+        mt = get_model_type("bindcraft")
+        payload = {
+            "sequences": "",
+            "params": {
+                "target_chain": "B",
+                "hotspot_residues": "56,78",
+                "length_min": 50,
+                "length_max": 200,
+                "number_of_final_designs": 5,
+            },
+            "files": {"target.pdb": b"ATOM 1 N ALA"},
+        }
+        mt.prepare_workdir(FakeJob(), payload)
+
+        settings_path = self.tmpdir / "job" / "input" / "target_settings.json"
+        self.assertTrue(settings_path.exists())
+        data = json.loads(settings_path.read_text())
+        self.assertEqual(data["chains"], "B")
+        self.assertEqual(data["target_hotspot_residues"], "56,78")
+        self.assertEqual(data["lengths"], [50, 200])
+        self.assertEqual(data["number_of_final_designs"], 5)
+        self.assertEqual(data["starting_pdb"], "/work/input/target.pdb")
+
+    def test_writes_pdb_file(self):
+        class FakeJob:
+            id = "test-uuid"
+            workdir = self.tmpdir / "job"
+
+        mt = get_model_type("bindcraft")
+        payload = {
+            "sequences": "",
+            "params": {"target_chain": "A", "length_min": 65, "length_max": 150},
+            "files": {"target.pdb": b"ATOM 1 N ALA A"},
+        }
+        mt.prepare_workdir(FakeJob(), payload)
+        pdb_path = self.tmpdir / "job" / "input" / "target.pdb"
+        self.assertTrue(pdb_path.exists())
+        self.assertEqual(pdb_path.read_bytes(), b"ATOM 1 N ALA A")
+
+
+class TestBindCraftOutputContext(TestCase):
+    """BindCraft get_output_context classifies PDB as primary."""
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _make_fake_job(self):
+        class FakeJob:
+            workdir = self.tmpdir / "job"
+        return FakeJob()
+
+    def test_pdb_files_are_primary(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "binder_001.pdb").write_text("ATOM")
+        (outdir / "scores.csv").write_text("score,value")
+
+        mt = get_model_type("bindcraft")
+        result = mt.get_output_context(job)
+        primary_names = [f["name"] for f in result["primary_files"]]
+        aux_names = [f["name"] for f in result["aux_files"]]
+        self.assertIn("binder_001.pdb", primary_names)
+        self.assertIn("scores.csv", aux_names)
+
+    def test_cif_files_are_primary(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "structure.cif").write_text("data")
+
+        mt = get_model_type("bindcraft")
+        result = mt.get_output_context(job)
+        primary_names = [f["name"] for f in result["primary_files"]]
+        self.assertIn("structure.cif", primary_names)
+
+    def test_files_is_primary_plus_aux(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+        (outdir / "binder.pdb").write_text("ATOM")
+        (outdir / "log.txt").write_text("done")
+
+        mt = get_model_type("bindcraft")
+        result = mt.get_output_context(job)
+        all_names = [f["name"] for f in result["files"]]
+        primary_names = [f["name"] for f in result["primary_files"]]
+        aux_names = [f["name"] for f in result["aux_files"]]
+        self.assertEqual(all_names, primary_names + aux_names)
+
+    def test_empty_output_dir(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        outdir.mkdir(parents=True)
+
+        mt = get_model_type("bindcraft")
+        result = mt.get_output_context(job)
+        self.assertEqual(result["files"], [])
+        self.assertEqual(result["primary_files"], [])
+        self.assertEqual(result["aux_files"], [])
+
+    def test_nested_pdb_files(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        (outdir / "designs").mkdir(parents=True)
+        (outdir / "designs" / "binder_001.pdb").write_text("ATOM")
+        (outdir / "animations").mkdir(parents=True)
+        (outdir / "animations" / "trajectory.gif").write_bytes(b"\x00")
+
+        mt = get_model_type("bindcraft")
+        result = mt.get_output_context(job)
+        primary_names = [f["name"] for f in result["primary_files"]]
+        aux_names = [f["name"] for f in result["aux_files"]]
+        self.assertIn("designs/binder_001.pdb", primary_names)
+        self.assertIn("animations/trajectory.gif", aux_names)
+
+
+class TestBindCraftValidation(TestCase):
+    """validate() passes for valid data (form handles cross-field checks)."""
+
+    def test_validate_passes(self):
+        mt = get_model_type("bindcraft")
+        mt.validate({"pdb_file": "something", "target_chain": "A"})
+
+    def test_validate_passes_empty(self):
+        mt = get_model_type("bindcraft")
+        mt.validate({})

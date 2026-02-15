@@ -191,3 +191,85 @@ class TestStubRunnersBuildScript(TestCase):
             job = _FakeJob()
             script = runner.build_script(job)
             self.assertIn("#!/bin/bash", script)
+
+
+class TestBindCraftRunnerBuildScript(TestCase):
+    """BindCraftRunner.build_script generates correct scripts."""
+
+    def setUp(self):
+        self.runner = get_runner("bindcraft")
+
+    def test_without_config(self):
+        job = _FakeJob()
+        script = self.runner.build_script(job)
+        self.assertIn("#!/bin/bash", script)
+        self.assertIn("#SBATCH --job-name=bindcraft-", script)
+        self.assertNotIn("--partition", script)
+
+    def test_with_config_directives(self):
+        config = RunnerConfig(
+            runner_key="bindcraft",
+            partition="gpu",
+            gpus=2,
+            cpus=8,
+            mem_gb=64,
+            time_limit="08:00:00",
+        )
+        job = _FakeJob()
+        script = self.runner.build_script(job, config=config)
+        self.assertIn("#SBATCH --partition=gpu", script)
+        self.assertIn("#SBATCH --gres=gpu:2", script)
+        self.assertIn("#SBATCH --cpus-per-task=8", script)
+        self.assertIn("#SBATCH --mem=64G", script)
+        self.assertIn("#SBATCH --time=08:00:00", script)
+
+    def test_config_image_override(self):
+        config = RunnerConfig(
+            runner_key="bindcraft",
+            image_uri="custom-bindcraft:v1",
+        )
+        job = _FakeJob()
+        script = self.runner.build_script(job, config=config)
+        self.assertIn("custom-bindcraft:v1", script)
+
+    def test_config_empty_image_falls_back_to_settings(self):
+        config = RunnerConfig(runner_key="bindcraft", image_uri="")
+        job = _FakeJob()
+        script = self.runner.build_script(job, config=config)
+        from django.conf import settings
+        self.assertIn(settings.BINDCRAFT_IMAGE, script)
+
+    def test_always_has_settings_flag(self):
+        job = _FakeJob()
+        script = self.runner.build_script(job)
+        self.assertIn("--settings /work/input/target_settings.json", script)
+
+    def test_custom_filters_flag(self):
+        job = _FakeJob(params={"has_custom_filters": True})
+        script = self.runner.build_script(job)
+        self.assertIn("--filters /work/input/filters.json", script)
+
+    def test_no_filters_flag_without_custom(self):
+        job = _FakeJob(params={})
+        script = self.runner.build_script(job)
+        self.assertNotIn("--filters", script)
+
+    def test_custom_advanced_flag(self):
+        job = _FakeJob(params={"has_custom_advanced": True})
+        script = self.runner.build_script(job)
+        self.assertIn("--advanced /work/input/advanced.json", script)
+
+    def test_no_advanced_flag_without_custom(self):
+        job = _FakeJob(params={})
+        script = self.runner.build_script(job)
+        self.assertNotIn("--advanced", script)
+
+    def test_both_custom_configs(self):
+        job = _FakeJob(params={
+            "has_custom_filters": True,
+            "has_custom_advanced": True,
+        })
+        script = self.runner.build_script(job)
+        self.assertIn("--settings /work/input/target_settings.json", script)
+        self.assertIn("--filters /work/input/filters.json", script)
+        self.assertIn("--advanced /work/input/advanced.json", script)

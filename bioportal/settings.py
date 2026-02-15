@@ -133,6 +133,9 @@ CHAI_CACHE_DIR = Path(os.environ.get("CHAI_CACHE_DIR", str(JOB_BASE_DIR_HOST / "
 # LigandMPNN configuration (shared by ProteinMPNN and LigandMPNN model types)
 LIGANDMPNN_IMAGE = os.environ.get("LIGANDMPNN_IMAGE", "ligandmpnn:latest")
 
+# BindCraft configuration
+BINDCRAFT_IMAGE = os.environ.get("BINDCRAFT_IMAGE", "bindcraft:latest")
+
 
 #
 # Default quota settings for new users.

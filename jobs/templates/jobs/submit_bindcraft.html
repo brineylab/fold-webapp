@@ -1,0 +1,70 @@
+{% extends "jobs/submit_base.html" %}
+
+{% block form_fields %}
+        <div class="mb-3">
+          <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+          {{ form.name }}
+          {{ form.name.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.pdb_file.id_for_label }}" class="form-label">Target structure (PDB)</label>
+          {{ form.pdb_file }}
+          <div class="form-text">{{ form.pdb_file.help_text }}</div>
+          {{ form.pdb_file.errors }}
+        </div>
+
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label for="{{ form.target_chain.id_for_label }}" class="form-label">Target chain</label>
+            {{ form.target_chain }}
+            <div class="form-text">{{ form.target_chain.help_text }}</div>
+            {{ form.target_chain.errors }}
+          </div>
+          <div class="col-md-8 mb-3">
+            <label for="{{ form.hotspot_residues.id_for_label }}" class="form-label">Hotspot residues</label>
+            {{ form.hotspot_residues }}
+            <div class="form-text">{{ form.hotspot_residues.help_text }}</div>
+            {{ form.hotspot_residues.errors }}
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label for="{{ form.length_min.id_for_label }}" class="form-label">Min binder length</label>
+            {{ form.length_min }}
+            <div class="form-text">{{ form.length_min.help_text }}</div>
+            {{ form.length_min.errors }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label for="{{ form.length_max.id_for_label }}" class="form-label">Max binder length</label>
+            {{ form.length_max }}
+            <div class="form-text">{{ form.length_max.help_text }}</div>
+            {{ form.length_max.errors }}
+          </div>
+          <div class="col-md-4 mb-3">
+            <label for="{{ form.number_of_final_designs.id_for_label }}" class="form-label">Number of designs</label>
+            {{ form.number_of_final_designs }}
+            <div class="form-text">{{ form.number_of_final_designs.help_text }}</div>
+            {{ form.number_of_final_designs.errors }}
+          </div>
+        </div>
+
+        <hr class="my-4">
+        <h6 class="text-muted mb-3">Advanced Configuration (optional)</h6>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label for="{{ form.filters_file.id_for_label }}" class="form-label">Custom filters</label>
+            {{ form.filters_file }}
+            <div class="form-text">{{ form.filters_file.help_text }}</div>
+            {{ form.filters_file.errors }}
+          </div>
+          <div class="col-md-6 mb-3">
+            <label for="{{ form.advanced_file.id_for_label }}" class="form-label">Custom advanced settings</label>
+            {{ form.advanced_file }}
+            <div class="form-text">{{ form.advanced_file.help_text }}</div>
+            {{ form.advanced_file.errors }}
+          </div>
+        </div>
+{% endblock %}
