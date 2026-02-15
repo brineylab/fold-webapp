@@ -43,6 +43,10 @@ class RFdiffusionRunner(Runner):
             hydra_overrides.append("inference.input_pdb=/work/input/target.pdb")
         elif mode in ("motif", "partial"):
             hydra_overrides.append("inference.input_pdb=/work/input/input.pdb")
+        else:
+            # Unconditional/symmetric: explicitly null out the default to prevent
+            # RFdiffusion from looking for its example PDB (1qys.pdb)
+            hydra_overrides.append("inference.input_pdb=''")
 
         # Contig string (single-quoted to prevent shell expansion of brackets)
         if contigs:
