@@ -19,4 +19,4 @@ RUN pip install --no-cache-dir rc-foundry
 RUN foundry install proteinmpnn --checkpoint-dir /app/checkpoints \
     && foundry install ligandmpnn --checkpoint-dir /app/checkpoints
 
-ENTRYPOINT ["ligandmpnn"]
+ENTRYPOINT ["mpnn"]
