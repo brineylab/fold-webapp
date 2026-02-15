@@ -239,7 +239,7 @@ download_rfdiffusion_weights() {
     RFDIFFUSION_BASE_URL="http://files.ipd.uw.edu/pub/RFdiffusion"
     RFDIFFUSION_WEIGHTS=(
         "6f5902ac237024bdd0c176cb93063dc4/Base_ckpt.pt"
-        "e75e09f351e8c1f6e5c75dba5feab75e/Complex_base_ckpt.pt"
+        "e29311f6f1bf1af907f9ef9f44b8328b/Complex_base_ckpt.pt"
     )
 
     for weight_path in "${RFDIFFUSION_WEIGHTS[@]}"; do
