@@ -34,6 +34,7 @@ Commands:
   backup            Run a backup (delegates to scripts/backup.sh)
   restore <file>    Restore from backup (delegates to scripts/restore.sh)
   prewarm [opts]    Pre-warm by pulling images and downloading model weights
+  download-weights  Download/cache model weights only (no image building)
   setup-slurm       Configure Slurm on this host (requires sudo)
 
 Options:
@@ -200,6 +201,10 @@ cmd_prewarm() {
     exec "$SCRIPT_DIR/scripts/prewarm.sh" "$@"
 }
 
+cmd_download_weights() {
+    exec "$SCRIPT_DIR/scripts/download_weights.sh" "$@"
+}
+
 cmd_setup_slurm() {
     exec "$SCRIPT_DIR/scripts/setup-slurm.sh" "$@"
 }
@@ -227,6 +232,7 @@ case "$COMMAND" in
     backup)           cmd_backup "$@" ;;
     restore)          cmd_restore "$@" ;;
     prewarm)          cmd_prewarm "$@" ;;
+    download-weights) cmd_download_weights "$@" ;;
     setup-slurm)      cmd_setup_slurm "$@" ;;
     -h|--help|help)   usage ;;
     *)

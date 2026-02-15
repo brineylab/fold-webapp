@@ -25,7 +25,6 @@ Usage: ./scripts/prewarm.sh [options]
 Pre-warms the deployment by:
   1. Pulling/building all Docker images
   2. Downloading model weights to cache directories
-  3. Running test predictions to ensure everything works
 
 This script should be run after deployment to prepare the system
 for production use. It can also be run after updates when new
@@ -120,14 +119,10 @@ if ! docker compose version &>/dev/null; then
     exit 1
 fi
 
-# Check for GPU availability
+# Check for GPU availability (informational only — weight downloads don't need GPUs)
 if ! docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu22.04 nvidia-smi &>/dev/null; then
-    warn "GPU not accessible via Docker. Model weight downloads may fail."
-    warn "Ensure nvidia-docker2 is installed and configured."
-    read -rp "Continue anyway? [y/N] " continue_nogpu
-    if [[ ! "$continue_nogpu" =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    warn "GPU not accessible via Docker."
+    warn "Weight downloads will still work, but test predictions will require a GPU."
 fi
 
 # ---------- main pre-warming steps ----------
@@ -137,7 +132,7 @@ echo
 
 # Step 1: Pull/build Docker images
 if [ "$SKIP_IMAGES" = false ]; then
-    info "Step 1/3: Pulling Docker images..."
+    info "Step 1/2: Pulling Docker images..."
 
     step "Pulling Boltz-2 image: $BOLTZ_IMAGE"
     if ! docker pull "$BOLTZ_IMAGE" 2>/dev/null; then
@@ -179,106 +174,10 @@ fi
 
 echo
 
-# Step 2: Create cache directories
-info "Step 2/3: Creating cache directories..."
-mkdir -p "$BOLTZ_CACHE_DIR" "$CHAI_CACHE_DIR" "$RFDIFFUSION_MODELS_DIR"
-step "Created $BOLTZ_CACHE_DIR"
-step "Created $CHAI_CACHE_DIR"
-step "Created $RFDIFFUSION_MODELS_DIR"
-echo
-
-# Step 3: Download model weights
+# Step 2: Download model weights
 if [ "$SKIP_WEIGHTS" = false ]; then
-    info "Step 3/3: Downloading model weights..."
-    echo
-    warn "This step will download several GB of model weights."
-    warn "Estimated sizes:"
-    warn "  - Boltz-2: ~2-3 GB"
-    warn "  - Chai-1: ~2-3 GB"
-    warn "  - RFdiffusion: ~1.5 GB"
-    warn "  - LigandMPNN: already included in image (~100 MB)"
-    warn "Total time: 5-30 minutes depending on network speed"
-    echo
-
-    # Create temporary directory for test inputs
-    TEMP_DIR=$(mktemp -d)
-    trap "rm -rf $TEMP_DIR" EXIT
-
-    # Boltz-2 pre-warm
-    info "Downloading Boltz-2 model weights..."
-    step "Creating minimal test input..."
-    cat > "$TEMP_DIR/boltz_test.fasta" <<'EOF'
->protein
-MKFLKFSLLTAVLLSVVFAFSSCGDDDDTGYLPPSQAIQDLLKRMKV
-EOF
-
-    step "Running Boltz-2 prediction to trigger weight download..."
-    docker run --rm --gpus all \
-        -e BOLTZ_CACHE=/cache \
-        -v "$TEMP_DIR:/work" \
-        -v "$BOLTZ_CACHE_DIR:/cache" \
-        "$BOLTZ_IMAGE" predict /work/boltz_test.fasta \
-        --out_dir /work/boltz_output \
-        --cache /cache \
-        --recycling_steps 1 \
-        --sampling_steps 1 \
-        --diffusion_samples 1 || {
-            warn "Boltz-2 pre-warm failed. Weights may not be fully cached."
-        }
-
-    step "Boltz-2 weights cached to $BOLTZ_CACHE_DIR"
-    echo
-
-    # Chai-1 pre-warm
-    info "Downloading Chai-1 model weights..."
-    step "Creating minimal test input..."
-    cat > "$TEMP_DIR/chai_test.fasta" <<'EOF'
->protein|name=example
-MKFLKFSLLTAVLLSVVFAFSSCGDDDDTGYLPPSQAIQDLLKRMKV
-EOF
-
-    step "Running Chai-1 prediction to trigger weight download..."
-    docker run --rm --gpus all \
-        -e CHAI_DOWNLOADS_DIR=/cache \
-        -v "$TEMP_DIR:/work" \
-        -v "$CHAI_CACHE_DIR:/cache" \
-        "$CHAI_IMAGE" fold /work/chai_test.fasta /work/chai_output \
-        --num-diffn-samples 1 || {
-            warn "Chai-1 pre-warm failed. Weights may not be fully cached."
-        }
-
-    step "Chai-1 weights cached to $CHAI_CACHE_DIR"
-    echo
-
-    # LigandMPNN note
-    info "LigandMPNN model weights..."
-    step "LigandMPNN weights are pre-downloaded during image build"
-    step "No additional download needed"
-    echo
-
-    # RFdiffusion weights (direct download from Baker lab S3)
-    info "Downloading RFdiffusion model weights..."
-    RFDIFFUSION_BASE_URL="http://files.ipd.uw.edu/pub/RFdiffusion"
-    RFDIFFUSION_WEIGHTS=(
-        "6f5902ac237024bdd0c176cb93063dc4/Base_ckpt.pt"
-        "e75e09f351e8c1f6e5c75dba5feab75e/Complex_base_ckpt.pt"
-    )
-    for weight_path in "${RFDIFFUSION_WEIGHTS[@]}"; do
-        filename="${weight_path##*/}"
-        if [ -f "$RFDIFFUSION_MODELS_DIR/$filename" ]; then
-            step "$filename already exists, skipping"
-        else
-            step "Downloading $filename..."
-            wget -q --show-progress -O "$RFDIFFUSION_MODELS_DIR/$filename" \
-                "$RFDIFFUSION_BASE_URL/$weight_path" || {
-                    warn "Failed to download $filename"
-                }
-        fi
-    done
-    step "RFdiffusion weights cached to $RFDIFFUSION_MODELS_DIR"
-    echo
-
-    info "Model weights downloaded and cached."
+    info "Step 2/2: Downloading model weights..."
+    "$SCRIPT_DIR/download_weights.sh"
 else
     info "Skipping model weight downloads (--skip-weights specified)"
 fi
