@@ -132,13 +132,22 @@ class TestLigandMPNNRunnerBuildScript(TestCase):
         job = _FakeJob(params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"})
         script = self.runner.build_script(job)
         self.assertIn("--model_type protein_mpnn", script)
-        self.assertIn("--checkpoint_protein_mpnn /app/model_params/proteinmpnn_v_48_020.pt", script)
+        self.assertIn("--checkpoint_path /app/checkpoints/proteinmpnn_v_48_020.pt", script)
+        self.assertIn("--is_legacy_weights True", script)
 
     def test_ligand_mpnn_variant(self):
         job = _FakeJob(params={"model_variant": "ligand_mpnn", "noise_level": "v_32_010_25"})
         script = self.runner.build_script(job)
         self.assertIn("--model_type ligand_mpnn", script)
-        self.assertIn("--checkpoint_ligand_mpnn /app/model_params/ligandmpnn_v_32_010_25.pt", script)
+        self.assertIn("--checkpoint_path /app/checkpoints/ligandmpnn_v_32_010_25.pt", script)
+        self.assertIn("--is_legacy_weights True", script)
+
+    def test_foundry_cli_flags(self):
+        """Runner uses foundry mpnn CLI flag names."""
+        job = _FakeJob(params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"})
+        script = self.runner.build_script(job)
+        self.assertIn("--structure_path /work/input/input.pdb", script)
+        self.assertIn("--out_directory /work/output", script)
 
     def test_params_flags(self):
         job = _FakeJob(params={
@@ -151,11 +160,11 @@ class TestLigandMPNNRunnerBuildScript(TestCase):
             "fixed_residues": "1 2 3 4",
         })
         script = self.runner.build_script(job)
-        self.assertIn('--sampling_temp "0.1"', script)
+        self.assertIn('--temperature "0.1"', script)
         self.assertIn("--number_of_batches 8", script)
         self.assertIn("--seed 42", script)
-        self.assertIn('--chains_to_design "A,B"', script)
-        self.assertIn('--fixed_positions "1 2 3 4"', script)
+        self.assertIn('--designed_chains "A,B"', script)
+        self.assertIn('--fixed_residues "1 2 3 4"', script)
 
 
 class TestStubRunnersBuildScript(TestCase):

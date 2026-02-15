@@ -30,24 +30,28 @@ class LigandMPNNRunner(Runner):
         model_variant = params.get("model_variant", "protein_mpnn")
         noise_level = params.get("noise_level", "")
 
-        # Build checkpoint flag
+        # Build checkpoint path (foundry uses a unified --checkpoint_path flag)
         if model_variant == "protein_mpnn":
-            ckpt_flag = f"--checkpoint_protein_mpnn /app/model_params/proteinmpnn_{noise_level}.pt"
+            ckpt_path = f"/app/checkpoints/proteinmpnn_{noise_level}.pt"
         else:
-            ckpt_flag = f"--checkpoint_ligand_mpnn /app/model_params/ligandmpnn_{noise_level}.pt"
+            ckpt_path = f"/app/checkpoints/ligandmpnn_{noise_level}.pt"
 
-        flags = [f"--model_type {model_variant}", ckpt_flag]
+        flags = [
+            f"--model_type {model_variant}",
+            f"--checkpoint_path {ckpt_path}",
+            "--is_legacy_weights True",
+        ]
 
         if params.get("temperature"):
-            flags.append(f"--sampling_temp \"{params['temperature']}\"")
+            flags.append(f"--temperature \"{params['temperature']}\"")
         if params.get("num_sequences"):
             flags.append(f"--number_of_batches {params['num_sequences']}")
         if params.get("seed") is not None:
             flags.append(f"--seed {params['seed']}")
         if params.get("chains_to_design"):
-            flags.append(f"--chains_to_design \"{params['chains_to_design']}\"")
+            flags.append(f"--designed_chains \"{params['chains_to_design']}\"")
         if params.get("fixed_residues"):
-            flags.append(f"--fixed_positions \"{params['fixed_residues']}\"")
+            flags.append(f"--fixed_residues \"{params['fixed_residues']}\"")
 
         flag_str = " \\\n  ".join(flags)
 
@@ -62,8 +66,8 @@ class LigandMPNNRunner(Runner):
                 docker_args.append(f"-v {mount['source']}:{mount['target']}")
         docker_args.extend([
             f"{image}",
-            "--pdb_path /work/input/input.pdb",
-            "--out_folder /work/output",
+            "--structure_path /work/input/input.pdb",
+            "--out_directory /work/output",
             "--batch_size 1",
             flag_str,
         ])
