@@ -17,13 +17,15 @@ RUN apt-get update \
 RUN wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-$(uname -m).sh -O /tmp/miniforge.sh \
     && bash /tmp/miniforge.sh -b -p ${CONDA_DIR} \
     && rm /tmp/miniforge.sh \
-    && mamba clean -afy
+    && mamba clean -afy \
+    && conda config --remove channels defaults 2>/dev/null || true
 
 # Clone RFdiffusion
 RUN git clone https://github.com/RosettaCommons/RFdiffusion.git /app/RFdiffusion
 
 # Create conda environment from RFdiffusion's SE3nv environment file
 RUN cd /app/RFdiffusion \
+    && sed -i '/^\s*-\s*defaults\s*$/d' env/SE3nv.yml \
     && mamba env create -f env/SE3nv.yml -n SE3nv \
     && mamba clean -afy
 

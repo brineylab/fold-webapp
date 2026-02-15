@@ -18,7 +18,8 @@ RUN apt-get update \
 RUN wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-$(uname -m).sh -O /tmp/miniforge.sh \
     && bash /tmp/miniforge.sh -b -p ${CONDA_DIR} \
     && rm /tmp/miniforge.sh \
-    && mamba clean -afy
+    && mamba clean -afy \
+    && conda config --remove channels defaults 2>/dev/null || true
 
 # Clone BindCraft
 RUN git clone https://github.com/martinpacesa/BindCraft.git /app/bindcraft
@@ -27,6 +28,7 @@ RUN git clone https://github.com/martinpacesa/BindCraft.git /app/bindcraft
 # Note: PyRosetta requires academic license access via conda channel.
 # Adjust the channel URL below if needed for your license.
 RUN cd /app/bindcraft \
+    && sed -i '/^\s*-\s*defaults\s*$/d' environment.yml \
     && mamba env create -f environment.yml -n bindcraft \
     && mamba clean -afy
 
