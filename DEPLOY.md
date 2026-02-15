@@ -152,11 +152,11 @@ Key variables to review:
 |----------|-------------|---------|
 | `ALLOWED_HOSTS` | Hostnames/IPs users will use | `fold.lab.org,10.0.1.50` |
 | `FAKE_SLURM` | Keep as `0` for production | `0` |
-| `BOLTZ_IMAGE` | Boltz-2 container image name | `boltz2:latest` |
+| `BOLTZ_IMAGE` | Boltz-2 container image name | `brineylab/boltz2:latest` |
 | `BOLTZ_CACHE_DIR` | Where Boltz-2 caches model weights | `./data/jobs/boltz_cache` |
-| `CHAI_IMAGE` | Chai-1 container image name | `chai1:latest` |
+| `CHAI_IMAGE` | Chai-1 container image name | `brineylab/chai1:latest` |
 | `CHAI_CACHE_DIR` | Where Chai-1 caches model weights | `./data/jobs/chai_cache` |
-| `LIGANDMPNN_IMAGE` | LigandMPNN container image name | `ligandmpnn:latest` |
+| `LIGANDMPNN_IMAGE` | LigandMPNN container image name | `brineylab/ligandmpnn:latest` |
 
 Set the cache directories to paths with enough disk space. The defaults under `./data/jobs/` work well for single-node setups.
 
@@ -202,10 +202,10 @@ For more details, troubleshooting, and advanced options (`--dry-run`, `--force-r
 Build the Docker images for each model runner. These are the containers that Slurm jobs will launch to run predictions.
 
 ```bash
-# Build all three model containers
-docker build -t boltz2:latest containers/boltz2/
-docker build -t chai1:latest containers/chai1/
-docker build -t ligandmpnn:latest containers/ligandmpnn/
+# Build all three model containers (or use ./scripts/build_image.sh)
+./scripts/build_image.sh boltz2 latest
+./scripts/build_image.sh chai1 latest
+./scripts/build_image.sh ligandmpnn latest
 ```
 
 Verify the images exist:
@@ -332,9 +332,9 @@ sinfo                     # Node should be "idle"
 squeue                    # Should be empty
 
 # GPU containers work
-docker run --rm --gpus all boltz2:latest predict --help
-docker run --rm --gpus all chai1:latest fold --help
-docker run --rm --gpus all ligandmpnn:latest --help
+docker run --rm --gpus all brineylab/boltz2:latest predict --help
+docker run --rm --gpus all brineylab/chai1:latest fold --help
+docker run --rm --gpus all brineylab/ligandmpnn:latest --help
 
 # Web UI is accessible
 curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/
@@ -356,9 +356,9 @@ This pulls the latest code, rebuilds the Docker image, and restarts all services
 To rebuild model containers after an update:
 
 ```bash
-docker build -t boltz2:latest containers/boltz2/
-docker build -t chai1:latest containers/chai1/
-docker build -t ligandmpnn:latest containers/ligandmpnn/
+./scripts/build_image.sh boltz2 latest
+./scripts/build_image.sh chai1 latest
+./scripts/build_image.sh ligandmpnn latest
 ```
 
 ## Troubleshooting

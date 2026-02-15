@@ -90,9 +90,9 @@ source "$ENV_FILE"
 set +a
 
 # Set defaults if not in env
-BOLTZ_IMAGE="${BOLTZ_IMAGE:-boltz2:latest}"
-CHAI_IMAGE="${CHAI_IMAGE:-chai1:latest}"
-LIGANDMPNN_IMAGE="${LIGANDMPNN_IMAGE:-ligandmpnn:latest}"
+BOLTZ_IMAGE="${BOLTZ_IMAGE:-brineylab/boltz2:latest}"
+CHAI_IMAGE="${CHAI_IMAGE:-brineylab/chai1:latest}"
+LIGANDMPNN_IMAGE="${LIGANDMPNN_IMAGE:-brineylab/ligandmpnn:latest}"
 BOLTZ_CACHE_DIR="${BOLTZ_CACHE_DIR:-./data/jobs/boltz_cache}"
 CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-./data/jobs/chai_cache}"
 

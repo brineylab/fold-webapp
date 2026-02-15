@@ -15,9 +15,9 @@ The `prewarm.sh` script prepares your deployment by pulling Docker images and do
 ## What It Does
 
 1. **Pulls/builds Docker images** for all model runners:
-   - `boltz2:latest` (~5 GB)
-   - `chai1:latest` (~5 GB)
-   - `ligandmpnn:latest` (~2 GB)
+   - `brineylab/boltz2:latest` (~5 GB)
+   - `brineylab/chai1:latest` (~5 GB)
+   - `brineylab/ligandmpnn:latest` (~2 GB)
    - Main web application image
 
 2. **Downloads model weights** by running minimal test predictions:
@@ -52,9 +52,9 @@ If you're pulling images from a registry instead of building locally:
 ```
 
 This will pull:
-- `registry.example.com:5000/boltz2:latest`
-- `registry.example.com:5000/chai1:latest`
-- `registry.example.com:5000/ligandmpnn:latest`
+- `registry.example.com:5000/brineylab/boltz2:latest`
+- `registry.example.com:5000/brineylab/chai1:latest`
+- `registry.example.com:5000/brineylab/ligandmpnn:latest`
 
 ### Partial Pre-warming
 
@@ -88,13 +88,13 @@ Only pull/build images (no weight downloads):
 The script reads from `.env` (or `env.example` if `.env` doesn't exist):
 
 ```bash
-BOLTZ_IMAGE=boltz2:latest
+BOLTZ_IMAGE=brineylab/boltz2:latest
 BOLTZ_CACHE_DIR=/path/to/boltz_cache
 
-CHAI_IMAGE=chai1:latest
+CHAI_IMAGE=brineylab/chai1:latest
 CHAI_CACHE_DIR=/path/to/chai_cache
 
-LIGANDMPNN_IMAGE=ligandmpnn:latest
+LIGANDMPNN_IMAGE=brineylab/ligandmpnn:latest
 ```
 
 ## Troubleshooting
@@ -119,7 +119,7 @@ docker run --rm --gpus all nvidia/cuda:12.2.2-base-ubuntu22.04 nvidia-smi
 ### Image pull fails
 
 ```
-WARNING: Failed to pull boltz2:latest from registry.
+WARNING: Failed to pull brineylab/boltz2:latest from registry.
 ```
 
 **Expected behavior**: If images haven't been pushed to a registry yet, the script will automatically fall back to building them locally.

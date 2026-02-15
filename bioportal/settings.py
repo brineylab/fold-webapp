@@ -123,27 +123,27 @@ JOB_BASE_DIR_HOST = Path(os.environ.get("JOB_BASE_DIR_HOST", str(JOB_BASE_DIR)))
 FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "1"
 
 # Boltz-2 configuration
-BOLTZ_IMAGE = os.environ.get("BOLTZ_IMAGE", "boltz2:latest")
+BOLTZ_IMAGE = os.environ.get("BOLTZ_IMAGE", "brineylab/boltz2:latest")
 BOLTZ_CACHE_DIR = Path(os.environ.get("BOLTZ_CACHE_DIR", str(JOB_BASE_DIR_HOST / "boltz_cache")))
 
 # Chai-1 configuration
-CHAI_IMAGE = os.environ.get("CHAI_IMAGE", "chai1:latest")
+CHAI_IMAGE = os.environ.get("CHAI_IMAGE", "brineylab/chai1:latest")
 CHAI_CACHE_DIR = Path(os.environ.get("CHAI_CACHE_DIR", str(JOB_BASE_DIR_HOST / "chai_cache")))
 
 # LigandMPNN configuration (shared by ProteinMPNN and LigandMPNN model types)
-LIGANDMPNN_IMAGE = os.environ.get("LIGANDMPNN_IMAGE", "ligandmpnn:latest")
+LIGANDMPNN_IMAGE = os.environ.get("LIGANDMPNN_IMAGE", "brineylab/ligandmpnn:latest")
 
 # BindCraft configuration
-BINDCRAFT_IMAGE = os.environ.get("BINDCRAFT_IMAGE", "bindcraft:latest")
+BINDCRAFT_IMAGE = os.environ.get("BINDCRAFT_IMAGE", "brineylab/bindcraft:latest")
 
 # RFdiffusion configuration
-RFDIFFUSION_IMAGE = os.environ.get("RFDIFFUSION_IMAGE", "rfdiffusion:latest")
+RFDIFFUSION_IMAGE = os.environ.get("RFDIFFUSION_IMAGE", "brineylab/rfdiffusion:latest")
 
 # RFdiffusion3 configuration
-RFDIFFUSION3_IMAGE = os.environ.get("RFDIFFUSION3_IMAGE", "rfdiffusion3:latest")
+RFDIFFUSION3_IMAGE = os.environ.get("RFDIFFUSION3_IMAGE", "brineylab/rfdiffusion3:latest")
 
 # BoltzGen configuration
-BOLTZGEN_IMAGE = os.environ.get("BOLTZGEN_IMAGE", "boltzgen:latest")
+BOLTZGEN_IMAGE = os.environ.get("BOLTZGEN_IMAGE", "brineylab/boltzgen:latest")
 BOLTZGEN_CACHE_DIR = Path(os.environ.get("BOLTZGEN_CACHE_DIR", str(JOB_BASE_DIR_HOST / "boltzgen_cache")))
 
 
