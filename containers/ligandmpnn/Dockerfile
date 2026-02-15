@@ -16,6 +16,7 @@ ENV PATH="/opt/venv/bin:${PATH}"
 RUN pip install --no-cache-dir rc-foundry
 
 # Download ProteinMPNN and LigandMPNN checkpoints
-RUN foundry install mpnn --checkpoint-dir /app/checkpoints
+RUN foundry install proteinmpnn --checkpoint-dir /app/checkpoints \
+    && foundry install ligandmpnn --checkpoint-dir /app/checkpoints
 
-ENTRYPOINT ["mpnn"]
+ENTRYPOINT ["ligandmpnn"]
