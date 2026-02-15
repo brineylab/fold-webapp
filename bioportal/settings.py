@@ -124,11 +124,11 @@ FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "1"
 
 # Boltz-2 configuration
 BOLTZ_IMAGE = os.environ.get("BOLTZ_IMAGE", "boltz2:latest")
-BOLTZ_CACHE_DIR = Path(os.environ.get("BOLTZ_CACHE_DIR", str(JOB_BASE_DIR / "boltz_cache")))
+BOLTZ_CACHE_DIR = Path(os.environ.get("BOLTZ_CACHE_DIR", str(JOB_BASE_DIR_HOST / "boltz_cache")))
 
 # Chai-1 configuration
 CHAI_IMAGE = os.environ.get("CHAI_IMAGE", "chai1:latest")
-CHAI_CACHE_DIR = Path(os.environ.get("CHAI_CACHE_DIR", str(JOB_BASE_DIR / "chai_cache")))
+CHAI_CACHE_DIR = Path(os.environ.get("CHAI_CACHE_DIR", str(JOB_BASE_DIR_HOST / "chai_cache")))
 
 # LigandMPNN configuration (shared by ProteinMPNN and LigandMPNN model types)
 LIGANDMPNN_IMAGE = os.environ.get("LIGANDMPNN_IMAGE", "ligandmpnn:latest")

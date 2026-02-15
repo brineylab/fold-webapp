@@ -45,6 +45,22 @@ class ChaiRunner(Runner):
 
         flag_str = " ".join(flags)
 
+        docker_args = [
+            "docker run --rm --gpus all",
+            "-e CHAI_DOWNLOADS_DIR=/cache",
+            f"-v {workdir}:/work",
+            f"-v {cache_dir}:/cache",
+        ]
+        if config:
+            for k, v in (config.extra_env or {}).items():
+                docker_args.append(f"-e {k}={v}")
+            for mount in config.extra_mounts or []:
+                docker_args.append(f"-v {mount['source']}:{mount['target']}")
+        docker_args.append(
+            f"{image} fold /work/input/sequences.fasta /work/output {constraint_flag} {flag_str}"
+        )
+        docker_cmd = " \\\n  ".join(docker_args)
+
         return f"""#!/bin/bash
 #SBATCH --job-name=chai-{job.id}
 #SBATCH --output={outdir}/slurm-%j.out
@@ -55,9 +71,8 @@ set -euo pipefail
 
 mkdir -p {outdir} {cache_dir}
 
-docker run --rm --gpus all \\
-  -e CHAI_DOWNLOADS_DIR=/cache \\
-  -v {workdir}:/work \\
-  -v {cache_dir}:/cache \\
-  {image} fold /work/input/sequences.fasta /work/output {constraint_flag} {flag_str}
+{docker_cmd}
+
+# Ensure output is readable by the webapp
+chmod -R a+rX {outdir} 2>/dev/null || true
 """

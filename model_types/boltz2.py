@@ -35,6 +35,7 @@ class Boltz2ModelType(BaseModelType):
         input_file = cleaned_data.get("input_file")
         if input_file:
             files[input_file.name] = input_file.read()
+            params["input_filename"] = input_file.name
             sequences = ""  # file replaces textarea input
 
         return {

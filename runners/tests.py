@@ -16,10 +16,9 @@ class _FakeJob:
     def __init__(self, job_id="00000000-0000-0000-0000-000000000001", params=None):
         self.id = job_id
         self.params = params or {}
-        self.workdir = SimpleNamespace()
-        # workdir must support / operator (Path-like)
         from pathlib import Path
         self.workdir = Path("/tmp/test-job")
+        self.host_workdir = Path("/tmp/test-job")
 
 
 class TestBoltzRunnerBuildScript(TestCase):

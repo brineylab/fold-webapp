@@ -28,6 +28,7 @@ class BoltzRunner(Runner):
         slurm_directives = config.get_slurm_directives() if config else ""
 
         params = job.params or {}
+        input_filename = params.get("input_filename", "sequences.fasta")
         flags: list[str] = []
         if params.get("use_msa_server"):
             flags.append("--use_msa_server")
@@ -44,6 +45,24 @@ class BoltzRunner(Runner):
 
         flag_str = " ".join(flags)
 
+        docker_args = [
+            "docker run --rm --gpus all",
+            "-e BOLTZ_CACHE=/cache",
+            "-e BOLTZ_MSA_USERNAME",
+            "-e BOLTZ_MSA_PASSWORD",
+            f"-v {workdir}:/work",
+            f"-v {cache_dir}:/cache",
+        ]
+        if config:
+            for k, v in (config.extra_env or {}).items():
+                docker_args.append(f"-e {k}={v}")
+            for mount in config.extra_mounts or []:
+                docker_args.append(f"-v {mount['source']}:{mount['target']}")
+        docker_args.append(
+            f"{image} predict /work/input/{input_filename} --out_dir /work/output --cache /cache {flag_str}"
+        )
+        docker_cmd = " \\\n  ".join(docker_args)
+
         return f"""#!/bin/bash
 #SBATCH --job-name=boltz-{job.id}
 #SBATCH --output={outdir}/slurm-%j.out
@@ -54,11 +73,8 @@ set -euo pipefail
 
 mkdir -p {outdir} {cache_dir}
 
-docker run --rm --gpus all \\
-  -e BOLTZ_CACHE=/cache \\
-  -e BOLTZ_MSA_USERNAME \\
-  -e BOLTZ_MSA_PASSWORD \\
-  -v {workdir}:/work \\
-  -v {cache_dir}:/cache \\
-  {image} predict /work/input/sequences.fasta --out_dir /work/output --cache /cache {flag_str}
+{docker_cmd}
+
+# Ensure output is readable by the webapp
+chmod -R a+rX {outdir} 2>/dev/null || true
 """

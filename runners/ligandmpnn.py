@@ -51,6 +51,24 @@ class LigandMPNNRunner(Runner):
 
         flag_str = " \\\n  ".join(flags)
 
+        docker_args = [
+            "docker run --rm --gpus all",
+            f"-v {workdir}:/work",
+        ]
+        if config:
+            for k, v in (config.extra_env or {}).items():
+                docker_args.append(f"-e {k}={v}")
+            for mount in config.extra_mounts or []:
+                docker_args.append(f"-v {mount['source']}:{mount['target']}")
+        docker_args.extend([
+            f"{image}",
+            "--pdb_path /work/input/input.pdb",
+            "--out_folder /work/output",
+            "--batch_size 1",
+            flag_str,
+        ])
+        docker_cmd = " \\\n  ".join(docker_args)
+
         return f"""#!/bin/bash
 #SBATCH --job-name=ligandmpnn-{job.id}
 #SBATCH --output={outdir}/slurm-%j.out
@@ -61,11 +79,8 @@ set -euo pipefail
 
 mkdir -p {outdir}
 
-docker run --rm --gpus all \\
-  -v {workdir}:/work \\
-  {image} \\
-  --pdb_path /work/input/input.pdb \\
-  --out_folder /work/output \\
-  --batch_size 1 \\
-  {flag_str}
+{docker_cmd}
+
+# Ensure output is readable by the webapp
+chmod -R a+rX {outdir} 2>/dev/null || true
 """
