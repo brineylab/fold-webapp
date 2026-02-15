@@ -108,6 +108,17 @@ check_docker() {
     fi
 }
 
+ensure_writable_dir() {
+    local dir="$1"
+    local label="$2"
+    mkdir -p "$dir" 2>/dev/null || true
+    if [ ! -d "$dir" ] || [ ! -w "$dir" ]; then
+        warn "$label directory is not writable: $dir"
+        warn "Try: sudo chown -R \$(id -u):\$(id -g) $dir"
+        return 1
+    fi
+}
+
 # ---------- per-model download functions ----------
 
 download_boltz2_weights() {
@@ -124,7 +135,7 @@ download_boltz2_weights() {
     fi
 
     check_docker
-    mkdir -p "$BOLTZ_CACHE_DIR"
+    ensure_writable_dir "$BOLTZ_CACHE_DIR" "Boltz-2 cache" || return 1
 
     step "Downloading Boltz-2 weights via direct API (no GPU required)..."
     docker run --rm \
@@ -152,7 +163,7 @@ download_chai1_weights() {
     fi
 
     check_docker
-    mkdir -p "$CHAI_CACHE_DIR"
+    ensure_writable_dir "$CHAI_CACHE_DIR" "Chai-1 cache" || return 1
 
     step "Downloading Chai-1 weights via direct API (no GPU required)..."
     docker run --rm \
@@ -188,7 +199,7 @@ download_boltzgen_weights() {
     fi
 
     check_docker
-    mkdir -p "$BOLTZGEN_CACHE_DIR"
+    ensure_writable_dir "$BOLTZGEN_CACHE_DIR" "BoltzGen cache" || return 1
 
     step "Downloading BoltzGen weights via direct API (no GPU required)..."
     docker run --rm \
@@ -221,7 +232,7 @@ download_rfdiffusion_weights() {
         return 1
     fi
 
-    mkdir -p "$RFDIFFUSION_MODELS_DIR"
+    ensure_writable_dir "$RFDIFFUSION_MODELS_DIR" "RFdiffusion models" || return 1
 
     RFDIFFUSION_BASE_URL="http://files.ipd.uw.edu/pub/RFdiffusion"
     RFDIFFUSION_WEIGHTS=(
