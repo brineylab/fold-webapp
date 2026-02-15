@@ -3,6 +3,7 @@ FROM nvcr.io/nvidia/cuda:11.6.2-cudnn8-runtime-ubuntu20.04
 RUN apt-get -q update \
   && DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
   git \
+  libgomp1 \
   python3.9 \
   python3-pip \
   && python3.9 -m pip install -q -U --no-cache-dir pip \
@@ -16,6 +17,7 @@ RUN git clone https://github.com/RosettaCommons/RFdiffusion.git /app/RFdiffusion
 # fetches the cu116 wheel; fall back to PyPI for transitive deps.
 RUN pip install -q --no-cache-dir \
   torch==1.12.1 \
+  "numpy<2" \
   --index-url https://download.pytorch.org/whl/cu116 \
   --extra-index-url https://pypi.org/simple
 
