@@ -14,11 +14,11 @@ RUN apt-get update \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Miniconda
-RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh \
-    && bash /tmp/miniconda.sh -b -p ${CONDA_DIR} \
-    && rm /tmp/miniconda.sh \
-    && conda clean -afy
+# Install Miniforge (mamba)
+RUN wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O /tmp/miniforge.sh \
+    && bash /tmp/miniforge.sh -b -p ${CONDA_DIR} \
+    && rm /tmp/miniforge.sh \
+    && mamba clean -afy
 
 # Clone BindCraft
 RUN git clone https://github.com/martinpacesa/BindCraft.git /app/bindcraft
@@ -27,8 +27,8 @@ RUN git clone https://github.com/martinpacesa/BindCraft.git /app/bindcraft
 # Note: PyRosetta requires academic license access via conda channel.
 # Adjust the channel URL below if needed for your license.
 RUN cd /app/bindcraft \
-    && conda env create -f environment.yml -n bindcraft \
-    && conda clean -afy
+    && mamba env create -f environment.yml -n bindcraft \
+    && mamba clean -afy
 
 # Install ColabDesign (af2 binder hallucination backbone)
 RUN conda run -n bindcraft pip install --no-cache-dir \

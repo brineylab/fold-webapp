@@ -13,19 +13,19 @@ RUN apt-get update \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Miniconda
-RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh \
-    && bash /tmp/miniconda.sh -b -p ${CONDA_DIR} \
-    && rm /tmp/miniconda.sh \
-    && conda clean -afy
+# Install Miniforge (mamba)
+RUN wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O /tmp/miniforge.sh \
+    && bash /tmp/miniforge.sh -b -p ${CONDA_DIR} \
+    && rm /tmp/miniforge.sh \
+    && mamba clean -afy
 
 # Clone RFdiffusion
 RUN git clone https://github.com/RosettaCommons/RFdiffusion.git /app/RFdiffusion
 
 # Create conda environment from RFdiffusion's SE3nv environment file
 RUN cd /app/RFdiffusion \
-    && conda env create -f env/SE3nv.yml -n SE3nv \
-    && conda clean -afy
+    && mamba env create -f env/SE3nv.yml -n SE3nv \
+    && mamba clean -afy
 
 # Install RFdiffusion in editable mode
 RUN conda run -n SE3nv pip install --no-cache-dir -e /app/RFdiffusion
