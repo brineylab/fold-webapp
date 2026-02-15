@@ -20,13 +20,14 @@ RUN wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Mi
     && mamba clean -afy \
     && conda config --remove channels defaults 2>/dev/null || true
 
+# Copy our custom environment file (unpinned deps, no defaults channel)
+COPY containers/rfdiffusion/SE3nv.yml /tmp/SE3nv.yml
+
 # Clone RFdiffusion
 RUN git clone https://github.com/RosettaCommons/RFdiffusion.git /app/RFdiffusion
 
-# Create conda environment from RFdiffusion's SE3nv environment file
-RUN cd /app/RFdiffusion \
-    && sed -i '/^\s*-\s*defaults\s*$/d' env/SE3nv.yml \
-    && mamba env create -f env/SE3nv.yml -n SE3nv \
+# Create conda environment from our custom environment file
+RUN mamba env create -f /tmp/SE3nv.yml -n SE3nv \
     && mamba clean -afy
 
 # Install RFdiffusion in editable mode
