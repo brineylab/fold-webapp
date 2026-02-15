@@ -73,9 +73,12 @@ class RFdiffusionRunner(Runner):
 
         override_str = " \\\n    ".join(hydra_overrides)
 
+        models_dir = Path(settings.RFDIFFUSION_MODELS_DIR)
+
         docker_args = [
             "docker run --rm --gpus all",
             f"-v {workdir}:/work",
+            f"-v {models_dir}:/app/RFdiffusion/models",
         ]
         if config:
             for k, v in (config.extra_env or {}).items():

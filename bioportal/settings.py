@@ -138,6 +138,7 @@ BINDCRAFT_IMAGE = os.environ.get("BINDCRAFT_IMAGE", "brineylab/bindcraft:latest"
 
 # RFdiffusion configuration
 RFDIFFUSION_IMAGE = os.environ.get("RFDIFFUSION_IMAGE", "brineylab/rfdiffusion:latest")
+RFDIFFUSION_MODELS_DIR = Path(os.environ.get("RFDIFFUSION_MODELS_DIR", str(JOB_BASE_DIR_HOST / "rfdiffusion_models")))
 
 # RFdiffusion3 configuration
 RFDIFFUSION3_IMAGE = os.environ.get("RFDIFFUSION3_IMAGE", "brineylab/rfdiffusion3:latest")

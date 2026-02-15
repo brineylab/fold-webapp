@@ -38,7 +38,8 @@ Options:
   -h, --help          Show this help message
 
 Environment:
-  Reads .env file for configuration (BOLTZ_CACHE_DIR, CHAI_CACHE_DIR, etc.)
+  Reads .env file for configuration (BOLTZ_CACHE_DIR, CHAI_CACHE_DIR,
+  RFDIFFUSION_MODELS_DIR, etc.)
 EOF
 }
 
@@ -93,14 +94,17 @@ set +a
 BOLTZ_IMAGE="${BOLTZ_IMAGE:-brineylab/boltz2:latest}"
 CHAI_IMAGE="${CHAI_IMAGE:-brineylab/chai1:latest}"
 LIGANDMPNN_IMAGE="${LIGANDMPNN_IMAGE:-brineylab/ligandmpnn:latest}"
+RFDIFFUSION_IMAGE="${RFDIFFUSION_IMAGE:-brineylab/rfdiffusion:latest}"
 BOLTZ_CACHE_DIR="${BOLTZ_CACHE_DIR:-./data/jobs/boltz_cache}"
 CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-./data/jobs/chai_cache}"
+RFDIFFUSION_MODELS_DIR="${RFDIFFUSION_MODELS_DIR:-./data/jobs/rfdiffusion_models}"
 
 # Add registry prefix if specified
 if [ -n "$REGISTRY" ]; then
     BOLTZ_IMAGE="${REGISTRY}/${BOLTZ_IMAGE}"
     CHAI_IMAGE="${REGISTRY}/${CHAI_IMAGE}"
     LIGANDMPNN_IMAGE="${REGISTRY}/${LIGANDMPNN_IMAGE}"
+    RFDIFFUSION_IMAGE="${REGISTRY}/${RFDIFFUSION_IMAGE}"
 fi
 
 # ---------- prerequisite checks ----------
@@ -157,6 +161,13 @@ if [ "$SKIP_IMAGES" = false ]; then
         docker build -t "$LIGANDMPNN_IMAGE" containers/ligandmpnn/
     fi
 
+    step "Pulling RFdiffusion image: $RFDIFFUSION_IMAGE"
+    if ! docker pull "$RFDIFFUSION_IMAGE" 2>/dev/null; then
+        warn "Failed to pull $RFDIFFUSION_IMAGE from registry."
+        step "Building RFdiffusion image locally..."
+        docker build -t "$RFDIFFUSION_IMAGE" containers/rfdiffusion/
+    fi
+
     step "Building main web application image..."
     docker compose build
 
@@ -170,9 +181,10 @@ echo
 
 # Step 2: Create cache directories
 info "Step 2/3: Creating cache directories..."
-mkdir -p "$BOLTZ_CACHE_DIR" "$CHAI_CACHE_DIR"
+mkdir -p "$BOLTZ_CACHE_DIR" "$CHAI_CACHE_DIR" "$RFDIFFUSION_MODELS_DIR"
 step "Created $BOLTZ_CACHE_DIR"
 step "Created $CHAI_CACHE_DIR"
+step "Created $RFDIFFUSION_MODELS_DIR"
 echo
 
 # Step 3: Download model weights
@@ -183,6 +195,7 @@ if [ "$SKIP_WEIGHTS" = false ]; then
     warn "Estimated sizes:"
     warn "  - Boltz-2: ~2-3 GB"
     warn "  - Chai-1: ~2-3 GB"
+    warn "  - RFdiffusion: ~1.5 GB"
     warn "  - LigandMPNN: already included in image (~100 MB)"
     warn "Total time: 5-30 minutes depending on network speed"
     echo
@@ -243,6 +256,28 @@ EOF
     step "No additional download needed"
     echo
 
+    # RFdiffusion weights (direct download from Baker lab S3)
+    info "Downloading RFdiffusion model weights..."
+    RFDIFFUSION_BASE_URL="http://files.ipd.uw.edu/pub/RFdiffusion"
+    RFDIFFUSION_WEIGHTS=(
+        "6f5902ac237024bdd0c176cb93063dc4/Base_ckpt.pt"
+        "e75e09f351e8c1f6e5c75dba5feab75e/Complex_base_ckpt.pt"
+    )
+    for weight_path in "${RFDIFFUSION_WEIGHTS[@]}"; do
+        filename="${weight_path##*/}"
+        if [ -f "$RFDIFFUSION_MODELS_DIR/$filename" ]; then
+            step "$filename already exists, skipping"
+        else
+            step "Downloading $filename..."
+            wget -q --show-progress -O "$RFDIFFUSION_MODELS_DIR/$filename" \
+                "$RFDIFFUSION_BASE_URL/$weight_path" || {
+                    warn "Failed to download $filename"
+                }
+        fi
+    done
+    step "RFdiffusion weights cached to $RFDIFFUSION_MODELS_DIR"
+    echo
+
     info "Model weights downloaded and cached."
 else
     info "Skipping model weight downloads (--skip-weights specified)"
@@ -255,6 +290,7 @@ echo "Summary:"
 echo "  - Docker images: ready"
 echo "  - Boltz-2 cache: $BOLTZ_CACHE_DIR"
 echo "  - Chai-1 cache: $CHAI_CACHE_DIR"
+echo "  - RFdiffusion models: $RFDIFFUSION_MODELS_DIR"
 echo "  - LigandMPNN: ready (weights in image)"
 echo
 echo "Your deployment is now ready for production use."
