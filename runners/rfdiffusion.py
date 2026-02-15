@@ -33,6 +33,7 @@ class RFdiffusionRunner(Runner):
         # Build Hydra overrides
         hydra_overrides = [
             f"inference.output_prefix=/work/output/design",
+            f"inference.model_directory_path=/app/RFdiffusion/models",
             f"inference.num_designs={num_designs}",
             f"diffuser.T={timesteps}",
         ]
