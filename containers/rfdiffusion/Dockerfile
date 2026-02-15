@@ -12,9 +12,20 @@ RUN apt-get -q update \
 
 RUN git clone https://github.com/RosettaCommons/RFdiffusion.git /app/RFdiffusion
 
+# PyTorch 1.12.1 with CUDA 11.6 — use PyTorch index as primary so pip
+# fetches the cu116 wheel; fall back to PyPI for transitive deps.
 RUN pip install -q --no-cache-dir \
-  dgl==1.0.2+cu116 -f https://data.dgl.ai/wheels/cu116/repo.html \
-  torch==1.12.1+cu116 --extra-index-url https://download.pytorch.org/whl/cu116 \
+  torch==1.12.1 \
+  --index-url https://download.pytorch.org/whl/cu116 \
+  --extra-index-url https://pypi.org/simple
+
+# DGL with CUDA 11.6
+RUN pip install -q --no-cache-dir \
+  dgl==1.0.2+cu116 \
+  -f https://data.dgl.ai/wheels/cu116/repo.html
+
+# Remaining Python deps + SE3Transformer + RFdiffusion
+RUN pip install -q --no-cache-dir \
   e3nn==0.3.3 \
   wandb==0.12.0 \
   pynvml==11.0.0 \
