@@ -849,6 +849,47 @@ class TestInverseFoldingOutputContext(TestCase):
         result = mt.get_output_context(job)
         self.assertEqual(result, {"files": [], "primary_files": [], "aux_files": []})
 
+    def test_zip_is_primary_when_present(self):
+        """When results.zip exists, it should be the sole primary file."""
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        (outdir / "seqs").mkdir(parents=True)
+        (outdir / "seqs" / "sample_1.fa").write_text(">designed\nACDEFG")
+        (outdir / "backbones").mkdir(parents=True)
+        (outdir / "backbones" / "sample_1.pdb").write_text("ATOM")
+        (outdir / "slurm-12345.out").write_text("log output")
+        (outdir / "results.zip").write_bytes(b"PK\x03\x04fake")
+
+        for key in ("protein_mpnn", "ligand_mpnn"):
+            with self.subTest(model=key):
+                mt = get_model_type(key)
+                result = mt.get_output_context(job)
+                primary_names = [f["name"] for f in result["primary_files"]]
+                aux_names = [f["name"] for f in result["aux_files"]]
+                self.assertEqual(primary_names, ["results.zip"])
+                self.assertIn("seqs/sample_1.fa", aux_names)
+                self.assertIn("backbones/sample_1.pdb", aux_names)
+                self.assertIn("slurm-12345.out", aux_names)
+                self.assertNotIn("results.zip", aux_names)
+
+    def test_fallback_without_zip(self):
+        """Without results.zip, FASTA in seqs/ should be primary (backward compat)."""
+        job = self._make_fake_job()
+        outdir = job.workdir / "output"
+        (outdir / "seqs").mkdir(parents=True)
+        (outdir / "seqs" / "sample_1.fa").write_text(">designed\nACDEFG")
+        (outdir / "backbones").mkdir(parents=True)
+        (outdir / "backbones" / "sample_1.pdb").write_text("ATOM")
+
+        for key in ("protein_mpnn", "ligand_mpnn"):
+            with self.subTest(model=key):
+                mt = get_model_type(key)
+                result = mt.get_output_context(job)
+                primary_names = [f["name"] for f in result["primary_files"]]
+                aux_names = [f["name"] for f in result["aux_files"]]
+                self.assertIn("seqs/sample_1.fa", primary_names)
+                self.assertIn("backbones/sample_1.pdb", aux_names)
+
 
 # ---------------------------------------------------------------------------
 # 14  BindCraft model type

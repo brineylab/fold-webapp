@@ -42,19 +42,28 @@ class ProteinMPNNModelType(BaseModelType):
         return "ligandmpnn"
 
     def get_output_context(self, job) -> dict:
-        """Classify output files: FASTA in seqs/ = primary, everything else = auxiliary."""
+        """Return results.zip as primary download, falling back to per-file listing."""
         outdir = job.workdir / "output"
         primary, aux = [], []
         if outdir.exists() and outdir.is_dir():
-            for p in sorted(outdir.rglob("*")):
-                if not p.is_file():
-                    continue
-                rel = p.relative_to(outdir)
-                entry = {"name": str(rel), "size": p.stat().st_size}
-                if rel.parts[0] == "seqs" and p.suffix in (".fa", ".fasta"):
-                    primary.append(entry)
-                else:
-                    aux.append(entry)
+            zipfile = outdir / "results.zip"
+            if zipfile.is_file():
+                primary.append({"name": "results.zip", "size": zipfile.stat().st_size})
+                for p in sorted(outdir.rglob("*")):
+                    if not p.is_file() or p.name == "results.zip":
+                        continue
+                    rel = p.relative_to(outdir)
+                    aux.append({"name": str(rel), "size": p.stat().st_size})
+            else:
+                for p in sorted(outdir.rglob("*")):
+                    if not p.is_file():
+                        continue
+                    rel = p.relative_to(outdir)
+                    entry = {"name": str(rel), "size": p.stat().st_size}
+                    if rel.parts[0] == "seqs" and p.suffix in (".fa", ".fasta"):
+                        primary.append(entry)
+                    else:
+                        aux.append(entry)
         return {
             "files": primary + aux,
             "primary_files": primary,

@@ -87,4 +87,8 @@ mkdir -p {outdir}
 
 # Ensure output is readable by the webapp
 chmod -R a+rX {outdir} 2>/dev/null || true
+
+# Package results into a single zip (exclude SLURM logs)
+cd {outdir}
+zip -r results.zip . -x 'slurm-*' 'results.zip'
 """
