@@ -1,0 +1,148 @@
+{% extends "jobs/submit_base.html" %}
+
+{% block form_fields %}
+        <div class="mb-3">
+          <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+          {{ form.name }}
+          {{ form.name.errors }}
+        </div>
+
+        <div class="mb-3">
+          <label for="{{ form.protocol.id_for_label }}" class="form-label">Protocol</label>
+          {{ form.protocol }}
+          <div class="form-text">{{ form.protocol.help_text }}</div>
+          {{ form.protocol.errors }}
+        </div>
+
+        <!-- Target structure fields (shown for all protocol modes) -->
+        <div id="group-target" class="protocol-group">
+          <div class="mb-3">
+            <label for="{{ form.target_file.id_for_label }}" class="form-label">Target structure</label>
+            {{ form.target_file }}
+            <div class="form-text">{{ form.target_file.help_text }}</div>
+            {{ form.target_file.errors }}
+          </div>
+          <div class="mb-3">
+            <label for="{{ form.target_chains.id_for_label }}" class="form-label">Target chains</label>
+            {{ form.target_chains }}
+            <div class="form-text">{{ form.target_chains.help_text }}</div>
+            {{ form.target_chains.errors }}
+          </div>
+        </div>
+
+        <!-- Protein binder length fields -->
+        <div id="group-protein-length" class="protocol-group">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.binder_length_min.id_for_label }}" class="form-label">Min binder length</label>
+              {{ form.binder_length_min }}
+              <div class="form-text">{{ form.binder_length_min.help_text }}</div>
+              {{ form.binder_length_min.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.binder_length_max.id_for_label }}" class="form-label">Max binder length</label>
+              {{ form.binder_length_max }}
+              <div class="form-text">{{ form.binder_length_max.help_text }}</div>
+              {{ form.binder_length_max.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Peptide binder length fields -->
+        <div id="group-peptide-length" class="protocol-group" style="display:none;">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.peptide_length_min.id_for_label }}" class="form-label">Min peptide length</label>
+              {{ form.peptide_length_min }}
+              <div class="form-text">{{ form.peptide_length_min.help_text }}</div>
+              {{ form.peptide_length_min.errors }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="{{ form.peptide_length_max.id_for_label }}" class="form-label">Max peptide length</label>
+              {{ form.peptide_length_max }}
+              <div class="form-text">{{ form.peptide_length_max.help_text }}</div>
+              {{ form.peptide_length_max.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Common parameters (shown for all protocol modes, hidden for yaml_upload) -->
+        <div id="group-common" class="protocol-group">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">Generation Parameters</h6>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.num_designs.id_for_label }}" class="form-label">Initial designs</label>
+              {{ form.num_designs }}
+              <div class="form-text">{{ form.num_designs.help_text }}</div>
+              {{ form.num_designs.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.budget.id_for_label }}" class="form-label">Budget (final designs)</label>
+              {{ form.budget }}
+              <div class="form-text">{{ form.budget.help_text }}</div>
+              {{ form.budget.errors }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="{{ form.alpha.id_for_label }}" class="form-label">Alpha (diversity)</label>
+              {{ form.alpha }}
+              <div class="form-text">{{ form.alpha.help_text }}</div>
+              {{ form.alpha.errors }}
+            </div>
+          </div>
+        </div>
+
+        <!-- YAML upload field -->
+        <div id="group-yaml" class="protocol-group" style="display:none;">
+          <hr class="my-4">
+          <h6 class="text-muted mb-3">YAML Specification</h6>
+          <div class="mb-3">
+            <label for="{{ form.yaml_file.id_for_label }}" class="form-label">Design YAML</label>
+            {{ form.yaml_file }}
+            <div class="form-text">{{ form.yaml_file.help_text }}</div>
+            {{ form.yaml_file.errors }}
+          </div>
+        </div>
+
+<script>
+(function() {
+  var protocolSelect = document.getElementById('id_protocol');
+  var groupTarget = document.getElementById('group-target');
+  var groupProteinLength = document.getElementById('group-protein-length');
+  var groupPeptideLength = document.getElementById('group-peptide-length');
+  var groupCommon = document.getElementById('group-common');
+  var groupYaml = document.getElementById('group-yaml');
+
+  function updateVisibility() {
+    var protocol = protocolSelect.value;
+
+    if (protocol === 'yaml_upload') {
+      groupTarget.style.display = 'none';
+      groupProteinLength.style.display = 'none';
+      groupPeptideLength.style.display = 'none';
+      groupCommon.style.display = 'none';
+      groupYaml.style.display = '';
+    } else {
+      groupTarget.style.display = '';
+      groupCommon.style.display = '';
+      groupYaml.style.display = 'none';
+
+      if (protocol === 'peptide-anything') {
+        groupProteinLength.style.display = 'none';
+        groupPeptideLength.style.display = '';
+      } else if (protocol === 'nanobody-anything') {
+        groupProteinLength.style.display = 'none';
+        groupPeptideLength.style.display = 'none';
+      } else {
+        // protein-anything, protein-small_molecule
+        groupProteinLength.style.display = '';
+        groupPeptideLength.style.display = 'none';
+      }
+    }
+  }
+
+  protocolSelect.addEventListener('change', updateVisibility);
+  updateVisibility();
+})();
+</script>
+{% endblock %}

@@ -142,6 +142,10 @@ RFDIFFUSION_IMAGE = os.environ.get("RFDIFFUSION_IMAGE", "rfdiffusion:latest")
 # RFdiffusion3 configuration
 RFDIFFUSION3_IMAGE = os.environ.get("RFDIFFUSION3_IMAGE", "rfdiffusion3:latest")
 
+# BoltzGen configuration
+BOLTZGEN_IMAGE = os.environ.get("BOLTZGEN_IMAGE", "boltzgen:latest")
+BOLTZGEN_CACHE_DIR = Path(os.environ.get("BOLTZGEN_CACHE_DIR", str(JOB_BASE_DIR_HOST / "boltzgen_cache")))
+
 
 #
 # Default quota settings for new users.
