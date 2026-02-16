@@ -14,9 +14,9 @@ RUN apt-get update \
 
 # Create venv and install foundry
 RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:${PATH}" \
-    PIP_EXTRA_INDEX_URL=${TORCH_CUDA_INDEX_URL}
-RUN pip install --no-cache-dir rc-foundry
+ENV PATH="/opt/venv/bin:${PATH}"
+RUN pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} torch \
+    && pip install --no-cache-dir rc-foundry
 
 # Download ProteinMPNN and LigandMPNN checkpoints
 RUN foundry install proteinmpnn --checkpoint-dir /app/checkpoints \

@@ -16,10 +16,10 @@ RUN apt-get update \
 RUN python3 -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_EXTRA_INDEX_URL=${TORCH_CUDA_INDEX_URL}
+    PYTHONUNBUFFERED=1
 
 RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} torch \
     && pip install --no-cache-dir "chai_lab"
 
 WORKDIR /app
