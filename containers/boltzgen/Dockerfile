@@ -7,16 +7,17 @@ WORKDIR /app
 
 # System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv git ca-certificates \
-    cuda-cupti-13-0 && \
+    python3 python3-pip python3-venv git ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Create venv and install BoltzGen (requires Python >= 3.11; Ubuntu 24.04 ships 3.12)
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 RUN pip install --no-cache-dir boltzgen \
-    && pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} \
-       --force-reinstall --no-deps torch
+    && pip install --no-cache-dir \
+       --index-url ${TORCH_CUDA_INDEX_URL} \
+       --extra-index-url https://pypi.org/simple/ \
+       --force-reinstall torch
 
 # Optional: pre-download weights (~6GB)
 ARG DOWNLOAD_WEIGHTS=false

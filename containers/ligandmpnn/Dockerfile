@@ -10,15 +10,16 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        python3 python3-pip python3-venv python3-dev gcc g++ ca-certificates \
-       cuda-cupti-13-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create venv and install foundry
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 RUN pip install --no-cache-dir rc-foundry \
-    && pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} \
-       --force-reinstall --no-deps torch
+    && pip install --no-cache-dir \
+       --index-url ${TORCH_CUDA_INDEX_URL} \
+       --extra-index-url https://pypi.org/simple/ \
+       --force-reinstall torch
 
 # Download ProteinMPNN and LigandMPNN checkpoints
 RUN foundry install proteinmpnn --checkpoint-dir /app/checkpoints \

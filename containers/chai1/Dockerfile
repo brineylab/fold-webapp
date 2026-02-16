@@ -11,7 +11,6 @@ RUN apt-get update \
         git \
         curl \
         ca-certificates \
-        cuda-cupti-13-0 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv
@@ -21,8 +20,10 @@ ENV PATH=/opt/venv/bin:$PATH \
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir "chai_lab" \
-    && pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} \
-       --force-reinstall --no-deps torch
+    && pip install --no-cache-dir \
+       --index-url ${TORCH_CUDA_INDEX_URL} \
+       --extra-index-url https://pypi.org/simple/ \
+       --force-reinstall torch
 
 WORKDIR /app
 

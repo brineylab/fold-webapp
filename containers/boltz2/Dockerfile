@@ -15,7 +15,6 @@ RUN apt-get update \
         libsm6 \
         libxrender1 \
         libxext6 \
-        cuda-cupti-13-0 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv
@@ -25,8 +24,10 @@ ENV PATH=/opt/venv/bin:$PATH \
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir "boltz[cuda]" \
-    && pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} \
-       --force-reinstall --no-deps torch
+    && pip install --no-cache-dir \
+       --index-url ${TORCH_CUDA_INDEX_URL} \
+       --extra-index-url https://pypi.org/simple/ \
+       --force-reinstall torch
 
 WORKDIR /app
 

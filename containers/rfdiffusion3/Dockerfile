@@ -10,15 +10,16 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        python3 python3-pip python3-venv python3-dev gcc g++ ca-certificates \
-       cuda-cupti-13-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create venv and install foundry with RFD3
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 RUN pip install --no-cache-dir "rc-foundry[rfd3]" \
-    && pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} \
-       --force-reinstall --no-deps torch
+    && pip install --no-cache-dir \
+       --index-url ${TORCH_CUDA_INDEX_URL} \
+       --extra-index-url https://pypi.org/simple/ \
+       --force-reinstall torch
 
 # Download RFD3 checkpoints (default location)
 RUN foundry install rfd3

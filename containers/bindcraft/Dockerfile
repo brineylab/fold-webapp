@@ -10,7 +10,7 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        wget git build-essential ca-certificates \
-       dssp mkdssp cuda-cupti-13-0 \
+       dssp mkdssp \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
@@ -35,7 +35,8 @@ RUN cd /app/bindcraft \
 # Override PyTorch in conda env with cu130 pip wheels for Blackwell support
 RUN conda run -n bindcraft pip install --no-cache-dir \
     --index-url https://download.pytorch.org/whl/cu130 \
-    --force-reinstall --no-deps \
+    --extra-index-url https://pypi.org/simple/ \
+    --force-reinstall \
     torch torchvision torchaudio
 
 # Install ColabDesign (af2 binder hallucination backbone)
