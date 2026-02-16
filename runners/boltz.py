@@ -47,6 +47,8 @@ class BoltzRunner(Runner):
 
         docker_args = [
             "docker run --rm --gpus all",
+            "-e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}",
+            "-e CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}",
             "-e BOLTZ_CACHE=/cache",
             "-e BOLTZ_MSA_USERNAME",
             "-e BOLTZ_MSA_PASSWORD",
@@ -72,6 +74,10 @@ class BoltzRunner(Runner):
 set -euo pipefail
 
 mkdir -p {outdir} {cache_dir}
+
+echo "=== GPU diagnostic ==="
+nvidia-smi || echo "WARNING: nvidia-smi not available on this node"
+echo "======================"
 
 {docker_cmd}
 

@@ -46,6 +46,8 @@ class BindCraftRunner(Runner):
 
         docker_args = [
             "docker run --rm --gpus all",
+            "-e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}",
+            "-e CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}",
             f"-v {workdir}:/work",
         ]
         if config:
@@ -68,6 +70,10 @@ class BindCraftRunner(Runner):
 set -euo pipefail
 
 mkdir -p {outdir}
+
+echo "=== GPU diagnostic ==="
+nvidia-smi || echo "WARNING: nvidia-smi not available on this node"
+echo "======================"
 
 {docker_cmd}
 

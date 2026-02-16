@@ -45,7 +45,6 @@ class RFdiffusion3ModelType(BaseModelType):
             length_max = cleaned_data.get("length_max", 200)
             input_spec = {
                 "design": {
-                    "contig": f"{length_min}-{length_max}",
                     "length": f"{length_min}-{length_max}",
                 },
             }
@@ -154,7 +153,7 @@ class RFdiffusion3ModelType(BaseModelType):
             sym_type = (cleaned_data.get("sym_type") or "").strip()
             input_spec = {
                 "design": {
-                    "contig": sym_contig,
+                    "length": sym_contig,
                     "symmetry": {"type": sym_type},
                 },
             }
