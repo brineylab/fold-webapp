@@ -33,7 +33,7 @@ class RFdiffusion3Runner(Runner):
 
         # Build rfd3 design command arguments
         rfd3_args = [
-            "rfd3 design",
+            "design",
             "out_dir=/work/output",
             "inputs=/work/input/input_spec.json",
             f"n_batches={n_batches}",
