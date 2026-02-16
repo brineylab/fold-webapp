@@ -34,7 +34,7 @@ RUN cd /app/bindcraft \
 
 # Override PyTorch in conda env with cu130 pip wheels for Blackwell support
 RUN conda run -n bindcraft pip install --no-cache-dir \
-    --extra-index-url https://download.pytorch.org/whl/cu130 \
+    --index-url https://download.pytorch.org/whl/cu130 \
     --force-reinstall --no-deps \
     torch torchvision torchaudio
 

@@ -19,8 +19,9 @@ ENV PATH=/opt/venv/bin:$PATH \
     PYTHONUNBUFFERED=1
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} torch \
-    && pip install --no-cache-dir "chai_lab"
+    && pip install --no-cache-dir "chai_lab" \
+    && pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} \
+       --force-reinstall --no-deps torch
 
 WORKDIR /app
 

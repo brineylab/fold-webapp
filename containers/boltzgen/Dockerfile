@@ -13,8 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create venv and install BoltzGen (requires Python >= 3.11; Ubuntu 24.04 ships 3.12)
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
-RUN pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} torch \
-    && pip install --no-cache-dir boltzgen
+RUN pip install --no-cache-dir boltzgen \
+    && pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} \
+       --force-reinstall --no-deps torch
 
 # Optional: pre-download weights (~6GB)
 ARG DOWNLOAD_WEIGHTS=false

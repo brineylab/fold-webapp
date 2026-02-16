@@ -15,8 +15,9 @@ RUN apt-get update \
 # Create venv and install foundry with RFD3
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
-RUN pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} torch \
-    && pip install --no-cache-dir "rc-foundry[rfd3]"
+RUN pip install --no-cache-dir "rc-foundry[rfd3]" \
+    && pip install --no-cache-dir --index-url ${TORCH_CUDA_INDEX_URL} \
+       --force-reinstall --no-deps torch
 
 # Download RFD3 checkpoints (default location)
 RUN foundry install rfd3
