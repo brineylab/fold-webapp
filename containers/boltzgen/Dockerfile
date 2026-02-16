@@ -7,7 +7,8 @@ WORKDIR /app
 
 # System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-venv git ca-certificates && \
+    python3 python3-pip python3-venv git ca-certificates \
+    cuda-cupti-13-0 && \
     rm -rf /var/lib/apt/lists/*
 
 # Create venv and install BoltzGen (requires Python >= 3.11; Ubuntu 24.04 ships 3.12)

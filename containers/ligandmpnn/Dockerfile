@@ -10,6 +10,7 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        python3 python3-pip python3-venv python3-dev gcc g++ ca-certificates \
+       cuda-cupti-13-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create venv and install foundry

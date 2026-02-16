@@ -11,6 +11,7 @@ RUN apt-get update \
         git \
         curl \
         ca-certificates \
+        cuda-cupti-13-0 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv

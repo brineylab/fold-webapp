@@ -15,6 +15,7 @@ RUN apt-get update \
         libsm6 \
         libxrender1 \
         libxext6 \
+        cuda-cupti-13-0 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv
