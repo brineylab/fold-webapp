@@ -1,4 +1,6 @@
-FROM nvidia/cuda:12.6.1-cudnn-runtime-ubuntu24.04
+FROM nvidia/cuda:13.0.1-cudnn-runtime-ubuntu24.04
+
+ARG TORCH_CUDA_INDEX_URL=https://download.pytorch.org/whl/cu130
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -12,7 +14,8 @@ RUN apt-get update \
 
 # Create venv and install foundry with RFD3
 RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:${PATH}"
+ENV PATH="/opt/venv/bin:${PATH}" \
+    PIP_EXTRA_INDEX_URL=${TORCH_CUDA_INDEX_URL}
 RUN pip install --no-cache-dir "rc-foundry[rfd3]"
 
 # Download RFD3 checkpoints (default location)

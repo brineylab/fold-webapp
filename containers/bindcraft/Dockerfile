@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.4.0-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:13.0.1-cudnn-runtime-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CONDA_DIR=/opt/conda
@@ -10,7 +10,7 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        wget git build-essential ca-certificates \
-       dssp \
+       dssp mkdssp \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,6 +31,12 @@ RUN cd /app/bindcraft \
     && sed -i '/^\s*-\s*defaults\s*$/d' environment.yml \
     && mamba env create -f environment.yml -n bindcraft \
     && mamba clean -afy
+
+# Override PyTorch in conda env with cu130 pip wheels for Blackwell support
+RUN conda run -n bindcraft pip install --no-cache-dir \
+    --extra-index-url https://download.pytorch.org/whl/cu130 \
+    --force-reinstall --no-deps \
+    torch torchvision torchaudio
 
 # Install ColabDesign (af2 binder hallucination backbone)
 RUN conda run -n bindcraft pip install --no-cache-dir \

@@ -1,8 +1,7 @@
-FROM nvidia/cuda:12.8.0-cudnn9-runtime-ubuntu22.04
+FROM nvidia/cuda:13.0.1-cudnn-runtime-ubuntu24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG CHAI_VERSION=0.6.1
-ARG TORCH_CUDA_INDEX_URL=https://download.pytorch.org/whl/cu128
+ARG TORCH_CUDA_INDEX_URL=https://download.pytorch.org/whl/cu130
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -21,7 +20,7 @@ ENV PATH=/opt/venv/bin:$PATH \
     PIP_EXTRA_INDEX_URL=${TORCH_CUDA_INDEX_URL}
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir "chai_lab==${CHAI_VERSION}"
+    && pip install --no-cache-dir "chai_lab"
 
 WORKDIR /app
 

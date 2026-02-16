@@ -121,6 +121,18 @@ The `poll_jobs` management command runs in a loop (via honcho or Docker poller s
 5. Create template `jobs/templates/jobs/submit_<model_key>.html` (extends `submit_base.html`)
 6. Add container image setting to `bioportal/settings.py` (e.g., `BOLTZ_IMAGE`)
 
+## GPU Compatibility
+
+All model containers use `nvidia/cuda:13.0.1-cudnn-runtime-ubuntu24.04` as the base image with PyTorch from the `cu130` wheel index (`https://download.pytorch.org/whl/cu130`). This provides Blackwell (sm_121) support while remaining compatible with Hopper and older architectures.
+
+For dev machines with Blackwell GPUs (e.g., DGX Spark GB10), set `RunnerConfig.extra_env` in Django admin to disable torch.compile and unsupported kernels:
+
+```json
+{"TORCH_COMPILE_DISABLE": "1"}
+```
+
+Do NOT bake these workarounds into Dockerfiles — they would degrade performance on Hopper/datacenter Blackwell GPUs in production. The existing runner code iterates `config.extra_env` and emits `-e KEY=VALUE` flags in the docker run command.
+
 ## Code Style
 
 - Python: PEP 8, 4-space indentation, snake_case
