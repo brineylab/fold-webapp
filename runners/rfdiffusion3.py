@@ -44,11 +44,13 @@ class RFdiffusion3Runner(Runner):
         if is_symmetric:
             rfd3_args.append("inference_sampler.kind=symmetry")
 
+        # Check for precision override (e.g. "16-mixed" to avoid bf16 cuBLAS
+        # issues on sm_121). The rfd3 Hydra config doesn't expose
+        # trainer.precision, so we use a wrapper script that patches the
+        # BaseInferenceEngine to inject it as a trainer override.
         precision = None
         if config:
             precision = (config.extra_env or {}).get("RFD3_PRECISION")
-        if precision:
-            rfd3_args.append(f"+trainer.precision={precision}")
 
         rfd3_cmd = " \\\n    ".join(rfd3_args)
 
@@ -63,9 +65,34 @@ class RFdiffusion3Runner(Runner):
                 docker_args.append(f"-e {k}={v}")
             for mount in config.extra_mounts or []:
                 docker_args.append(f"-v {mount['source']}:{mount['target']}")
+        if precision:
+            docker_args.append("--entrypoint python3")
         docker_args.append(image)
+        if precision:
+            docker_args.append("/work/input/_rfd3_wrapper.py")
         docker_args.append(rfd3_cmd)
         docker_cmd = " \\\n  ".join(docker_args)
+
+        wrapper_setup = ""
+        if precision:
+            wrapper_script = workdir / "input" / "_rfd3_wrapper.py"
+            wrapper_setup = f"""
+# Wrapper to override trainer precision (rfd3 doesn't expose this via Hydra)
+cat > {wrapper_script} << 'PYEOF'
+import os
+from foundry.inference_engines.base import BaseInferenceEngine
+_orig = BaseInferenceEngine.__init__
+def _patched(self, *args, **kwargs):
+    _orig(self, *args, **kwargs)
+    p = os.environ.get("RFD3_PRECISION")
+    if p:
+        self._assign_override("trainer.precision", p)
+BaseInferenceEngine.__init__ = _patched
+import importlib.metadata
+main = list(importlib.metadata.entry_points(group="console_scripts", name="rfd3"))[0].load()
+main()
+PYEOF
+"""
 
         return f"""#!/bin/bash
 #SBATCH --job-name=rfdiffusion3-{job.id}
@@ -76,7 +103,7 @@ class RFdiffusion3Runner(Runner):
 set -euo pipefail
 
 mkdir -p {outdir}
-
+{wrapper_setup}
 echo "=== GPU diagnostic ==="
 nvidia-smi || echo "WARNING: nvidia-smi not available on this node"
 echo "======================"
