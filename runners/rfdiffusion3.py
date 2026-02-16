@@ -44,12 +44,6 @@ class RFdiffusion3Runner(Runner):
         if is_symmetric:
             rfd3_args.append("inference_sampler.kind=symmetry")
 
-        precision = None
-        if config:
-            precision = (config.extra_env or {}).get("RFD3_PRECISION")
-        if precision:
-            rfd3_args.append(f"+trainer.precision={precision}")
-
         rfd3_cmd = " \\\n    ".join(rfd3_args)
 
         docker_args = [
