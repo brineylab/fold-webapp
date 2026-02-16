@@ -28,7 +28,6 @@ Models:
   boltz2        Boltz-2 weights (~2-3 GB)
   chai1         Chai-1 weights (~2-3 GB)
   boltzgen      BoltzGen weights (~6 GB)
-  rfdiffusion   RFdiffusion weights (~1.5 GB)
 
 If no model is specified, downloads weights for all supported models.
 
@@ -98,8 +97,6 @@ CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-$DATA_DIR/jobs/chai_cache}"
 
 BOLTZGEN_IMAGE="${BOLTZGEN_IMAGE:-brineylab/boltzgen:latest}"
 BOLTZGEN_CACHE_DIR="${BOLTZGEN_CACHE_DIR:-$DATA_DIR/jobs/boltzgen_cache}"
-
-RFDIFFUSION_MODELS_DIR="${RFDIFFUSION_MODELS_DIR:-$DATA_DIR/jobs/rfdiffusion_models}"
 
 # ---------- prerequisite checks ----------
 
@@ -216,48 +213,6 @@ download_boltzgen_weights() {
     step "BoltzGen weights cached to $BOLTZGEN_CACHE_DIR"
 }
 
-download_rfdiffusion_weights() {
-    info "RFdiffusion weights"
-
-    if [ "$OVERWRITE" = true ] && [ -d "$RFDIFFUSION_MODELS_DIR" ]; then
-        step "Removing existing RFdiffusion models (--overwrite)..."
-        rm -rf "$RFDIFFUSION_MODELS_DIR"
-    fi
-
-    if [ -f "$RFDIFFUSION_MODELS_DIR/Base_ckpt.pt" ]; then
-        step "Weights already cached at $RFDIFFUSION_MODELS_DIR (skipping)"
-        return 0
-    fi
-
-    if ! command -v wget &>/dev/null; then
-        echo "ERROR: wget is required for RFdiffusion weight downloads."
-        return 1
-    fi
-
-    ensure_writable_dir "$RFDIFFUSION_MODELS_DIR" "RFdiffusion models" || return 1
-
-    RFDIFFUSION_BASE_URL="http://files.ipd.uw.edu/pub/RFdiffusion"
-    RFDIFFUSION_WEIGHTS=(
-        "6f5902ac237024bdd0c176cb93063dc4/Base_ckpt.pt"
-        "e29311f6f1bf1af907f9ef9f44b8328b/Complex_base_ckpt.pt"
-    )
-
-    for weight_path in "${RFDIFFUSION_WEIGHTS[@]}"; do
-        filename="${weight_path##*/}"
-        if [ -f "$RFDIFFUSION_MODELS_DIR/$filename" ]; then
-            step "$filename already exists, skipping"
-        else
-            step "Downloading $filename..."
-            wget -q --show-progress -O "$RFDIFFUSION_MODELS_DIR/$filename" \
-                "$RFDIFFUSION_BASE_URL/$weight_path" || {
-                    warn "Failed to download $filename"
-                }
-        fi
-    done
-
-    step "RFdiffusion weights cached to $RFDIFFUSION_MODELS_DIR"
-}
-
 # ---------- main ----------
 
 run_all() {
@@ -267,8 +222,6 @@ run_all() {
     echo
     download_boltzgen_weights
     echo
-    download_rfdiffusion_weights
-    echo
 }
 
 if [ -n "$MODEL" ]; then
@@ -276,10 +229,9 @@ if [ -n "$MODEL" ]; then
         boltz2)       download_boltz2_weights ;;
         chai1)        download_chai1_weights ;;
         boltzgen)     download_boltzgen_weights ;;
-        rfdiffusion)  download_rfdiffusion_weights ;;
         *)
             echo "ERROR: Unknown model: $MODEL"
-            echo "Supported models: boltz2, chai1, boltzgen, rfdiffusion"
+            echo "Supported models: boltz2, chai1, boltzgen"
             exit 1
             ;;
     esac

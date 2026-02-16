@@ -37,8 +37,7 @@ Options:
   -h, --help          Show this help message
 
 Environment:
-  Reads .env file for configuration (BOLTZ_CACHE_DIR, CHAI_CACHE_DIR,
-  RFDIFFUSION_MODELS_DIR, etc.)
+  Reads .env file for configuration (BOLTZ_CACHE_DIR, CHAI_CACHE_DIR, etc.)
 EOF
 }
 
@@ -93,18 +92,15 @@ set +a
 BOLTZ_IMAGE="${BOLTZ_IMAGE:-brineylab/boltz2:latest}"
 CHAI_IMAGE="${CHAI_IMAGE:-brineylab/chai1:latest}"
 LIGANDMPNN_IMAGE="${LIGANDMPNN_IMAGE:-brineylab/ligandmpnn:latest}"
-RFDIFFUSION_IMAGE="${RFDIFFUSION_IMAGE:-brineylab/rfdiffusion:latest}"
 DATA_DIR="${DATA_DIR:-./data}"
 BOLTZ_CACHE_DIR="${BOLTZ_CACHE_DIR:-$DATA_DIR/jobs/boltz_cache}"
 CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-$DATA_DIR/jobs/chai_cache}"
-RFDIFFUSION_MODELS_DIR="${RFDIFFUSION_MODELS_DIR:-$DATA_DIR/jobs/rfdiffusion_models}"
 
 # Add registry prefix if specified
 if [ -n "$REGISTRY" ]; then
     BOLTZ_IMAGE="${REGISTRY}/${BOLTZ_IMAGE}"
     CHAI_IMAGE="${REGISTRY}/${CHAI_IMAGE}"
     LIGANDMPNN_IMAGE="${REGISTRY}/${LIGANDMPNN_IMAGE}"
-    RFDIFFUSION_IMAGE="${REGISTRY}/${RFDIFFUSION_IMAGE}"
 fi
 
 # ---------- prerequisite checks ----------
@@ -157,13 +153,6 @@ if [ "$SKIP_IMAGES" = false ]; then
         docker build -t "$LIGANDMPNN_IMAGE" containers/ligandmpnn/
     fi
 
-    step "Pulling RFdiffusion image: $RFDIFFUSION_IMAGE"
-    if ! docker pull "$RFDIFFUSION_IMAGE" 2>/dev/null; then
-        warn "Failed to pull $RFDIFFUSION_IMAGE from registry."
-        step "Building RFdiffusion image locally..."
-        docker build -t "$RFDIFFUSION_IMAGE" containers/rfdiffusion/
-    fi
-
     step "Building main web application image..."
     docker compose build
 
@@ -190,7 +179,6 @@ echo "Summary:"
 echo "  - Docker images: ready"
 echo "  - Boltz-2 cache: $BOLTZ_CACHE_DIR"
 echo "  - Chai-1 cache: $CHAI_CACHE_DIR"
-echo "  - RFdiffusion models: $RFDIFFUSION_MODELS_DIR"
 echo "  - LigandMPNN: ready (weights in image)"
 echo
 echo "Your deployment is now ready for production use."

@@ -452,8 +452,7 @@ $DATA_DIR/                         # Persistent data (default: ./data)
 └── jobs/                          # Job working directories
     ├── boltz_cache/               # Boltz-2 model weight cache
     ├── chai_cache/                # Chai-1 model weight cache
-    ├── boltzgen_cache/            # BoltzGen model weight cache
-    └── rfdiffusion_models/        # RFdiffusion model weights
+    └── boltzgen_cache/            # BoltzGen model weight cache
 ```
 
 ## Migrating Existing Data

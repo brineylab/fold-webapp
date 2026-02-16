@@ -4,7 +4,6 @@ from model_types.base import InputPayload
 from model_types.bindcraft import BindCraftModelType
 from model_types.boltz2 import Boltz2ModelType
 from model_types.boltzgen import BoltzGenModelType
-from model_types.rfdiffusion import RFdiffusionModelType
 from model_types.rfdiffusion3 import RFdiffusion3ModelType
 from model_types.chai1 import Chai1ModelType
 from model_types.ligand_mpnn import LigandMPNNModelType
@@ -22,7 +21,6 @@ register_model_type(Chai1ModelType())
 register_model_type(ProteinMPNNModelType())
 register_model_type(LigandMPNNModelType())
 register_model_type(BindCraftModelType())
-register_model_type(RFdiffusionModelType())
 register_model_type(RFdiffusion3ModelType())
 register_model_type(BoltzGenModelType())
 
