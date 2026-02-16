@@ -586,7 +586,7 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=0.1,
         max_value=100.0,
         initial=10.0,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.5"}),
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}),
         help_text="Noise level in angstroms (recommended 5-15).",
     )
 
