@@ -173,7 +173,7 @@ download_chai1_weights() {
         "$CHAI_IMAGE" \
         -c "
 from chai_lab.utils.paths import chai1_component, cached_conformers
-components = ['trunk.pt', 'diffusion.pt', 'confidence.pt', 'token_embedder.pt']
+components = ['feature_embedding.pt', 'bond_loss_input_proj.pt', 'token_embedder.pt', 'trunk.pt', 'diffusion_module.pt', 'confidence_head.pt']
 for c in components:
     chai1_component(c)
 cached_conformers.get_path()
