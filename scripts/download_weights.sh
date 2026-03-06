@@ -138,9 +138,10 @@ download_boltz2_weights() {
 
     step "Downloading Boltz-2 weights via direct API (no GPU required)..."
     docker run --rm \
+        --entrypoint python3 \
         -v "$BOLTZ_CACHE_DIR:/cache" \
         "$BOLTZ_IMAGE" \
-        python3 -c "from pathlib import Path; from boltz.main import download_boltz2; download_boltz2(Path('/cache'))" || {
+        -c "from pathlib import Path; from boltz.main import download_boltz2; download_boltz2(Path('/cache'))" || {
             warn "Boltz-2 weight download failed."
             return 1
         }
@@ -166,10 +167,11 @@ download_chai1_weights() {
 
     step "Downloading Chai-1 weights via direct API (no GPU required)..."
     docker run --rm \
+        --entrypoint python3 \
         -e CHAI_DOWNLOADS_DIR=/cache \
         -v "$CHAI_CACHE_DIR:/cache" \
         "$CHAI_IMAGE" \
-        python3 -c "
+        -c "
 from chai_lab.utils.paths import chai1_component, cached_conformers
 components = ['default', 'trunk', 'diffusion', 'confidence', 'token_embedder']
 for c in components:
@@ -202,10 +204,11 @@ download_boltzgen_weights() {
 
     step "Downloading BoltzGen weights via direct API (no GPU required)..."
     docker run --rm \
+        --entrypoint python3 \
         -v "$BOLTZGEN_CACHE_DIR:/cache" \
         -e HF_HOME=/cache \
         "$BOLTZGEN_IMAGE" \
-        python3 -c "import boltzgen; boltzgen.download_weights()" || {
+        -c "import boltzgen; boltzgen.download_weights()" || {
             warn "BoltzGen weight download failed."
             return 1
         }
