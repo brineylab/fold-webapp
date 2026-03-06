@@ -168,6 +168,7 @@ cmd_install() {
     echo
     echo "  Access the application at: http://localhost:8000"
     echo "  Manage with: ./deploy.sh <command>"
+    echo "  For real SLURM execution on this host: sudo ./deploy.sh setup-slurm"
     echo "  Run ./deploy.sh --help for available commands."
     echo
 }

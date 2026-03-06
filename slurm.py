@@ -64,6 +64,92 @@ def _state_from_scontrol(slurm_job_id: str) -> str | None:
     return match.group(1)
 
 
+def _parse_sacct_terminal_fields(output: str) -> dict[str, str] | None:
+    lines = [ln.strip() for ln in (output or "").splitlines() if ln.strip()]
+    if not lines:
+        return None
+
+    parts = [part.strip() for part in lines[0].split("|")]
+    if len(parts) < 3:
+        return None
+
+    return {
+        "state": parts[0],
+        "reason": parts[1],
+        "exit_code": parts[2],
+    }
+
+
+def _terminal_fields_from_sacct(slurm_job_id: str) -> dict[str, str] | None:
+    sacct = subprocess.run(
+        ["sacct", "-j", slurm_job_id, "-n", "-P", "-o", "State,Reason,ExitCode", "-X"],
+        capture_output=True,
+        text=True,
+    )
+    if sacct.returncode != 0:
+        return None
+
+    return _parse_sacct_terminal_fields(sacct.stdout)
+
+
+def _terminal_fields_from_scontrol(slurm_job_id: str) -> dict[str, str] | None:
+    scontrol = subprocess.run(
+        ["scontrol", "show", "job", slurm_job_id, "-o"],
+        capture_output=True,
+        text=True,
+    )
+    if scontrol.returncode != 0:
+        return None
+
+    fields = {
+        "state": None,
+        "reason": None,
+        "exit_code": None,
+    }
+    patterns = {
+        "state": r"\bJobState=([A-Z_+]+)",
+        "reason": r"\bReason=([^ ]+)",
+        "exit_code": r"\bExitCode=([0-9:]+)",
+    }
+    for key, pattern in patterns.items():
+        match = re.search(pattern, scontrol.stdout)
+        if match:
+            fields[key] = match.group(1)
+
+    if not any(fields.values()):
+        return None
+
+    return {key: value or "" for key, value in fields.items()}
+
+
+def get_failure_message(slurm_job_id: str) -> str | None:
+    """Return a human-readable terminal failure summary from Slurm metadata."""
+    slurm_job_id = str(slurm_job_id)
+    if slurm_job_id.startswith("FAKE-") or _fake_slurm_enabled():
+        return None
+
+    details = _terminal_fields_from_sacct(
+        slurm_job_id
+    ) or _terminal_fields_from_scontrol(slurm_job_id)
+    if not details:
+        return None
+
+    state = (details.get("state") or "").strip()
+    reason = (details.get("reason") or "").strip()
+    exit_code = (details.get("exit_code") or "").strip()
+
+    message = f"SLURM reported {state or 'FAILED'}"
+    extras = []
+    if reason and reason not in {"None", "(null)", "Unknown"}:
+        extras.append(f"reason={reason}")
+    if exit_code and exit_code != "0:0":
+        extras.append(f"exit_code={exit_code}")
+
+    if extras:
+        return f"{message} ({', '.join(extras)})"
+    return message
+
+
 def job_missing(slurm_job_id: str) -> bool:
     """Return True when both squeue and scontrol explicitly say the job is gone."""
     squeue = subprocess.run(

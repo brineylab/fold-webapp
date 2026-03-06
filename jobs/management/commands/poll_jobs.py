@@ -30,7 +30,14 @@ class Command(BaseCommand):
         qs = (
             Job.objects.filter(status__in=[Job.Status.PENDING, Job.Status.RUNNING])
             .exclude(slurm_job_id="")
-            .only("id", "status", "slurm_job_id", "submitted_at", "completed_at")
+            .only(
+                "id",
+                "status",
+                "slurm_job_id",
+                "submitted_at",
+                "completed_at",
+                "error_message",
+            )
         )
 
         now = timezone.now()
@@ -78,9 +85,16 @@ class Command(BaseCommand):
 
             old = job.status
             job.status = new_status
+            update_fields = ["status"]
 
             if new_status in {Job.Status.COMPLETED, Job.Status.FAILED}:
                 job.completed_at = now
+                update_fields.append("completed_at")
+            if new_status == Job.Status.FAILED and not job.error_message:
+                failure_message = slurm.get_failure_message(job.slurm_job_id)
+                if failure_message:
+                    job.error_message = failure_message
+                    update_fields.append("error_message")
 
-            job.save(update_fields=["status", "completed_at"])
+            job.save(update_fields=update_fields)
             self.stdout.write(f"Job {job.id}: {old} -> {new_status}")

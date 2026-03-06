@@ -174,6 +174,35 @@ class TestPollJobsCommand(TestCase):
         self.assertEqual(job.status, Job.Status.COMPLETED)
         self.assertIsNotNone(job.completed_at)
 
+    @patch(
+        "jobs.management.commands.poll_jobs.slurm.get_failure_message",
+        return_value="SLURM reported FAILED (reason=NonZeroExitCode, exit_code=1:0)",
+    )
+    @patch("jobs.management.commands.poll_jobs.slurm.check_status", return_value="FAILED")
+    def test_persists_failure_reason_on_direct_failed_transition(
+        self, mock_check_status, mock_failure_message
+    ):
+        job = Job.objects.create(
+            owner=self.user,
+            runner="ligandmpnn",
+            model_key="protein_mpnn",
+            status=Job.Status.PENDING,
+            slurm_job_id="4",
+            submitted_at=timezone.now(),
+        )
+
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            call_command("poll_jobs")
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, Job.Status.FAILED)
+        self.assertIsNotNone(job.completed_at)
+        self.assertEqual(
+            job.error_message,
+            "SLURM reported FAILED (reason=NonZeroExitCode, exit_code=1:0)",
+        )
+        mock_failure_message.assert_called_once_with("4")
+
     @patch("jobs.services.slurm")
     def test_rejects_oversized_sequences(self, mock_slurm):
         """Should reject sequences exceeding MAX_SEQUENCE_CHARS."""

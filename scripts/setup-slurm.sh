@@ -18,6 +18,54 @@ warn()  { echo -e "${YELLOW}WARNING:${NC} $*"; }
 step()  { echo -e "${BLUE}  →${NC} $*"; }
 error() { echo -e "${RED}ERROR:${NC} $*" >&2; }
 
+docker_group_has_user() {
+    local username="$1"
+    id -nG "$username" 2>/dev/null | tr ' ' '\n' | grep -Fxq docker
+}
+
+ensure_submit_user_docker_access() {
+    # The web container runs as appuser (uid 1000). SLURM batch jobs submitted
+    # from that container land on the host as the matching uid, so that host
+    # account must be able to reach /var/run/docker.sock.
+    local submit_uid="1000"
+    local submit_user
+
+    submit_user="$(getent passwd "$submit_uid" | cut -d: -f1 || true)"
+    if [[ -z "$submit_user" ]]; then
+        warn "No host user found for uid $submit_uid."
+        warn "SLURM jobs submitted from the web container may not be able to run Docker."
+        return 0
+    fi
+
+    if ! getent group docker >/dev/null 2>&1; then
+        warn "Docker group does not exist. Skipping submit-user Docker access check."
+        return 0
+    fi
+
+    if [[ "$DRY_RUN" == true ]]; then
+        if docker_group_has_user "$submit_user"; then
+            step "[dry-run] Host submit user '$submit_user' (uid $submit_uid) is already in docker group"
+        else
+            step "[dry-run] Would add host submit user '$submit_user' (uid $submit_uid) to docker group"
+        fi
+        return 0
+    fi
+
+    if docker_group_has_user "$submit_user"; then
+        step "Host submit user '$submit_user' (uid $submit_uid) already has Docker access."
+    else
+        usermod -aG docker "$submit_user"
+        step "Added host submit user '$submit_user' (uid $submit_uid) to docker group."
+    fi
+
+    if runuser -u "$submit_user" -- docker ps >/dev/null 2>&1; then
+        step "Verified Docker access for host submit user '$submit_user'."
+    else
+        warn "Could not verify Docker access for host submit user '$submit_user'."
+        warn "Check with: sudo -u $submit_user docker ps"
+    fi
+}
+
 find_nvml_plugin() {
     local candidate
     local search_paths=(
@@ -309,6 +357,13 @@ if [[ "$GPU_GRES_MODE" == "device-files" ]]; then
     CONSTRAIN_DEVICES_VALUE="no"
     warn "Using static GPU device mappings; setting ConstrainDevices=no for compatibility."
 fi
+
+# =====================================================================
+# Phase 3.5: Ensure host submit user can run Docker
+# =====================================================================
+
+info "Phase 3.5: Ensuring Docker access for the SLURM submit user..."
+ensure_submit_user_docker_access
 
 # =====================================================================
 # Phase 4: Hardware auto-detection (already done in Phase 1)
