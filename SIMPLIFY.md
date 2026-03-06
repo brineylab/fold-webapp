@@ -28,6 +28,8 @@ My strongest recommendation is:
 3. Redesign quotas and reporting around tiered policy plus explicit job/attempt telemetry.
 4. Centralize job lifecycle actions so web, API, console, and admin all use the same behavior.
 
+The rest of this document assumes the control plane follows the recommended deployment model: run Django and the worker on the host, and keep Docker only for model execution.
+
 ## What Is Already Aligned
 
 These parts are worth keeping, with only modest cleanup:
@@ -365,21 +367,15 @@ Relevant code:
 
 #### Proposed fix
 
-After `SLURM` removal, choose one of these two deployment models:
+After `SLURM` removal, standardize on a host-run control plane:
 
-Option A - Recommended for maximum simplification:
-
-- Run Django and the worker directly on the host via `venv` + `systemd`.
+- Run Django directly on the host via `venv` + `systemd`.
+- Run the queue worker directly on the host via `venv` + `systemd`.
 - Continue running model executions as Docker containers.
+- Use one canonical on-host data path for the web app, worker, logs, and job workdirs.
 - Remove `JOB_BASE_DIR_HOST`, `HARNESS_BASE_DIR_HOST`, the `slurm` image user, and most UID/GID gymnastics.
 
-Option B - Still simpler than today:
-
-- Keep Django containerized.
-- Add one worker container with Docker socket access and a single bind-mounted data directory.
-- Use one canonical path inside the app and worker containers.
-
-Either way, after removing `SLURM`, you should also remove:
+With that deployment boundary in place, you should also remove:
 
 - world-writable defaults in `jobs/fs.py`
 - host scheduler binary mounts
@@ -603,21 +599,19 @@ This keeps the system durable and extensible without pretending it is a cluster 
 
 ## Phased Implementation Plan
 
-### Phase 0 - Freeze the target and choose the deployment boundary
+### Phase 0 - Freeze the target around a host-run control plane
 
-Decide one thing up front: whether the Django app should remain containerized in production.
+Lock in the deployment boundary up front:
 
-Recommended choice:
-
-- run Django and the worker on the host for maximum simplification
-
-If you do not want that change now:
-
-- keep Django containerized, but still remove `SLURM` and use a local Docker worker
+- run Django on the host
+- run the queue worker on the host
+- keep Docker only for model execution
+- treat this as the baseline architecture for all later simplification work
 
 Deliverables:
 
 - one short architecture decision note
+- one concrete host runtime layout (`venv`, `systemd` units, data/log directories)
 - list of env vars to keep vs remove
 - list of runtime surfaces to delete after cutover
 
