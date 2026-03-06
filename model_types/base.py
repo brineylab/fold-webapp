@@ -5,6 +5,8 @@ from typing import TypedDict
 
 from django import forms
 
+from jobs.fs import ensure_dir, write_bytes, write_text
+
 
 class InputPayload(TypedDict):
     """Typed contract between normalize_inputs() and the service layer.
@@ -69,15 +71,13 @@ class BaseModelType(ABC):
         (e.g., nested directories, config files, specific filenames).
         """
         workdir = job.workdir
-        (workdir / "input").mkdir(parents=True, exist_ok=True)
-        (workdir / "output").mkdir(parents=True, exist_ok=True)
+        ensure_dir(workdir / "input")
+        ensure_dir(workdir / "output")
         sequences = input_payload.get("sequences", "")
         if sequences:
-            (workdir / "input" / "sequences.fasta").write_text(
-                sequences, encoding="utf-8"
-            )
+            write_text(workdir / "input" / "sequences.fasta", sequences)
         for filename, content in input_payload.get("files", {}).items():
-            (workdir / "input" / filename).write_bytes(content)
+            write_bytes(workdir / "input" / filename, content)
 
     def get_output_context(self, job) -> dict:
         """Return template context for rendering job outputs on the detail page.

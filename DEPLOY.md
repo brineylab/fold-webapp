@@ -126,10 +126,11 @@ The installer will:
 
 1. Create `.env` from `env.example` with a randomly generated `SECRET_KEY` and `DEBUG=false`
 2. Prompt you for `ALLOWED_HOSTS` — enter the hostname or IP your users will access (e.g., `fold.example.com,localhost`)
-3. Prompt you for `DATA_DIR` — the root directory for all persistent data (database, jobs, weight caches). Defaults to `/opt/fold-webapp/data`
-4. Build the Docker image for the web application
-5. Start all services (runs database migrations automatically)
-6. Prompt you to create an admin (superuser) account
+3. Prompt you for `DATA_DIR` — the root directory for all persistent data (database, jobs, weight caches). Defaults to `~/.fold-webapp/data`
+4. Set `APP_UID` and `APP_GID` to the installing user's uid/gid so bind-mounted data stays writable
+5. Build the Docker image for the web application
+6. Start all services (runs database migrations automatically)
+7. Prompt you to create an admin (superuser) account
 
 After it finishes, verify the app is running:
 
@@ -151,7 +152,9 @@ Key variables to review:
 
 | Variable | What to set | Example |
 |----------|-------------|---------|
-| `DATA_DIR` | Root directory for all persistent data | `/opt/fold-webapp/data` |
+| `DATA_DIR` | Root directory for all persistent data | `/home/briney/.fold-webapp/data` |
+| `APP_UID` | App container runtime uid | `1001` |
+| `APP_GID` | App container runtime gid | `1001` |
 | `ALLOWED_HOSTS` | Hostnames/IPs users will use | `fold.lab.org,10.0.1.50` |
 | `FAKE_SLURM` | Keep as `0` for production | `0` |
 | `BOLTZ_IMAGE` | Boltz-2 container image name | `brineylab/boltz2:latest` |
@@ -160,14 +163,14 @@ Key variables to review:
 | `CHAI_CACHE_DIR` | Where Chai-1 caches model weights | `$DATA_DIR/jobs/chai_cache` |
 | `LIGANDMPNN_IMAGE` | LigandMPNN container image name | `brineylab/ligandmpnn:latest` |
 
-Set `DATA_DIR` to a path with enough disk space. All other data paths (`DATABASE_PATH`, `JOB_BASE_DIR`, cache directories) default to subdirectories of `DATA_DIR`. The default is `/opt/fold-webapp/data`.
+Set `DATA_DIR` to a path with enough disk space. All other data paths (`DATABASE_PATH`, `JOB_BASE_DIR`, harness directory, cache directories) default to subdirectories of `DATA_DIR`. Fresh installs default to `~/.fold-webapp/data`.
 
-For real SLURM execution, avoid placing `DATA_DIR` under a private home directory unless the SLURM batch user can traverse every parent directory. A path such as `/opt/fold-webapp/data` is safer than `/home/<user>/...` when jobs run as a different UID.
+The default deployment model is now single-user: the web container runs as the installing user's uid/gid, so a home-based `DATA_DIR` works for real SLURM execution on that host. For shared or multi-user deployments, override `DATA_DIR`, `APP_UID`, `APP_GID`, and the host path variables explicitly.
 
-After editing, restart to pick up changes:
+If you change `APP_UID`, `APP_GID`, or `DATA_DIR`, rebuild and recreate the services so the container image and bind mounts pick up the new values:
 
 ```bash
-./deploy.sh restart
+docker compose up -d --build
 ```
 
 ## Step 7: Configure Slurm
@@ -347,6 +350,14 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/
 
 Then submit a test job through the web UI at `http://<your-server>:8000` and confirm it progresses through PENDING, RUNNING, and COMPLETED states.
 
+For a broader post-install acceptance pass, run:
+
+```bash
+./deploy.sh validate-models --tier smoke
+```
+
+This exercises the deployed HTTP/API surface, runs each registered web model once outside SLURM, and writes reports under `HARNESS_BASE_DIR_HOST/runs/<run_id>/reports/` on the host. Fresh installs place `HARNESS_BASE_DIR_HOST` under `DATA_DIR/harness`.
+
 ## Updating
 
 To update to a newer version of the application:
@@ -411,9 +422,9 @@ sudo systemctl restart docker
 ### Permission errors on data directories
 
 ```bash
-# The web container runs as UID 1000 (appuser)
-# Replace ./data with your DATA_DIR if you changed it
-sudo chown -R 1000:1000 data/
+# Fresh installs align the container uid/gid to the installing user.
+# If you changed DATA_DIR manually, make the tree writable again:
+chmod -R a+rwX "$DATA_DIR"
 ```
 
 ### Port 8000 already in use
@@ -448,9 +459,10 @@ fold-webapp/
 │   └── build_image.sh             # Container build helper
 └── backups/                       # Backup archives (git-ignored)
 
-$DATA_DIR/                         # Persistent data (default: /opt/fold-webapp/data)
+$DATA_DIR/                         # Persistent data (default: ~/.fold-webapp/data)
 ├── db/
 │   └── db.sqlite3                 # SQLite database
+├── harness/                       # Model validation harness runs and reports
 └── jobs/                          # Job working directories
     ├── boltz_cache/               # Boltz-2 model weight cache
     ├── chai_cache/                # Chai-1 model weight cache
@@ -459,23 +471,10 @@ $DATA_DIR/                         # Persistent data (default: /opt/fold-webapp/
 
 ## Migrating Existing Data
 
-If you have an existing deployment with data in another location and want to move it to `/opt/fold-webapp/data`:
+If you have an existing deployment with data in another location and want to move it to the single-user home layout:
 
 ```bash
-# 1. Stop services
-./deploy.sh stop
-
-# 2. Move the data directory
-sudo mv ./data /opt/fold-webapp/data
-
-# 3. Set DATA_DIR in .env
-echo "DATA_DIR=/opt/fold-webapp/data" >> .env
-
-# 4. Fix ownership (web container runs as UID 1000)
-sudo chown -R 1000:1000 /opt/fold-webapp/data
-
-# 5. Start services
-./deploy.sh start
+./deploy.sh adopt-single-user-layout
 ```
 
 ## Quick Reference
@@ -488,6 +487,7 @@ sudo chown -R 1000:1000 /opt/fold-webapp/data
 | View logs | `./deploy.sh logs` |
 | Check status | `./deploy.sh status` |
 | Update application | `./deploy.sh update` |
+| Validate deployed models | `./deploy.sh validate-models --tier smoke` |
 | Set up Slurm | `sudo ./deploy.sh setup-slurm` |
 | Pre-warm models | `./deploy.sh prewarm` |
 | Create admin user | `./deploy.sh createsuperuser` |

@@ -121,6 +121,16 @@ JOB_BASE_DIR = Path(os.environ.get("JOB_BASE_DIR", str(DATA_DIR / "jobs")))
 # dev or non-Docker), falls back to JOB_BASE_DIR.
 JOB_BASE_DIR_HOST = Path(os.environ.get("JOB_BASE_DIR_HOST", str(JOB_BASE_DIR)))
 
+# Dedicated harness working directory. This can be separate from JOB_BASE_DIR so
+# the post-install validation harness can use a host-writable path even when the
+# main jobs directory is managed with stricter permissions.
+HARNESS_BASE_DIR = Path(
+    os.environ.get("HARNESS_BASE_DIR", str(DATA_DIR / "harness"))
+)
+HARNESS_BASE_DIR_HOST = Path(
+    os.environ.get("HARNESS_BASE_DIR_HOST", str(JOB_BASE_DIR_HOST.parent / "harness"))
+)
+
 # Set to "1" for development without SLURM (fake job IDs), "0" for production with real SLURM.
 FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "1"
 

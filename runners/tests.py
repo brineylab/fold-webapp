@@ -201,6 +201,20 @@ class TestStubRunnersBuildScript(TestCase):
             script = runner.build_script(job)
             self.assertIn("#!/bin/bash", script)
 
+    def test_all_runner_scripts_set_open_umask(self):
+        cases = {
+            "alphafold3": _FakeJob(),
+            "bindcraft": _FakeJob(),
+            "boltz-2": _FakeJob(),
+            "boltzgen": _FakeJob(),
+            "chai-1": _FakeJob(),
+            "ligandmpnn": _FakeJob(params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"}),
+            "rfdiffusion3": _FakeJob(),
+        }
+        for runner_key, job in cases.items():
+            script = get_runner(runner_key).build_script(job)
+            self.assertIn("umask 000", script, runner_key)
+
 
 class TestBindCraftRunnerBuildScript(TestCase):
     """BindCraftRunner.build_script generates correct scripts."""
@@ -282,5 +296,4 @@ class TestBindCraftRunnerBuildScript(TestCase):
         self.assertIn("--settings /work/input/target_settings.json", script)
         self.assertIn("--filters /work/input/filters.json", script)
         self.assertIn("--advanced /work/input/advanced.json", script)
-
 

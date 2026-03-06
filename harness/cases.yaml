@@ -1,0 +1,380 @@
+cases:
+  - id: smoke-boltz2
+    tier: smoke
+    model_key: boltz2
+    transport: web
+    timeout_sec: 3600
+    requires: [gpu]
+    fields:
+      name: Harness Boltz-2 Smoke
+      sequences:
+        fixture_text: common/sequences/mini_monomer.fasta
+      output_format: pdb
+      recycling_steps: 1
+      sampling_steps: 1
+      diffusion_samples: 1
+    files: {}
+    expected_outputs:
+      - ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+
+  - id: smoke-chai1
+    tier: smoke
+    model_key: chai1
+    transport: api
+    timeout_sec: 3600
+    requires: [gpu]
+    fields:
+      name: Harness Chai-1 Smoke
+      sequences:
+        fixture_text: common/sequences/mini_multimer.fasta
+      num_diffn_samples: 1
+      seed: 7
+    files: {}
+    expected_outputs:
+      - ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+
+  - id: smoke-protein-mpnn
+    tier: smoke
+    model_key: protein_mpnn
+    transport: api
+    timeout_sec: 1800
+    requires: [gpu]
+    fields:
+      name: Harness ProteinMPNN Smoke
+      noise_level: v_48_020
+      temperature: 0.1
+      num_sequences: 1
+      seed: 7
+    files:
+      pdb_file: common/structures/backbone_a.pdb
+    expected_outputs:
+      - results.zip
+
+  - id: smoke-ligand-mpnn
+    tier: smoke
+    model_key: ligand_mpnn
+    transport: api
+    timeout_sec: 1800
+    requires: [gpu]
+    fields:
+      name: Harness LigandMPNN Smoke
+      noise_level: v_32_010_25
+      temperature: 0.1
+      num_sequences: 1
+      seed: 7
+    files:
+      pdb_file: common/structures/ligand_complex.pdb
+    expected_outputs:
+      - results.zip
+
+  - id: smoke-bindcraft
+    tier: smoke
+    model_key: bindcraft
+    transport: api
+    timeout_sec: 7200
+    requires: [gpu]
+    fields:
+      name: Harness BindCraft Smoke
+      target_chain: A
+      length_min: 30
+      length_max: 40
+      number_of_final_designs: 1
+    files:
+      pdb_file: common/structures/backbone_a.pdb
+    expected_outputs:
+      - ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+
+  - id: smoke-rfdiffusion3
+    tier: smoke
+    model_key: rfdiffusion3
+    transport: api
+    timeout_sec: 5400
+    requires: [gpu]
+    fields:
+      name: Harness RFdiffusion3 Smoke
+      mode: unconditional
+      num_designs: 1
+      n_batches: 1
+      timesteps: 20
+      step_scale: 1.0
+      length_min: 40
+      length_max: 50
+    files: {}
+    expected_outputs:
+      - ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+
+  - id: smoke-boltzgen
+    tier: smoke
+    model_key: boltzgen
+    transport: api
+    timeout_sec: 5400
+    requires: [gpu]
+    fields:
+      name: Harness BoltzGen Smoke
+      protocol: protein-anything
+      target_chains: A
+      binder_length_min: 30
+      binder_length_max: 40
+      num_designs: 1
+      budget: 1
+      alpha: 0.001
+    files:
+      target_file: common/structures/backbone_a.pdb
+    expected_outputs:
+      - ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+
+  - id: extended-boltz2-yaml-upload
+    tier: extended
+    model_key: boltz2
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness Boltz-2 YAML
+    files:
+      input_file: boltz2/design.yaml
+    expected_outputs: []
+
+  - id: extended-chai1-restraints
+    tier: extended
+    model_key: chai1
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness Chai-1 Restraints
+      sequences:
+        fixture_text: common/sequences/mini_multimer.fasta
+      num_diffn_samples: 1
+      seed: 13
+    files:
+      restraints_file: chai1/restraints.csv
+    expected_outputs: []
+
+  - id: extended-protein-mpnn-options
+    tier: extended
+    model_key: protein_mpnn
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness ProteinMPNN Options
+      noise_level: v_48_010
+      temperature: 0.2
+      num_sequences: 2
+      chains_to_design: A
+      fixed_residues: "1 3"
+      seed: 11
+    files:
+      pdb_file: common/structures/backbone_a.pdb
+    expected_outputs: []
+
+  - id: extended-ligand-mpnn-options
+    tier: extended
+    model_key: ligand_mpnn
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness LigandMPNN Options
+      noise_level: v_32_020_25
+      temperature: 0.2
+      num_sequences: 2
+      chains_to_design: A
+      fixed_residues: "1 2"
+      seed: 11
+    files:
+      pdb_file: common/structures/ligand_complex.pdb
+    expected_outputs: []
+
+  - id: extended-bindcraft-custom-config
+    tier: extended
+    model_key: bindcraft
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness BindCraft Custom
+      target_chain: A
+      hotspot_residues: "5,7"
+      length_min: 40
+      length_max: 45
+      number_of_final_designs: 2
+    files:
+      pdb_file: common/structures/backbone_a.pdb
+      filters_file: bindcraft/filters.json
+      advanced_file: bindcraft/advanced.json
+    expected_outputs: []
+
+  - id: extended-rfdiffusion3-protein-binder
+    tier: extended
+    model_key: rfdiffusion3
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness RFdiffusion3 Protein Binder
+      mode: protein_binder
+      num_designs: 1
+      n_batches: 1
+      target_chain: A
+      binder_length_min: 35
+      binder_length_max: 45
+      hotspot_residues: "A5,A7"
+      is_non_loopy: true
+    files:
+      target_pdb: common/structures/backbone_a.pdb
+    expected_outputs: []
+
+  - id: extended-rfdiffusion3-small-molecule
+    tier: extended
+    model_key: rfdiffusion3
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness RFdiffusion3 Small Molecule
+      mode: small_molecule_binder
+      num_designs: 1
+      n_batches: 1
+      sm_ligand_name: LIG
+      sm_binder_length_min: 35
+      sm_binder_length_max: 45
+    files:
+      sm_target_pdb: common/structures/ligand_complex.pdb
+    expected_outputs: []
+
+  - id: extended-rfdiffusion3-nucleic-acid
+    tier: extended
+    model_key: rfdiffusion3
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness RFdiffusion3 Nucleic Acid
+      mode: nucleic_acid_binder
+      num_designs: 1
+      n_batches: 1
+      na_target_chain: B
+      na_binder_length_min: 35
+      na_binder_length_max: 45
+    files:
+      na_target_pdb: common/structures/backbone_a.pdb
+    expected_outputs: []
+
+  - id: extended-rfdiffusion3-enzyme
+    tier: extended
+    model_key: rfdiffusion3
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness RFdiffusion3 Enzyme
+      mode: enzyme
+      num_designs: 1
+      n_batches: 1
+      enzyme_ligand_name: LIG
+      enzyme_catalytic_residues: "A5,A7"
+      enzyme_scaffold_length_min: 50
+      enzyme_scaffold_length_max: 70
+    files:
+      enzyme_target_pdb: common/structures/ligand_complex.pdb
+    expected_outputs: []
+
+  - id: extended-rfdiffusion3-motif
+    tier: extended
+    model_key: rfdiffusion3
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness RFdiffusion3 Motif
+      mode: motif
+      num_designs: 1
+      n_batches: 1
+      motif_contig: A1-3,10,A4-6
+      motif_length_min: 20
+      motif_length_max: 25
+    files:
+      motif_input_pdb: common/structures/backbone_a.pdb
+    expected_outputs: []
+
+  - id: extended-rfdiffusion3-partial
+    tier: extended
+    model_key: rfdiffusion3
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness RFdiffusion3 Partial
+      mode: partial
+      num_designs: 1
+      n_batches: 1
+      partial_contig: A1-6
+      partial_t: 5.0
+    files:
+      partial_input_pdb: common/structures/backbone_a.pdb
+    expected_outputs: []
+
+  - id: extended-rfdiffusion3-symmetric
+    tier: extended
+    model_key: rfdiffusion3
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness RFdiffusion3 Symmetric
+      mode: symmetric
+      num_designs: 1
+      n_batches: 1
+      sym_contig: 40-40
+      sym_type: C2
+    files: {}
+    expected_outputs: []
+
+  - id: extended-rfdiffusion3-json-upload
+    tier: extended
+    model_key: rfdiffusion3
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness RFdiffusion3 JSON Upload
+      mode: json_upload
+      num_designs: 1
+      n_batches: 1
+    files:
+      input_json: rfdiffusion3/input_spec.json
+    expected_outputs: []
+
+  - id: extended-boltzgen-yaml-upload
+    tier: extended
+    model_key: boltzgen
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness BoltzGen YAML
+      protocol: yaml_upload
+    files:
+      yaml_file: boltzgen/design.yaml
+    expected_outputs: []
+
+  - id: extended-boltzgen-peptide
+    tier: extended
+    model_key: boltzgen
+    transport: materialize_only
+    timeout_sec: 300
+    requires: []
+    fields:
+      name: Harness BoltzGen Peptide
+      protocol: peptide-anything
+      target_chains: A
+      peptide_length_min: 8
+      peptide_length_max: 12
+      num_designs: 2
+      budget: 1
+      alpha: 0.01
+    files:
+      target_file: common/structures/backbone_a.pdb
+    expected_outputs: []

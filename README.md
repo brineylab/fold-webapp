@@ -55,9 +55,10 @@ The recommended way to deploy is with the `deploy.sh` script, which handles envi
 This will:
 1. Check that Docker and Docker Compose v2 are installed
 2. Create `.env` from `env.example` with a generated `SECRET_KEY` and production defaults
-3. Create the `DATA_DIR` directories for persistent storage (default: `/opt/fold-webapp/data`)
-4. Build the Docker image and start all services
-5. Prompt you to create an admin (superuser) account
+3. Create the `DATA_DIR` directories for persistent storage (default: `~/.fold-webapp/data`)
+4. Align the app container uid/gid to the installing user via `APP_UID` and `APP_GID`
+5. Build the Docker image and start all services
+6. Prompt you to create an admin (superuser) account
 
 Re-running `install` is safe — it skips steps that are already done. Pass `--force` to regenerate `.env`.
 
@@ -73,7 +74,9 @@ Re-running `install` is safe — it skips steps that are already done. Pass `--f
 ./deploy.sh update            # Pull latest code, rebuild, and restart
 ./deploy.sh shell             # Open a Django shell
 ./deploy.sh createsuperuser   # Create a new admin user
+./deploy.sh validate-models   # Run the post-install model validation harness
 ./deploy.sh setup-slurm       # Configure Slurm on this host (requires sudo)
+./deploy.sh adopt-single-user-layout  # Move an older install to the new home layout
 ```
 
 Make targets are also available as shortcuts (e.g., `make start`, `make stop`, `make logs`).
@@ -119,9 +122,19 @@ After setup, set `FAKE_SLURM=0` in `.env` and restart:
 
 For manual configuration or multi-node clusters, you can instead uncomment the volume mounts in `docker-compose.yml` directly. See [`scripts/SLURM_README.md`](scripts/SLURM_README.md) for full details.
 
+### Post-Install Validation Harness
+
+After images, weights, and the deployed services are ready, run:
+
+```bash
+./deploy.sh validate-models --tier smoke
+```
+
+This validates the live HTTP/API surface, executes each registered web model once outside SLURM for easier debugging, and writes reports under `HARNESS_BASE_DIR_HOST/runs/<run_id>/reports/` on the host. Fresh installs place `HARNESS_BASE_DIR_HOST` under `DATA_DIR/harness`.
+
 ### Shared Storage
 
-Both the web container and SLURM compute nodes need access to job working directories. Configure `JOB_BASE_DIR` to point to shared storage (e.g., NFS mount) accessible from both.
+Fresh installs now optimize for a single-user deployment: `DATA_DIR` defaults to `~/.fold-webapp/data`, the web container runs with the installing user's uid/gid, and the harness lives under `DATA_DIR/harness`. For shared or multi-user setups, override `DATA_DIR`, `APP_UID`, `APP_GID`, and the host path variables explicitly.
 
 ## Environment Variables
 
@@ -130,13 +143,23 @@ Both the web container and SLURM compute nodes need access to job working direct
 | `DEBUG` | Enable debug mode | `false` |
 | `SECRET_KEY` | Django secret key | `dev-key-change-in-production` |
 | `ALLOWED_HOSTS` | Comma-separated hostnames | `localhost,127.0.0.1` |
-| `DATABASE_PATH` | Path to SQLite database file | `<BASE_DIR>/db.sqlite3` |
-| `JOB_BASE_DIR` | Directory for job working files | `./job_data` |
+| `DATA_DIR` | Root directory for persistent runtime data | `$HOME/.fold-webapp/data` |
+| `APP_UID` | App container runtime UID | installing user UID |
+| `APP_GID` | App container runtime GID | installing user GID |
+| `DATABASE_PATH` | Path to SQLite database file | `$DATA_DIR/db/db.sqlite3` |
+| `JOB_BASE_DIR` | Directory for job working files | `$DATA_DIR/jobs` |
+| `HARNESS_BASE_DIR_HOST` | Host directory for post-install harness runs | `$DATA_DIR/harness` |
 | `FAKE_SLURM` | Simulate SLURM for local dev (`1` or `0`) | `0` |
 | `BACKUP_DIR` | Directory for backup archives | `./backups` |
 | `BACKUP_RETENTION` | Days to keep old backups | `30` |
 
-In Docker, `DATABASE_PATH` and `JOB_BASE_DIR` are set automatically by `docker-compose.yml` to use bind mounts under `DATA_DIR` (default: `/opt/fold-webapp/data`). You typically don't need to set these yourself.
+In Docker, `DATABASE_PATH`, `JOB_BASE_DIR`, and the harness path are set automatically by `docker-compose.yml` to use bind mounts under `DATA_DIR`. You typically do not need to set them yourself beyond choosing `DATA_DIR`.
+
+If you change `APP_UID`, `APP_GID`, or `DATA_DIR` on an existing install, rebuild and recreate the services so the image and bind mounts pick up the new values:
+
+```bash
+docker compose up -d --build
+```
 
 ## Architecture
 

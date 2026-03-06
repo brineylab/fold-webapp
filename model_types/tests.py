@@ -268,6 +268,34 @@ class TestPrepareWorkdirOnBase(TestCase):
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 
+    def test_default_prepare_workdir_opens_permissions(self):
+        tmpdir = Path(tempfile.mkdtemp())
+        try:
+            class FakeJob:
+                workdir = tmpdir / "job"
+
+            mt = _MinimalModelType()
+            mt.prepare_workdir(
+                FakeJob(),
+                {
+                    "sequences": ">s\nACDEFG",
+                    "params": {},
+                    "files": {"backbone.pdb": b"ATOM 1 N ALA"},
+                },
+            )
+            self.assertEqual((tmpdir / "job" / "input").stat().st_mode & 0o777, 0o777)
+            self.assertEqual((tmpdir / "job" / "output").stat().st_mode & 0o777, 0o777)
+            self.assertEqual(
+                (tmpdir / "job" / "input" / "sequences.fasta").stat().st_mode & 0o777,
+                0o666,
+            )
+            self.assertEqual(
+                (tmpdir / "job" / "input" / "backbone.pdb").stat().st_mode & 0o777,
+                0o666,
+            )
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
     def test_default_prepare_workdir_writes_fasta(self):
         tmpdir = Path(tempfile.mkdtemp())
         try:

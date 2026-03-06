@@ -19,6 +19,7 @@ class AlphaFoldRunner(Runner):
 {slurm_directives}
 
 set -euo pipefail
+umask 000
 
 cd {workdir}
 mkdir -p output
@@ -29,4 +30,6 @@ echo "runner={self.key}" >> output/README.txt
 
 sleep 2
 echo "done" > output/status.txt
+
+chmod -R a+rwX output 2>/dev/null || true
 """

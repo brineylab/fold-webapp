@@ -1,0 +1,11 @@
+protocol: peptide-anything
+target:
+  structure: /work/input/target.pdb
+  chains:
+    - A
+binder:
+  length_min: 8
+  length_max: 12
+num_designs: 2
+budget: 1
+alpha: 0.01

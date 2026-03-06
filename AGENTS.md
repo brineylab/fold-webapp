@@ -22,6 +22,7 @@
 - `docker compose up -d --build` launches production-style services.
 - `./scripts/build_image.sh <model> <tag> [--push]` builds and optionally pushes a model container.
 - `make build-image MODEL=<model> TAG=<tag>` wraps the same build workflow.
+- `./deploy.sh validate-models --tier smoke` runs the post-install validation harness against the deployed app and model runners.
 
 ## Coding Style & Naming Conventions
 

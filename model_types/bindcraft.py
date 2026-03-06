@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from jobs.forms import BindCraftSubmitForm
+from jobs.fs import write_text
 from model_types.base import BaseModelType, InputPayload
 
 
@@ -68,7 +69,7 @@ class BindCraftModelType(BaseModelType):
             "number_of_final_designs": params.get("number_of_final_designs", 10),
         }
         settings_path = job.workdir / "input" / "target_settings.json"
-        settings_path.write_text(json.dumps(target_settings, indent=2))
+        write_text(settings_path, json.dumps(target_settings, indent=2))
 
     def get_output_context(self, job) -> dict:
         """Classify PDB files as primary, everything else as auxiliary."""

@@ -5,6 +5,7 @@ import json
 from django.core.exceptions import ValidationError
 
 from jobs.forms import RFdiffusion3SubmitForm
+from jobs.fs import write_text
 from model_types.base import BaseModelType, InputPayload
 
 
@@ -195,7 +196,7 @@ class RFdiffusion3ModelType(BaseModelType):
             input_spec = params.get("input_spec", {})
             if input_spec:
                 spec_path = job.workdir / "input" / "input_spec.json"
-                spec_path.write_text(json.dumps(input_spec, indent=2))
+                write_text(spec_path, json.dumps(input_spec, indent=2))
 
     def get_output_context(self, job) -> dict:
         """Classify CIF/PDB files as primary, trajectory and metadata as auxiliary."""

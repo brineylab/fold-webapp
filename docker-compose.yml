@@ -1,31 +1,43 @@
 services:
   # Run database migrations before starting other services
   migrate:
-    build: .
-    command: python manage.py migrate --noinput
+    build:
+      context: .
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+    command: sh -lc "umask 000 && python manage.py migrate --noinput"
     env_file: .env
     environment:
+      - DATA_DIR=/app/data
       - DATABASE_PATH=/app/data/db/db.sqlite3
       - JOB_BASE_DIR=/app/data/jobs
     volumes:
-      - ${DATA_DIR:-/opt/fold-webapp/data}/db:/app/data/db
-      - ${DATA_DIR:-/opt/fold-webapp/data}/jobs:/app/data/jobs
+      - ${DATA_DIR:-./data}/db:/app/data/db
+      - ${DATA_DIR:-./data}/jobs:/app/data/jobs
+      - ${HARNESS_BASE_DIR_HOST:-./data/harness}:/app/data/harness
     # Only run once, then exit
     restart: "no"
 
   # Main web application
   web:
-    build: .
-    command: gunicorn bioportal.wsgi:application --bind 0.0.0.0:8000 --workers 2
+    build:
+      context: .
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+    command: sh -lc "umask 000 && gunicorn bioportal.wsgi:application --bind 0.0.0.0:8000 --workers 2"
     ports:
       - "8000:8000"
     env_file: .env
     environment:
+      - DATA_DIR=/app/data
       - DATABASE_PATH=/app/data/db/db.sqlite3
       - JOB_BASE_DIR=/app/data/jobs
     volumes:
-      - ${DATA_DIR:-/opt/fold-webapp/data}/db:/app/data/db
-      - ${DATA_DIR:-/opt/fold-webapp/data}/jobs:/app/data/jobs
+      - ${DATA_DIR:-./data}/db:/app/data/db
+      - ${DATA_DIR:-./data}/jobs:/app/data/jobs
+      - ${HARNESS_BASE_DIR_HOST:-./data/harness}:/app/data/harness
       - static_files:/app/staticfiles
       # Uncomment below to mount SLURM binaries from host (production only)
       # - /usr/bin/sbatch:/usr/bin/sbatch:ro
@@ -42,16 +54,22 @@ services:
 
   # Background job status poller
   poller:
-    build: .
+    build:
+      context: .
+      args:
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
     command: >
-      sh -c "while true; do python manage.py poll_jobs; sleep 10; done"
+      sh -lc "umask 000 && while true; do python manage.py poll_jobs; sleep 10; done"
     env_file: .env
     environment:
+      - DATA_DIR=/app/data
       - DATABASE_PATH=/app/data/db/db.sqlite3
       - JOB_BASE_DIR=/app/data/jobs
     volumes:
-      - ${DATA_DIR:-/opt/fold-webapp/data}/db:/app/data/db
-      - ${DATA_DIR:-/opt/fold-webapp/data}/jobs:/app/data/jobs
+      - ${DATA_DIR:-./data}/db:/app/data/db
+      - ${DATA_DIR:-./data}/jobs:/app/data/jobs
+      - ${HARNESS_BASE_DIR_HOST:-./data/harness}:/app/data/harness
       # Uncomment below to mount SLURM binaries from host (production only)
       # - /usr/bin/squeue:/usr/bin/squeue:ro
       # - /usr/bin/sacct:/usr/bin/sacct:ro

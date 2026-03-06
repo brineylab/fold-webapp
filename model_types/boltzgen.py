@@ -3,6 +3,7 @@ from __future__ import annotations
 import yaml
 
 from jobs.forms import BoltzGenSubmitForm
+from jobs.fs import write_text
 from model_types.base import BaseModelType, InputPayload
 
 
@@ -96,7 +97,10 @@ class BoltzGenModelType(BaseModelType):
         design_spec["alpha"] = params.get("alpha", 0.001)
 
         design_path = job.workdir / "input" / "design.yaml"
-        design_path.write_text(yaml.dump(design_spec, default_flow_style=False))
+        write_text(
+            design_path,
+            yaml.dump(design_spec, default_flow_style=False),
+        )
 
     def get_output_context(self, job) -> dict:
         """Classify CIF/PDB files as primary, everything else as auxiliary."""

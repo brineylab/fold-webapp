@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import uuid
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -186,6 +187,8 @@ def detect_orphan_workdirs() -> list[dict]:
             continue
         
         dir_name = path.name
+        if not _looks_like_job_workdir_name(dir_name):
+            continue
         
         if dir_name not in job_ids:
             orphans.append({
@@ -196,6 +199,14 @@ def detect_orphan_workdirs() -> list[dict]:
             })
     
     return orphans
+
+
+def _looks_like_job_workdir_name(name: str) -> bool:
+    try:
+        uuid.UUID(name)
+    except ValueError:
+        return False
+    return True
 
 
 def detect_orphan_jobs() -> QuerySet:
@@ -285,4 +296,3 @@ def get_cleanup_summary() -> dict:
         "orphan_workdirs_mb": round(orphan_size / (1024 * 1024), 2),
         "orphan_jobs": orphan_jobs.count(),
     }
-

@@ -1,0 +1,6 @@
+version: 1
+sequences:
+  - id: A
+    sequence: MKTAYIAKQRQISFVKSHFS
+settings:
+  output_format: pdb

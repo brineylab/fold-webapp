@@ -82,6 +82,7 @@ class LigandMPNNRunner(Runner):
 {slurm_directives}
 
 set -euo pipefail
+umask 000
 
 mkdir -p {outdir}
 
@@ -91,8 +92,8 @@ echo "======================"
 
 {docker_cmd}
 
-# Ensure output is readable by the webapp
-chmod -R a+rX {outdir} 2>/dev/null || true
+# Ensure output stays writable by the webapp and host user
+chmod -R a+rwX {outdir} 2>/dev/null || true
 
 # Package results into a single zip (exclude SLURM logs)
 cd {outdir}

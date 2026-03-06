@@ -29,11 +29,14 @@ ARG SLURM_GID=64030
 RUN groupadd -g "$SLURM_GID" slurm && \
     useradd -u "$SLURM_UID" -g slurm -s /usr/sbin/nologin -M slurm
 
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash appuser && \
-    chown -R appuser:appuser /app
+# Create non-root user for security. Match the host install user's uid/gid by
+# default so bind-mounted data stays writable without manual chown cycles.
+ARG APP_UID=1000
+ARG APP_GID=1000
+RUN groupadd -o -g "$APP_GID" appuser && \
+    useradd -o -u "$APP_UID" -g appuser --create-home --shell /bin/bash appuser && \
+    chown -R "$APP_UID:$APP_GID" /app
 USER appuser
 
 # Default command (can be overridden in docker-compose)
 CMD ["gunicorn", "bioportal.wsgi:application", "--bind", "0.0.0.0:8000"]
-

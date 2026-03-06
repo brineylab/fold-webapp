@@ -24,11 +24,16 @@ docker_group_has_user() {
 }
 
 ensure_submit_user_docker_access() {
-    # The web container runs as appuser (uid 1000). SLURM batch jobs submitted
-    # from that container land on the host as the matching uid, so that host
-    # account must be able to reach /var/run/docker.sock.
-    local submit_uid="1000"
+    # The web container runs as appuser with the uid configured in .env.
+    # SLURM batch jobs submitted from that container land on the host as the
+    # matching uid, so that host account must be able to reach docker.sock.
+    local submit_uid=""
     local submit_user
+
+    if [[ -f "$PROJECT_ROOT/.env" ]]; then
+        submit_uid="$(grep '^APP_UID=' "$PROJECT_ROOT/.env" 2>/dev/null | cut -d= -f2- || true)"
+    fi
+    submit_uid="${submit_uid:-1000}"
 
     submit_user="$(getent passwd "$submit_uid" | cut -d: -f1 || true)"
     if [[ -z "$submit_user" ]]; then
