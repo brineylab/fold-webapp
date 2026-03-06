@@ -6,6 +6,50 @@ from console.models import RunnerConfig
 from runners import all_runners
 
 
+def _looks_like_mmcif(uploaded_file) -> bool:
+    name = (getattr(uploaded_file, "name", "") or "").lower()
+    if name.endswith((".cif", ".mmcif")):
+        return True
+
+    try:
+        pos = uploaded_file.tell()
+    except Exception:
+        pos = None
+
+    try:
+        header = uploaded_file.read(2048)
+    finally:
+        if pos is not None:
+            try:
+                uploaded_file.seek(pos)
+            except Exception:
+                pass
+
+    if isinstance(header, str):
+        text = header
+    else:
+        text = header.decode("utf-8", errors="ignore")
+
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped == "#":
+            continue
+        return (
+            stripped.startswith("data_")
+            or stripped.startswith("loop_")
+            or stripped.startswith("_entry.")
+            or stripped.startswith("_atom_site.")
+        )
+    return False
+
+
+def _validate_pdb_upload(uploaded_file) -> None:
+    if uploaded_file and _looks_like_mmcif(uploaded_file):
+        raise forms.ValidationError(
+            "mmCIF uploads are not supported for this tool yet. Please upload a PDB file."
+        )
+
+
 def get_disabled_runners() -> list[dict]:
     """
     Get list of disabled runners with their details.
@@ -118,7 +162,7 @@ class ProteinMPNNSubmitForm(forms.Form):
     )
     pdb_file = forms.FileField(
         required=True,
-        widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".pdb"}),
         help_text="Upload a PDB file.",
     )
     noise_level = forms.ChoiceField(
@@ -173,6 +217,11 @@ class ProteinMPNNSubmitForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Random seed for reproducibility.",
     )
+
+    def clean_pdb_file(self):
+        pdb_file = self.cleaned_data.get("pdb_file")
+        _validate_pdb_upload(pdb_file)
+        return pdb_file
 
 
 class Chai1SubmitForm(forms.Form):
@@ -837,7 +886,7 @@ class LigandMPNNSubmitForm(forms.Form):
     )
     pdb_file = forms.FileField(
         required=True,
-        widget=forms.ClearableFileInput(attrs={"class": "form-control"}),
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".pdb"}),
         help_text="Upload a PDB file.",
     )
     noise_level = forms.ChoiceField(
@@ -892,3 +941,8 @@ class LigandMPNNSubmitForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Random seed for reproducibility.",
     )
+
+    def clean_pdb_file(self):
+        pdb_file = self.cleaned_data.get("pdb_file")
+        _validate_pdb_upload(pdb_file)
+        return pdb_file

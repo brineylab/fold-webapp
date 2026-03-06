@@ -814,6 +814,36 @@ class TestProteinMPNNSubmitForm(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("pdb_file", form.errors)
 
+    def test_rejects_mmcif_extension(self):
+        from jobs.forms import ProteinMPNNSubmitForm
+        mmcif = SimpleUploadedFile(
+            "test.cif",
+            b"data_test\n_entry.id test\n#\n",
+            content_type="chemical/x-cif",
+        )
+        form = ProteinMPNNSubmitForm(
+            data={"noise_level": "v_48_020"},
+            files={"pdb_file": mmcif},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("pdb_file", form.errors)
+        self.assertIn("mmCIF uploads are not supported", form.errors["pdb_file"][0])
+
+    def test_rejects_mmcif_content_with_pdb_filename(self):
+        from jobs.forms import ProteinMPNNSubmitForm
+        mmcif = SimpleUploadedFile(
+            "test.pdb",
+            b"data_test\n_entry.id test\n#\n",
+            content_type="chemical/x-pdb",
+        )
+        form = ProteinMPNNSubmitForm(
+            data={"noise_level": "v_48_020"},
+            files={"pdb_file": mmcif},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("pdb_file", form.errors)
+        self.assertIn("mmCIF uploads are not supported", form.errors["pdb_file"][0])
+
 
 class TestLigandMPNNSubmitForm(TestCase):
     """LigandMPNNSubmitForm validation."""
@@ -829,6 +859,36 @@ class TestLigandMPNNSubmitForm(TestCase):
         form = LigandMPNNSubmitForm(data={"noise_level": "v_32_010_25"})
         self.assertFalse(form.is_valid())
         self.assertIn("pdb_file", form.errors)
+
+    def test_rejects_mmcif_extension(self):
+        from jobs.forms import LigandMPNNSubmitForm
+        mmcif = SimpleUploadedFile(
+            "test.mmcif",
+            b"data_test\n_entry.id test\n#\n",
+            content_type="chemical/x-cif",
+        )
+        form = LigandMPNNSubmitForm(
+            data={"noise_level": "v_32_010_25"},
+            files={"pdb_file": mmcif},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("pdb_file", form.errors)
+        self.assertIn("mmCIF uploads are not supported", form.errors["pdb_file"][0])
+
+    def test_rejects_mmcif_content_with_pdb_filename(self):
+        from jobs.forms import LigandMPNNSubmitForm
+        mmcif = SimpleUploadedFile(
+            "test.pdb",
+            b"data_test\n_entry.id test\n#\n",
+            content_type="chemical/x-pdb",
+        )
+        form = LigandMPNNSubmitForm(
+            data={"noise_level": "v_32_010_25"},
+            files={"pdb_file": mmcif},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("pdb_file", form.errors)
+        self.assertIn("mmCIF uploads are not supported", form.errors["pdb_file"][0])
 
 
 # ---------------------------------------------------------------------------
