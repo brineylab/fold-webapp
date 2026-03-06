@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # Run database migrations before starting other services
   migrate:

@@ -19,7 +19,7 @@ ensure_data_dirs() {
     local data_dir="./data"
     if [ -f .env ]; then
         local env_val
-        env_val="$(grep '^DATA_DIR=' .env 2>/dev/null | cut -d= -f2-)"
+        env_val="$(grep '^DATA_DIR=' .env 2>/dev/null | cut -d= -f2- || true)"
         [ -n "$env_val" ] && data_dir="$env_val"
     fi
     mkdir -p "$data_dir/db" "$data_dir/jobs" 2>/dev/null || true
@@ -81,6 +81,12 @@ check_docker() {
     if ! docker compose version &>/dev/null; then
         error "Docker Compose v2 plugin is required."
         error "See https://docs.docker.com/compose/install/"
+        exit 1
+    fi
+    if ! docker info &>/dev/null; then
+        error "Cannot connect to the Docker daemon."
+        error "Either start Docker or add your user to the docker group:"
+        error "  sudo usermod -aG docker \$USER && newgrp docker"
         exit 1
     fi
 }
@@ -188,7 +194,7 @@ cmd_destroy() {
     local data_dir="./data"
     if [ -f .env ]; then
         local env_val
-        env_val="$(grep '^DATA_DIR=' .env 2>/dev/null | cut -d= -f2-)"
+        env_val="$(grep '^DATA_DIR=' .env 2>/dev/null | cut -d= -f2- || true)"
         [ -n "$env_val" ] && data_dir="$env_val"
     fi
 
