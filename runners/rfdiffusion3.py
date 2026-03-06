@@ -49,7 +49,7 @@ class RFdiffusion3Runner(Runner):
         docker_args = [
             "docker run --rm --gpus all",
             "-e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}",
-            "-e CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}",
+            "-e CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}",
             f"-v {workdir}:/work",
         ]
         if config:

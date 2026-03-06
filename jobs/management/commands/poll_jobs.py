@@ -12,6 +12,17 @@ from jobs.models import Job
 STALE_JOB_TIMEOUT = timedelta(hours=1)
 
 
+def _has_materialized_outputs(job) -> bool:
+    """Treat non-SLURM files in output/ as evidence the job completed."""
+    outdir = job.workdir / "output"
+    if not outdir.is_dir():
+        return False
+    return any(
+        p.is_file() and not p.name.startswith("slurm-")
+        for p in outdir.rglob("*")
+    )
+
+
 class Command(BaseCommand):
     help = "Poll SLURM for active job statuses"
 
@@ -28,6 +39,26 @@ class Command(BaseCommand):
             new_status = slurm.check_status(job.slurm_job_id)
 
             if new_status == "UNKNOWN":
+                if slurm.job_missing(job.slurm_job_id):
+                    old = job.status
+                    job.status = (
+                        Job.Status.COMPLETED
+                        if _has_materialized_outputs(job)
+                        else Job.Status.FAILED
+                    )
+                    if job.status == Job.Status.FAILED and not job.error_message:
+                        job.error_message = (
+                            "Job disappeared from SLURM before the poller could "
+                            "read a terminal state."
+                        )
+                    job.completed_at = now
+                    update_fields = ["status", "completed_at"]
+                    if job.status == Job.Status.FAILED:
+                        update_fields.append("error_message")
+                    job.save(update_fields=update_fields)
+                    self.stdout.write(f"Job {job.id}: {old} -> {job.status} (missing)")
+                    continue
+
                 # If the job has been untrackable for too long, mark it failed.
                 if job.submitted_at and (now - job.submitted_at) > STALE_JOB_TIMEOUT:
                     job.status = Job.Status.FAILED

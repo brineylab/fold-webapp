@@ -9,7 +9,9 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from jobs.models import Job
 from jobs.services import create_and_submit_job, _sanitize_payload_for_storage
@@ -112,6 +114,65 @@ class TestCreateAndSubmitJobValidation(TestCase):
             },
         )
         self.assertEqual(job.sequences, "")
+
+
+class TestPollJobsCommand(TestCase):
+    """Status reconciliation for jobs no longer visible to SLURM."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="polluser", password="testpass"
+        )
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    @patch("jobs.management.commands.poll_jobs.slurm.job_missing", return_value=True)
+    @patch("jobs.management.commands.poll_jobs.slurm.check_status", return_value="UNKNOWN")
+    def test_marks_missing_job_failed_without_waiting_an_hour(
+        self, mock_check_status, mock_job_missing
+    ):
+        job = Job.objects.create(
+            owner=self.user,
+            runner="ligandmpnn",
+            model_key="protein_mpnn",
+            status=Job.Status.PENDING,
+            slurm_job_id="3",
+            submitted_at=timezone.now(),
+        )
+
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            call_command("poll_jobs")
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, Job.Status.FAILED)
+        self.assertIsNotNone(job.completed_at)
+        self.assertIn("disappeared from SLURM", job.error_message)
+
+    @patch("jobs.management.commands.poll_jobs.slurm.job_missing", return_value=True)
+    @patch("jobs.management.commands.poll_jobs.slurm.check_status", return_value="UNKNOWN")
+    def test_marks_missing_job_completed_when_outputs_exist(
+        self, mock_check_status, mock_job_missing
+    ):
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            job = Job.objects.create(
+                owner=self.user,
+                runner="ligandmpnn",
+                model_key="protein_mpnn",
+                status=Job.Status.RUNNING,
+                slurm_job_id="4",
+                submitted_at=timezone.now(),
+            )
+            outdir = job.workdir / "output"
+            outdir.mkdir(parents=True, exist_ok=True)
+            (outdir / "results.zip").write_bytes(b"zip")
+
+            call_command("poll_jobs")
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, Job.Status.COMPLETED)
+        self.assertIsNotNone(job.completed_at)
 
     @patch("jobs.services.slurm")
     def test_rejects_oversized_sequences(self, mock_slurm):

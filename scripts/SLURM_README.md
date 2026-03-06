@@ -94,14 +94,15 @@ Main Slurm configuration. Key settings:
 | `SlurmctldHost` | auto-detected node identity (`slurmd -C`) | Controller node |
 | `SlurmUser` | `slurm` (fallback `root`) | Controller/daemon RPC identity |
 | `SelectType` | `select/cons_tres` | Enables GPU GRES scheduling |
-| `ProctrackType` | `proctrack/cgroup` | Process tracking via cgroups |
-| `TaskPlugin` | `task/cgroup,task/affinity` | Resource isolation |
+| `ProctrackType` | `proctrack/cgroup` or `proctrack/linuxproc` | Uses cgroups when the host exposes `freezer`; otherwise falls back for dev hosts |
+| `TaskPlugin` | `task/cgroup,task/affinity` or `task/affinity` | Resource isolation, with a non-cgroup fallback when `freezer` is unavailable |
 | `JobCompType` | `jobcomp/filetxt` | File-based job completion logging |
 | `GresTypes` | `gpu` | Generic resource types |
 | `ReturnToService` | `2` | Auto-return node after reboot |
 
-Node identity is sourced from `slurmd -C` when available to avoid hostname mismatch issues.
+Node identity and CPU topology are sourced from `slurmd -C` when available to avoid hostname or socket/core/thread mismatch issues.
 Node resources (CPUs, RAM, GPUs) are auto-detected from hardware.
+On hosts without a mounted `freezer` cgroup controller, `setup-slurm.sh` falls back to `proctrack/linuxproc`, `task/affinity`, and `jobacct_gather/linux` so `slurmd` can start in single-node dev environments.
 
 ### `/etc/slurm/gres.conf`
 
@@ -120,6 +121,8 @@ ConstrainRAMSpace=yes
 ConstrainDevices=yes   # set to no automatically when static /dev/nvidiaN GPU mapping is used
 ```
 
+If `setup-slurm.sh` falls back from cgroup-based tracking, this file remains present but is not used by the active `slurm.conf` plugin settings.
+
 ### `docker-compose.override.yml`
 
 Generated in the project root. Mounts into the `web` and `poller` services:
@@ -129,6 +132,7 @@ Generated in the project root. Mounts into the `web` and `poller` services:
 - **Munge socket**: `/var/run/munge` (read-only)
 - **Slurm shared libraries**: auto-discovered via `ldconfig -p` (read-only)
 - **`LD_LIBRARY_PATH`**: set so mounted Slurm binaries can find their shared libraries inside the container
+- **`extra_hosts`**: maps the host's hostname (and FQDN if different) to `host-gateway`, so `sbatch` inside the container can resolve and reach `slurmctld`
 
 This file is git-ignored since it is environment-specific.
 
@@ -187,8 +191,8 @@ sudo ./scripts/setup-slurm.sh --force-reconfig
 # Check node state
 sinfo
 
-# Manually set to IDLE
-sudo scontrol update NodeName=$(hostname -s) State=IDLE
+# Clear a drained/down node after slurmd is healthy
+sudo scontrol update NodeName=$(hostname -s) State=RESUME
 ```
 
 ### slurmd fails with gpu/nvml errors
@@ -201,6 +205,21 @@ This means `AutoDetect=nvml` was requested but the Slurm NVML plugin is not pres
 
 ```bash
 sudo ./scripts/setup-slurm.sh --force-reconfig
+```
+
+### slurmd fails with "cgroup namespace 'freezer' not mounted"
+
+```
+slurmd: error: cgroup namespace 'freezer' not mounted. aborting
+slurmd: error: Couldn't load specified plugin name for proctrack/cgroup
+```
+
+The host does not expose the legacy freezer controller required by `proctrack/cgroup`. Re-run the setup so it switches to the dev-safe fallback plugins:
+
+```bash
+sudo ./scripts/setup-slurm.sh --force-reconfig --skip-test
+sudo systemctl restart slurmctld slurmd
+sudo scontrol update NodeName=$(hostname -s) State=RESUME
 ```
 
 ### slurmd logs "Security violation ... uid ..."
@@ -287,6 +306,23 @@ docker compose config | grep sbatch
 ```
 
 If the override is not being loaded, ensure it is in the project root alongside `docker-compose.yml`.
+
+### "Unable to contact slurm controller" from containers
+
+```
+sbatch: error: Batch job submission failed: Unable to contact slurm controller (connect failure)
+```
+
+The container cannot resolve the host's hostname. `slurm.conf` sets `SlurmctldHost=<hostname>`, but Docker containers on the default bridge network can't resolve the host machine's hostname. The setup script adds `extra_hosts` mappings to `docker-compose.override.yml` to fix this.
+
+```bash
+# Regenerate the override with extra_hosts mappings
+sudo ./scripts/setup-slurm.sh --force-reconfig --skip-test
+./deploy.sh restart
+
+# Verify the hostname resolves inside the container
+docker compose exec web getent hosts $(hostname -s)
+```
 
 ### Shared library errors in containers
 

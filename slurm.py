@@ -11,6 +11,11 @@ class SlurmError(Exception):
     pass
 
 
+def _is_invalid_job_id_output(text: str) -> bool:
+    text = (text or "").lower()
+    return "invalid job id specified" in text
+
+
 def _normalize_state(raw_state: str) -> str:
     """Map raw Slurm state strings to app-level states."""
     state = raw_state.split()[0].split("+")[0].strip().upper()
@@ -57,6 +62,24 @@ def _state_from_scontrol(slurm_job_id: str) -> str | None:
         return None
 
     return match.group(1)
+
+
+def job_missing(slurm_job_id: str) -> bool:
+    """Return True when both squeue and scontrol explicitly say the job is gone."""
+    squeue = subprocess.run(
+        ["squeue", "-j", str(slurm_job_id), "-h", "-o", "%T"],
+        capture_output=True,
+        text=True,
+    )
+    if not _is_invalid_job_id_output((squeue.stderr or "") + (squeue.stdout or "")):
+        return False
+
+    scontrol = subprocess.run(
+        ["scontrol", "show", "job", str(slurm_job_id), "-o"],
+        capture_output=True,
+        text=True,
+    )
+    return _is_invalid_job_id_output((scontrol.stderr or "") + (scontrol.stdout or ""))
 
 
 def _job_base_dir() -> Path:
