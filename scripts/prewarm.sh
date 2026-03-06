@@ -37,7 +37,7 @@ Options:
   -h, --help          Show this help message
 
 Environment:
-  Reads .env file for configuration (BOLTZ_CACHE_DIR, CHAI_CACHE_DIR, etc.)
+  Reads .env file for configuration (BOLTZ_CACHE_DIR, CHAI_CACHE_DIR, BOLTZGEN_CACHE_DIR, etc.)
 EOF
 }
 
@@ -92,15 +92,22 @@ set +a
 BOLTZ_IMAGE="${BOLTZ_IMAGE:-brineylab/boltz2:latest}"
 CHAI_IMAGE="${CHAI_IMAGE:-brineylab/chai1:latest}"
 LIGANDMPNN_IMAGE="${LIGANDMPNN_IMAGE:-brineylab/ligandmpnn:latest}"
+BINDCRAFT_IMAGE="${BINDCRAFT_IMAGE:-brineylab/bindcraft:latest}"
+RFDIFFUSION3_IMAGE="${RFDIFFUSION3_IMAGE:-brineylab/rfdiffusion3:latest}"
+BOLTZGEN_IMAGE="${BOLTZGEN_IMAGE:-brineylab/boltzgen:latest}"
 DATA_DIR="${DATA_DIR:-./data}"
 BOLTZ_CACHE_DIR="${BOLTZ_CACHE_DIR:-$DATA_DIR/jobs/boltz_cache}"
 CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-$DATA_DIR/jobs/chai_cache}"
+BOLTZGEN_CACHE_DIR="${BOLTZGEN_CACHE_DIR:-$DATA_DIR/jobs/boltzgen_cache}"
 
 # Add registry prefix if specified
 if [ -n "$REGISTRY" ]; then
     BOLTZ_IMAGE="${REGISTRY}/${BOLTZ_IMAGE}"
     CHAI_IMAGE="${REGISTRY}/${CHAI_IMAGE}"
     LIGANDMPNN_IMAGE="${REGISTRY}/${LIGANDMPNN_IMAGE}"
+    BINDCRAFT_IMAGE="${REGISTRY}/${BINDCRAFT_IMAGE}"
+    RFDIFFUSION3_IMAGE="${REGISTRY}/${RFDIFFUSION3_IMAGE}"
+    BOLTZGEN_IMAGE="${REGISTRY}/${BOLTZGEN_IMAGE}"
 fi
 
 # ---------- prerequisite checks ----------
@@ -153,6 +160,27 @@ if [ "$SKIP_IMAGES" = false ]; then
         docker build -t "$LIGANDMPNN_IMAGE" containers/ligandmpnn/
     fi
 
+    step "Pulling BindCraft image: $BINDCRAFT_IMAGE"
+    if ! docker pull "$BINDCRAFT_IMAGE" 2>/dev/null; then
+        warn "Failed to pull $BINDCRAFT_IMAGE from registry."
+        step "Building BindCraft image locally..."
+        docker build -t "$BINDCRAFT_IMAGE" containers/bindcraft/
+    fi
+
+    step "Pulling RFdiffusion3 image: $RFDIFFUSION3_IMAGE"
+    if ! docker pull "$RFDIFFUSION3_IMAGE" 2>/dev/null; then
+        warn "Failed to pull $RFDIFFUSION3_IMAGE from registry."
+        step "Building RFdiffusion3 image locally..."
+        docker build -t "$RFDIFFUSION3_IMAGE" containers/rfdiffusion3/
+    fi
+
+    step "Pulling BoltzGen image: $BOLTZGEN_IMAGE"
+    if ! docker pull "$BOLTZGEN_IMAGE" 2>/dev/null; then
+        warn "Failed to pull $BOLTZGEN_IMAGE from registry."
+        step "Building BoltzGen image locally..."
+        docker build -t "$BOLTZGEN_IMAGE" containers/boltzgen/
+    fi
+
     step "Building main web application image..."
     docker compose build
 
@@ -179,7 +207,10 @@ echo "Summary:"
 echo "  - Docker images: ready"
 echo "  - Boltz-2 cache: $BOLTZ_CACHE_DIR"
 echo "  - Chai-1 cache: $CHAI_CACHE_DIR"
+echo "  - BoltzGen cache: $BOLTZGEN_CACHE_DIR"
 echo "  - LigandMPNN: ready (weights in image)"
+echo "  - BindCraft: ready (weights in image)"
+echo "  - RFdiffusion3: ready (weights in image)"
 echo
 echo "Your deployment is now ready for production use."
 echo "First-time job submissions will be significantly faster."
