@@ -17,8 +17,8 @@
 - `cp env.example .env` then edit `.env` (set `FAKE_SLURM=1` for local dev).
 - `python manage.py migrate` initializes the database.
 - `python manage.py createsuperuser` creates an admin account.
-- `honcho start` runs the web server and job poller together (recommended).
-- `python manage.py runserver` and `python manage.py poll_jobs` run them separately.
+- `honcho start` runs the web server and job worker together (recommended).
+- `python manage.py runserver` and `python manage.py run_job_worker --interval 10` run them separately.
 - `docker compose up -d --build` launches production-style services.
 - `./scripts/build_image.sh <model> <tag> [--push]` builds and optionally pushes a model container.
 - `make build-image MODEL=<model> TAG=<tag>` wraps the same build workflow.

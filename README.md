@@ -2,6 +2,8 @@
 
 Minimal intranet web UI for submitting protein structure prediction jobs to SLURM.
 
+The current runtime is still Docker + `SLURM`, but the accepted simplification target now assumes a host-run Django and worker control plane with Docker retained only for model execution. Phase 0 artifacts for that target live in [`docs/architecture/0001-host-run-control-plane.md`](docs/architecture/0001-host-run-control-plane.md) and [`docs/operations/PHASE0_HOST_RUNTIME.md`](docs/operations/PHASE0_HOST_RUNTIME.md).
+
 ## Quick Start (Development)
 
 ### Option 1: Using Honcho (Recommended)
@@ -22,11 +24,11 @@ cp env.example .env
 python manage.py migrate
 python manage.py createsuperuser
 
-# Start all services (web server + job poller)
+# Start all services (web server + job worker)
 honcho start
 ```
 
-This starts both the web server and the job status poller in a single terminal.
+This starts both the web server and the background job worker in a single terminal.
 
 ### Option 2: Manual (Separate Terminals)
 
@@ -36,8 +38,8 @@ If you prefer running processes separately:
 # Terminal 1: Web server
 python manage.py runserver
 
-# Terminal 2: Job poller (polls every 10 seconds)
-while true; do python manage.py poll_jobs; sleep 10; done
+# Terminal 2: Job worker
+python manage.py run_job_worker --interval 10
 ```
 
 ## Production Deployment (Docker Compose)
@@ -167,8 +169,8 @@ docker compose up -d --build
 ┌─────────────────────────────────────────────────┐
 │  Web Server (Django)                            │
 │  ┌──────────────┐  ┌───────────────┐            │
-│  │  web         │  │  poller       │            │
-│  │  (gunicorn)  │  │  (poll_jobs)  │            │
+│  │  web         │  │  worker       │            │
+│  │  (gunicorn)  │  │  (job loop)   │            │
 │  └──────┬───────┘  └──────┬────────┘            │
 │         │                 │                     │
 │         └────────┬────────┘                     │
@@ -203,4 +205,5 @@ See **[api/README.md](api/README.md)** for full endpoint documentation, authenti
 
 - **Job directories**: Controlled filesystem layout under `JOB_BASE_DIR/<job_uuid>/...`
 - **Fake mode**: Set `FAKE_SLURM=1` to develop without SLURM; jobs transition PENDING→RUNNING→COMPLETED automatically after ~15 seconds
+- **Worker entrypoint**: `python manage.py run_job_worker --interval 10` is the canonical long-lived worker command
 - **Runners**: Stub implementations in `runners/` — replace with actual tool invocations for production

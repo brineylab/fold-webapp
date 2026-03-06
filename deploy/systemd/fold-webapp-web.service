@@ -1,0 +1,17 @@
+[Unit]
+Description=Fold Webapp Gunicorn
+After=network.target
+
+[Service]
+Type=simple
+User=fold
+Group=fold
+WorkingDirectory=/opt/fold-webapp
+EnvironmentFile=/etc/fold-webapp/fold-webapp.env
+ExecStart=/opt/fold-webapp/.venv/bin/gunicorn bioportal.wsgi:application --bind 127.0.0.1:8000 --workers 2 --access-logfile /var/log/fold-webapp/gunicorn-access.log --error-logfile /var/log/fold-webapp/gunicorn-error.log
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

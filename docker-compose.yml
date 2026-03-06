@@ -52,15 +52,14 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  # Background job status poller
+  # Background job worker (currently wraps poll_jobs)
   poller:
     build:
       context: .
       args:
         APP_UID: ${APP_UID:-1000}
         APP_GID: ${APP_GID:-1000}
-    command: >
-      sh -lc "umask 000 && while true; do python manage.py poll_jobs; sleep 10; done"
+    command: sh -lc "umask 000 && python manage.py run_job_worker --interval 10"
     env_file: .env
     environment:
       - DATA_DIR=/app/data

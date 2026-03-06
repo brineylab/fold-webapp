@@ -17,12 +17,12 @@ cp env.example .env   # set FAKE_SLURM=1 for local dev
 python manage.py migrate
 python manage.py createsuperuser
 
-# Run (recommended: web server + job poller together)
+# Run (recommended: web server + job worker together)
 honcho start
 
 # Run separately
 python manage.py runserver        # web server
-python manage.py poll_jobs        # single poll cycle (run in a loop with sleep 10)
+python manage.py run_job_worker --interval 10
 
 # Tests
 python manage.py test                          # all tests
@@ -110,7 +110,7 @@ Set `FAKE_SLURM=1` in `.env` for local dev. Jobs auto-transition: PENDING (5s) â
 
 ### Job Status Polling
 
-The `poll_jobs` management command runs in a loop (via honcho or Docker poller service), checking SLURM state every 10 seconds for all active jobs. Uses squeue for active jobs, falls back to sacct then scontrol for completed jobs.
+The `run_job_worker` management command is the canonical long-lived worker entrypoint. Today it runs `poll_jobs` every 10 seconds via the same interface that later phases will reuse for the local queue dispatcher. `poll_jobs` checks SLURM state for all active jobs, using squeue for active jobs and falling back to sacct then scontrol for completed jobs.
 
 ## Adding a New Model
 

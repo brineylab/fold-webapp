@@ -1,0 +1,17 @@
+[Unit]
+Description=Fold Webapp Worker
+After=network.target
+
+[Service]
+Type=simple
+User=fold
+Group=fold
+WorkingDirectory=/opt/fold-webapp
+EnvironmentFile=/etc/fold-webapp/fold-webapp.env
+ExecStart=/opt/fold-webapp/.venv/bin/python manage.py run_job_worker --interval 10
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

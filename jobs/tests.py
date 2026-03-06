@@ -1,6 +1,7 @@
 """Tests for jobs app (service-layer validation, workdir delegation, output presentation, input file upload)."""
 from __future__ import annotations
 
+import io
 import shutil
 import tempfile
 from pathlib import Path
@@ -10,9 +11,11 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
+from jobs.management.commands.run_job_worker import Command as RunJobWorkerCommand
+from jobs.management.commands.run_job_worker import run_worker_loop
 from jobs.models import Job
 from jobs.services import create_and_submit_job, _sanitize_payload_for_storage
 from model_types import get_model_type
@@ -993,3 +996,44 @@ class TestDownloadFileSubdirectory(TestCase):
         with override_settings(JOB_BASE_DIR=self.tmpdir):
             response = self.client.get(f"/jobs/{job.id}/download/nofile.txt")
         self.assertEqual(response.status_code, 404)
+
+
+class _StopAfterWait:
+    def __init__(self):
+        self.wait_calls = 0
+        self.interval = None
+
+    def is_set(self):
+        return False
+
+    def wait(self, interval):
+        self.wait_calls += 1
+        self.interval = interval
+        return True
+
+
+class TestRunJobWorkerCommand(SimpleTestCase):
+    @patch("jobs.management.commands.run_job_worker.run_worker_iteration")
+    def test_worker_loop_runs_single_iteration_then_waits(self, mock_iteration):
+        stop_event = _StopAfterWait()
+
+        run_worker_loop(
+            interval=7,
+            stop_event=stop_event,
+            once=False,
+            stdout=io.StringIO(),
+            stderr=io.StringIO(),
+        )
+
+        mock_iteration.assert_called_once()
+        self.assertEqual(stop_event.wait_calls, 1)
+        self.assertEqual(stop_event.interval, 7)
+
+    @patch("jobs.management.commands.run_job_worker._install_signal_handlers")
+    @patch("jobs.management.commands.run_job_worker.run_worker_iteration")
+    def test_handle_once_runs_single_iteration(self, mock_iteration, mock_install):
+        command = RunJobWorkerCommand()
+        command.handle(interval=10, once=True)
+
+        mock_install.assert_called_once()
+        mock_iteration.assert_called_once()

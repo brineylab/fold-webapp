@@ -2,6 +2,8 @@
 
 Step-by-step instructions for deploying Fold on a fresh Ubuntu 22.04 or 24.04 server with NVIDIA GPUs.
 
+This guide documents the current Docker + `SLURM` deployment path. The accepted simplification target is a host-run Django and worker control plane; Phase 0 planning artifacts for that target live in [`docs/architecture/0001-host-run-control-plane.md`](docs/architecture/0001-host-run-control-plane.md) and [`docs/operations/PHASE0_HOST_RUNTIME.md`](docs/operations/PHASE0_HOST_RUNTIME.md).
+
 By the end of this guide you will have:
 
 - Docker and the NVIDIA Container Toolkit installed

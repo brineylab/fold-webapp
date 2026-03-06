@@ -3,5 +3,4 @@
 # Run: honcho start
 
 web: python manage.py runserver 0.0.0.0:8000
-poller: sh -c 'while true; do python manage.py poll_jobs; sleep 10; done'
-
+poller: python manage.py run_job_worker --interval 10
