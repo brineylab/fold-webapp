@@ -55,7 +55,7 @@ The recommended way to deploy is with the `deploy.sh` script, which handles envi
 This will:
 1. Check that Docker and Docker Compose v2 are installed
 2. Create `.env` from `env.example` with a generated `SECRET_KEY` and production defaults
-3. Create `./data/` directories for persistent storage
+3. Create the `DATA_DIR` directories for persistent storage (default: `/opt/fold-webapp/data`)
 4. Build the Docker image and start all services
 5. Prompt you to create an admin (superuser) account
 
@@ -136,7 +136,7 @@ Both the web container and SLURM compute nodes need access to job working direct
 | `BACKUP_DIR` | Directory for backup archives | `./backups` |
 | `BACKUP_RETENTION` | Days to keep old backups | `30` |
 
-In Docker, `DATABASE_PATH` and `JOB_BASE_DIR` are set automatically by `docker-compose.yml` to use bind mounts under `./data/`. You typically don't need to set these yourself.
+In Docker, `DATABASE_PATH` and `JOB_BASE_DIR` are set automatically by `docker-compose.yml` to use bind mounts under `DATA_DIR` (default: `/opt/fold-webapp/data`). You typically don't need to set these yourself.
 
 ## Architecture
 

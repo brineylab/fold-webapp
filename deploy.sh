@@ -16,7 +16,7 @@ warn()  { echo -e "${YELLOW}WARNING:${NC} $*"; }
 error() { echo -e "${RED}ERROR:${NC} $*" >&2; }
 
 ensure_data_dirs() {
-    local data_dir="./data"
+    local data_dir="/opt/fold-webapp/data"
     if [ -f .env ]; then
         local env_val
         env_val="$(grep '^DATA_DIR=' .env 2>/dev/null | cut -d= -f2- || true)"
@@ -41,6 +41,71 @@ ensure_data_dirs() {
         fi
         echo "JOB_BASE_DIR_HOST=$abs_data_dir/jobs" >> .env
     fi
+    warn_if_untraversable_host_jobs_dir
+}
+
+get_host_jobs_dir() {
+    local host_jobs_dir=""
+    if [ -f .env ]; then
+        host_jobs_dir="$(grep '^JOB_BASE_DIR_HOST=' .env 2>/dev/null | cut -d= -f2- || true)"
+        if [ -z "$host_jobs_dir" ]; then
+            local env_data_dir
+            env_data_dir="$(grep '^DATA_DIR=' .env 2>/dev/null | cut -d= -f2- || true)"
+            [ -n "$env_data_dir" ] && host_jobs_dir="$env_data_dir/jobs"
+        fi
+    fi
+    if [ -z "$host_jobs_dir" ]; then
+        host_jobs_dir="/opt/fold-webapp/data/jobs"
+    fi
+    if [[ "$host_jobs_dir" != /* ]]; then
+        host_jobs_dir="$(cd "$SCRIPT_DIR" && cd "$host_jobs_dir" 2>/dev/null && pwd)"
+    fi
+    printf '%s\n' "$host_jobs_dir"
+}
+
+digit_has_exec() {
+    case "$1" in
+        1|3|5|7) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+warn_if_untraversable_host_jobs_dir() {
+    local host_jobs_dir
+    host_jobs_dir="$(get_host_jobs_dir)"
+    local app_uid="${APP_UID:-1000}"
+    local app_gid="${APP_GID:-1000}"
+    local current="/"
+    local owner_uid group_gid perms owner_digit group_digit other_digit
+    local -a parts=()
+
+    IFS='/' read -r -a parts <<< "${host_jobs_dir#/}"
+    for part in "${parts[@]}"; do
+        [ -n "$part" ] || continue
+        current="${current%/}/$part"
+        [ -d "$current" ] || continue
+
+        read -r owner_uid group_gid perms < <(stat -c '%u %g %a' "$current")
+        perms="$(printf '%03d' "$((10#$perms))")"
+        owner_digit="${perms:0:1}"
+        group_digit="${perms:1:1}"
+        other_digit="${perms:2:1}"
+
+        if [ "$owner_uid" = "$app_uid" ] && digit_has_exec "$owner_digit"; then
+            continue
+        fi
+        if [ "$group_gid" = "$app_gid" ] && digit_has_exec "$group_digit"; then
+            continue
+        fi
+        if digit_has_exec "$other_digit"; then
+            continue
+        fi
+
+        warn "JOB_BASE_DIR_HOST uses a parent directory that uid:$app_uid gid:$app_gid cannot traverse: $current"
+        warn "Real SLURM jobs may fail before startup, often as ExitCode=1:0 with no slurm-<jobid>.out/err files."
+        warn "Use a shared path such as /opt/fold-webapp/data or relax execute permissions on the parent directories."
+        return 0
+    done
 }
 
 usage() {
@@ -125,8 +190,8 @@ cmd_install() {
 
         # Prompt for DATA_DIR
         echo
-        read -rp "Enter data directory path [./data]: " data_dir
-        data_dir="${data_dir:-./data}"
+        read -rp "Enter data directory path [/opt/fold-webapp/data]: " data_dir
+        data_dir="${data_dir:-/opt/fold-webapp/data}"
         # Resolve relative paths to absolute
         if [[ "$data_dir" != /* ]]; then
             mkdir -p "$data_dir"
@@ -192,7 +257,7 @@ cmd_destroy() {
     check_docker
 
     # Determine data directory
-    local data_dir="./data"
+    local data_dir="/opt/fold-webapp/data"
     if [ -f .env ]; then
         local env_val
         env_val="$(grep '^DATA_DIR=' .env 2>/dev/null | cut -d= -f2- || true)"

@@ -126,7 +126,7 @@ The installer will:
 
 1. Create `.env` from `env.example` with a randomly generated `SECRET_KEY` and `DEBUG=false`
 2. Prompt you for `ALLOWED_HOSTS` — enter the hostname or IP your users will access (e.g., `fold.example.com,localhost`)
-3. Prompt you for `DATA_DIR` — the root directory for all persistent data (database, jobs, weight caches). Defaults to `./data`. For production, use an absolute path outside the repo (e.g., `/opt/fold-webapp/data`)
+3. Prompt you for `DATA_DIR` — the root directory for all persistent data (database, jobs, weight caches). Defaults to `/opt/fold-webapp/data`
 4. Build the Docker image for the web application
 5. Start all services (runs database migrations automatically)
 6. Prompt you to create an admin (superuser) account
@@ -160,7 +160,9 @@ Key variables to review:
 | `CHAI_CACHE_DIR` | Where Chai-1 caches model weights | `$DATA_DIR/jobs/chai_cache` |
 | `LIGANDMPNN_IMAGE` | LigandMPNN container image name | `brineylab/ligandmpnn:latest` |
 
-Set `DATA_DIR` to a path with enough disk space. All other data paths (`DATABASE_PATH`, `JOB_BASE_DIR`, cache directories) default to subdirectories of `DATA_DIR`. The default `./data` works well for single-node setups.
+Set `DATA_DIR` to a path with enough disk space. All other data paths (`DATABASE_PATH`, `JOB_BASE_DIR`, cache directories) default to subdirectories of `DATA_DIR`. The default is `/opt/fold-webapp/data`.
+
+For real SLURM execution, avoid placing `DATA_DIR` under a private home directory unless the SLURM batch user can traverse every parent directory. A path such as `/opt/fold-webapp/data` is safer than `/home/<user>/...` when jobs run as a different UID.
 
 After editing, restart to pick up changes:
 
@@ -446,7 +448,7 @@ fold-webapp/
 │   └── build_image.sh             # Container build helper
 └── backups/                       # Backup archives (git-ignored)
 
-$DATA_DIR/                         # Persistent data (default: ./data)
+$DATA_DIR/                         # Persistent data (default: /opt/fold-webapp/data)
 ├── db/
 │   └── db.sqlite3                 # SQLite database
 └── jobs/                          # Job working directories
@@ -457,7 +459,7 @@ $DATA_DIR/                         # Persistent data (default: ./data)
 
 ## Migrating Existing Data
 
-If you have an existing deployment with data in `./data/` and want to move it to a new location:
+If you have an existing deployment with data in another location and want to move it to `/opt/fold-webapp/data`:
 
 ```bash
 # 1. Stop services
