@@ -64,6 +64,7 @@ Commands:
   prewarm [opts]    Pre-warm by pulling images and downloading model weights
   download-weights  Download/cache model weights only (no image building)
   setup-slurm       Configure Slurm on this host (requires sudo)
+  destroy           Tear down everything (containers, images, data, .env)
 
 Options:
   -h, --help        Show this help message
@@ -180,6 +181,47 @@ cmd_stop() {
     info "Services stopped."
 }
 
+cmd_destroy() {
+    check_docker
+
+    # Determine data directory
+    local data_dir="./data"
+    if [ -f .env ]; then
+        local env_val
+        env_val="$(grep '^DATA_DIR=' .env 2>/dev/null | cut -d= -f2-)"
+        [ -n "$env_val" ] && data_dir="$env_val"
+    fi
+
+    echo
+    warn "This will permanently delete:"
+    echo "  - All containers and volumes"
+    echo "  - All built Docker images for this project"
+    echo "  - Data directory: $data_dir (jobs, database, caches)"
+    echo "  - .env file"
+    echo
+    read -rp "Type \"destroy\" to confirm: " confirm
+    if [ "$confirm" != "destroy" ]; then
+        info "Aborted."
+        exit 1
+    fi
+
+    info "Stopping containers and removing volumes and images..."
+    docker compose down -v --rmi all
+
+    if [ -d "$data_dir" ]; then
+        info "Removing data directory: $data_dir"
+        rm -rf "$data_dir"
+    fi
+
+    if [ -f .env ]; then
+        info "Removing .env"
+        rm -f .env
+    fi
+
+    echo
+    info "Destroy complete. All deployment artifacts have been removed."
+}
+
 cmd_restart() {
     check_docker
     info "Restarting services..."
@@ -274,6 +316,7 @@ case "$COMMAND" in
     prewarm)          cmd_prewarm "$@" ;;
     download-weights) cmd_download_weights "$@" ;;
     setup-slurm)      cmd_setup_slurm "$@" ;;
+    destroy)          cmd_destroy "$@" ;;
     -h|--help|help)   usage ;;
     *)
         error "Unknown command: $COMMAND"

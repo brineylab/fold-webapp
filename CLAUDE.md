@@ -123,7 +123,7 @@ The `poll_jobs` management command runs in a loop (via honcho or Docker poller s
 
 ## GPU Compatibility
 
-All model containers use `nvidia/cuda:13.0.1-cudnn-runtime-ubuntu24.04` as the base image with PyTorch from the `cu130` wheel index (`https://download.pytorch.org/whl/cu130`). This provides Blackwell (sm_121) support while remaining compatible with Hopper and older architectures.
+All model containers use CUDA 12.8 base images with PyTorch from the `cu128` wheel index (`https://download.pytorch.org/whl/cu128`). Boltz2, Chai1, and BindCraft use `nvidia/cuda:12.8.0-cudnn-runtime-ubuntu22.04`; LigandMPNN, RFdiffusion3, and BoltzGen use `nvidia/cuda:12.8.0-cudnn-runtime-ubuntu24.04` (BoltzGen requires Python ≥ 3.11).
 
 For dev machines with Blackwell GPUs (e.g., DGX Spark GB10), set `RunnerConfig.extra_env` in Django admin to disable torch.compile and unsupported kernels:
 

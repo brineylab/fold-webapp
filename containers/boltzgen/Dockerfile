@@ -1,6 +1,6 @@
-FROM nvidia/cuda:13.0.1-cudnn-runtime-ubuntu24.04
+FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu24.04
 
-ARG TORCH_CUDA_INDEX_URL=https://download.pytorch.org/whl/cu130
+ARG TORCH_CUDA_INDEX_URL=https://download.pytorch.org/whl/cu128
 
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
