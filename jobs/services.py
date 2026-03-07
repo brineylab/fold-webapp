@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from console.models import RunnerConfig, SiteSettings
 from console.services.quota import check_quota, get_user_quota
+from jobs.execution import LocalDockerExecutor, job_uses_local_executor, local_execution_enabled
 from jobs.models import Job, JobAttempt
 from model_types.base import BaseModelType
 from runners import get_runner
@@ -63,7 +64,7 @@ def submit_job(
     model_key: str,
     input_payload: dict | None = None,
 ) -> Job:
-    """Create a Job, initialize its first attempt, and submit it to SLURM."""
+    """Create a Job, initialize its first attempt, and submit it to the active backend."""
     allowed, error = check_maintenance_mode()
     if not allowed:
         raise ValidationError(error)
@@ -117,6 +118,9 @@ def submit_job(
 
     try:
         model_type.prepare_workdir(job, input_payload or {})
+
+        if local_execution_enabled():
+            return job
 
         config = RunnerConfig.get_config(runner_key)
         script = runner.build_script(job, config=config)
@@ -269,7 +273,9 @@ def cancel_job(
     if job.status not in ACTIVE_JOB_STATUSES:
         return False
 
-    if job.slurm_job_id:
+    if job_uses_local_executor(job):
+        LocalDockerExecutor().cancel(job)
+    elif job.slurm_job_id:
         slurm.cancel(job.slurm_job_id)
 
     sync_job_status(

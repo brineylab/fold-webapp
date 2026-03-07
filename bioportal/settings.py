@@ -9,6 +9,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
+def _parse_gpu_slots(raw_value: str | list[int] | tuple[int, ...] | None) -> list[int]:
+    if raw_value is None:
+        return []
+    if isinstance(raw_value, (list, tuple)):
+        return [int(slot) for slot in raw_value]
+
+    slots: list[int] = []
+    for chunk in str(raw_value).split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        slots.append(int(chunk))
+    return slots
+
+
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-key-change-in-production")
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 
@@ -133,6 +148,8 @@ HARNESS_BASE_DIR_HOST = Path(
 
 # Set to "1" for development without SLURM (fake job IDs), "0" for production with real SLURM.
 FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "1"
+JOB_EXECUTION_BACKEND = os.environ.get("JOB_EXECUTION_BACKEND", "slurm").strip().lower()
+GPU_SLOTS = _parse_gpu_slots(os.environ.get("GPU_SLOTS", ""))
 
 # Boltz-2 configuration
 BOLTZ_IMAGE = os.environ.get("BOLTZ_IMAGE", "brineylab/boltz2:latest")

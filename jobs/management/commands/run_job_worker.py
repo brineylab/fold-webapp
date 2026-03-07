@@ -7,14 +7,19 @@ from traceback import format_exc
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
+from jobs.execution import local_execution_enabled, run_local_worker_iteration
+
 
 def run_worker_iteration() -> None:
     """Execute one worker iteration.
 
-    Today this delegates to ``poll_jobs`` so the worker has a single stable
-    entrypoint. Later phases can replace the implementation with the local
-    queue dispatcher without changing process supervision.
+    The worker entrypoint stays stable while the runtime backend changes.
+    Local mode dispatches queued jobs directly to Docker and reconciles
+    running attempts. SLURM mode keeps delegating to ``poll_jobs``.
     """
+    if local_execution_enabled():
+        run_local_worker_iteration()
+        return
     call_command("poll_jobs")
 
 
