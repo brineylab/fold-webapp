@@ -58,28 +58,24 @@ class TestHarnessMaterialization(TestCase):
     def test_materialize_case_writes_inputs_and_script(self):
         with override_settings(
             JOB_BASE_DIR=self.job_dir,
-            JOB_BASE_DIR_HOST=self.job_dir,
             HARNESS_BASE_DIR=self.harness_dir,
-            HARNESS_BASE_DIR_HOST=self.harness_dir,
         ):
             prepare_run_directories("run-1")
             metadata = materialize_case("run-1", "smoke-protein-mpnn")
 
-            workdir = Path(metadata.local_workdir)
+            workdir = Path(metadata.workdir)
             self.assertTrue((workdir / "input" / "input.pdb").exists())
-            self.assertTrue((workdir / "job.sbatch").exists())
+            self.assertTrue((workdir / "job.sh").exists())
             self.assertTrue((workdir / "metadata.json").exists())
 
     def test_verify_materialized_case_passes_when_expected_outputs_exist(self):
         with override_settings(
             JOB_BASE_DIR=self.job_dir,
-            JOB_BASE_DIR_HOST=self.job_dir,
             HARNESS_BASE_DIR=self.harness_dir,
-            HARNESS_BASE_DIR_HOST=self.harness_dir,
         ):
             prepare_run_directories("run-2")
             metadata = materialize_case("run-2", "smoke-protein-mpnn")
-            workdir = Path(metadata.local_workdir)
+            workdir = Path(metadata.workdir)
             output_dir = workdir / "output"
             output_dir.mkdir(parents=True, exist_ok=True)
             (output_dir / "results.zip").write_bytes(b"zip-data")
@@ -94,13 +90,11 @@ class TestHarnessMaterialization(TestCase):
     def test_verify_materialized_case_fails_when_outputs_missing(self):
         with override_settings(
             JOB_BASE_DIR=self.job_dir,
-            JOB_BASE_DIR_HOST=self.job_dir,
             HARNESS_BASE_DIR=self.harness_dir,
-            HARNESS_BASE_DIR_HOST=self.harness_dir,
         ):
             prepare_run_directories("run-3")
             metadata = materialize_case("run-3", "smoke-protein-mpnn")
-            workdir = Path(metadata.local_workdir)
+            workdir = Path(metadata.workdir)
             (workdir / "stdout.log").write_text("", encoding="utf-8")
             (workdir / "stderr.log").write_text("", encoding="utf-8")
 
@@ -124,9 +118,7 @@ class TestHarnessPrepareCommand(TestCase):
     def test_prepare_command_writes_prepare_json_and_credentials(self):
         with override_settings(
             JOB_BASE_DIR=self.job_dir,
-            JOB_BASE_DIR_HOST=self.job_dir,
             HARNESS_BASE_DIR=self.harness_dir,
-            HARNESS_BASE_DIR_HOST=self.harness_dir,
         ):
             call_command(
                 "harness_prepare",

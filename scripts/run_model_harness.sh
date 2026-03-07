@@ -88,15 +88,11 @@ check_prereqs() {
         error "python3 is required."
         exit 1
     }
-    docker compose version >/dev/null 2>&1 || {
-        error "Docker Compose v2 is required."
-        exit 1
-    }
 }
 
 resolve_host_harness_dir() {
-    local host_harness_dir="${HARNESS_BASE_DIR_HOST:-}"
-    local env_harness_dir="${HARNESS_BASE_DIR_HOST:-}"
+    local host_harness_dir="${HARNESS_BASE_DIR:-}"
+    local env_harness_dir="${HARNESS_BASE_DIR:-}"
     local env_data_dir="${DATA_DIR:-}"
 
     if [[ -f .env ]]; then
@@ -107,7 +103,7 @@ resolve_host_harness_dir() {
     fi
 
     if [[ -z "$env_harness_dir" ]]; then
-        host_harness_dir="${HARNESS_BASE_DIR_HOST:-$host_harness_dir}"
+        host_harness_dir="${HARNESS_BASE_DIR:-$host_harness_dir}"
     fi
     if [[ -z "$env_data_dir" ]]; then
         env_data_dir="${DATA_DIR:-$env_data_dir}"
@@ -129,6 +125,9 @@ resolve_host_harness_dir() {
 
 ensure_service_running() {
     local service="$1"
+    if [[ "$MANAGE_WITH_COMPOSE" != true ]]; then
+        return 0
+    fi
     local running
     running="$(docker compose ps --services --status running 2>/dev/null || true)"
     if ! grep -qx "$service" <<<"$running"; then
@@ -181,7 +180,11 @@ PY
 }
 
 run_manage() {
-    docker compose exec -T web python manage.py "$@"
+    if [[ "$MANAGE_WITH_COMPOSE" == true ]]; then
+        docker compose exec -T web python manage.py "$@"
+        return
+    fi
+    python3 manage.py "$@"
 }
 
 cleanup_workdir() {
@@ -199,7 +202,7 @@ cleanup_workdir() {
         fi
     fi
 
-    if docker compose exec -T web rm -rf "$workdir_local" >/dev/null 2>&1; then
+    if [[ "$MANAGE_WITH_COMPOSE" == true ]] && docker compose exec -T web rm -rf "$workdir_local" >/dev/null 2>&1; then
         return 0
     fi
 
@@ -227,25 +230,25 @@ run_direct_case() {
         warn "Failed to materialize direct case: $case_id"
         return 1
     fi
-    local workdir_host workdir_local timeout_sec
-    workdir_host="$(json_field_from_text "host_workdir" "$metadata_json")"
-    workdir_local="$(json_field_from_text "local_workdir" "$metadata_json")"
+    local workdir workdir_local timeout_sec
+    workdir="$(json_field_from_text "workdir" "$metadata_json")"
+    workdir_local="$workdir"
     timeout_sec="$(json_field_from_text "timeout_sec" "$metadata_json")"
 
-    local stdout_path="$workdir_host/stdout.log"
-    local stderr_path="$workdir_host/stderr.log"
+    local stdout_path="$workdir/stdout.log"
+    local stderr_path="$workdir/stderr.log"
     local rc=0
 
-    step "Executing outside SLURM: $case_id"
+    step "Executing materialized runner script: $case_id"
     if command -v timeout >/dev/null 2>&1; then
         set +e
-        timeout "${timeout_sec}s" bash "$workdir_host/job.sbatch" >"$stdout_path" 2>"$stderr_path"
+        timeout "${timeout_sec}s" bash "$workdir/job.sh" >"$stdout_path" 2>"$stderr_path"
         rc=$?
         set -e
     else
         warn "'timeout' not found; running without an execution timeout."
         set +e
-        bash "$workdir_host/job.sbatch" >"$stdout_path" 2>"$stderr_path"
+        bash "$workdir/job.sh" >"$stdout_path" 2>"$stderr_path"
         rc=$?
         set -e
     fi
@@ -259,7 +262,7 @@ run_direct_case() {
         return 1
     fi
 
-    cleanup_workdir "$workdir_host" "$workdir_local" "direct-run"
+    cleanup_workdir "$workdir" "$workdir_local" "direct-run"
     return 0
 }
 
@@ -271,9 +274,9 @@ run_materialize_case() {
         warn "Failed to materialize extended case: $case_id"
         return 1
     fi
-    local workdir_host workdir_local
-    workdir_host="$(json_field_from_text "host_workdir" "$metadata_json")"
-    workdir_local="$(json_field_from_text "local_workdir" "$metadata_json")"
+    local workdir workdir_local
+    workdir="$(json_field_from_text "workdir" "$metadata_json")"
+    workdir_local="$workdir"
     local verify_json
     verify_json="$(run_manage harness_materialize --run-id "$RUN_ID" --case "$case_id" --verify --materialized-only)"
     local ok
@@ -282,14 +285,19 @@ run_materialize_case() {
         warn "Materialization failed: $case_id"
         return 1
     fi
-    cleanup_workdir "$workdir_host" "$workdir_local" "materialized"
+    cleanup_workdir "$workdir" "$workdir_local" "materialized"
     return 0
 }
 
 check_prereqs
+MANAGE_WITH_COMPOSE=false
+if docker compose ps --services --status running 2>/dev/null | grep -qx "web"; then
+    MANAGE_WITH_COMPOSE=true
+fi
+
 ensure_service_running web
 if [[ "$PHASE" == "all" || "$PHASE" == "http" ]]; then
-    ensure_service_running poller
+    ensure_service_running worker
 fi
 
 HOST_HARNESS_DIR="$(resolve_host_harness_dir)"
@@ -302,8 +310,8 @@ fi
 
 if [[ "$PHASE" == "all" || "$PHASE" == "direct" ]]; then
     if [[ "$HOST_CAN_WRITE" != true ]]; then
-        error "The host account cannot write to HARNESS_BASE_DIR_HOST: $HOST_HARNESS_DIR"
-        error "Direct execution outside SLURM requires host write access to the shared harness directory."
+        error "The host account cannot write to HARNESS_BASE_DIR: $HOST_HARNESS_DIR"
+        error "Direct execution requires host write access to the shared harness directory."
         exit 1
     fi
 fi

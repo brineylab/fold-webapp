@@ -131,34 +131,21 @@ LOGOUT_REDIRECT_URL = "login"
 #
 JOB_BASE_DIR = Path(os.environ.get("JOB_BASE_DIR", str(DATA_DIR / "jobs")))
 
-# Host-side path to the jobs directory. SLURM runs on the host, so sbatch
-# scripts must reference host paths, not container paths. When unset (local
-# dev or non-Docker), falls back to JOB_BASE_DIR.
-JOB_BASE_DIR_HOST = Path(os.environ.get("JOB_BASE_DIR_HOST", str(JOB_BASE_DIR)))
-
 # Dedicated harness working directory. This can be separate from JOB_BASE_DIR so
 # the post-install validation harness can use a host-writable path even when the
 # main jobs directory is managed with stricter permissions.
 HARNESS_BASE_DIR = Path(
     os.environ.get("HARNESS_BASE_DIR", str(DATA_DIR / "harness"))
 )
-HARNESS_BASE_DIR_HOST = Path(
-    os.environ.get("HARNESS_BASE_DIR_HOST", str(JOB_BASE_DIR_HOST.parent / "harness"))
-)
-
-# Legacy SLURM compatibility switch. The local Docker executor is now the
-# default runtime; keep this at 0 unless you explicitly need the old path.
-FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "1"
-JOB_EXECUTION_BACKEND = os.environ.get("JOB_EXECUTION_BACKEND", "local").strip().lower()
 GPU_SLOTS = _parse_gpu_slots(os.environ.get("GPU_SLOTS", ""))
 
 # Boltz-2 configuration
 BOLTZ_IMAGE = os.environ.get("BOLTZ_IMAGE", "brineylab/boltz2:latest")
-BOLTZ_CACHE_DIR = Path(os.environ.get("BOLTZ_CACHE_DIR", str(JOB_BASE_DIR_HOST / "boltz_cache")))
+BOLTZ_CACHE_DIR = Path(os.environ.get("BOLTZ_CACHE_DIR", str(JOB_BASE_DIR / "boltz_cache")))
 
 # Chai-1 configuration
 CHAI_IMAGE = os.environ.get("CHAI_IMAGE", "brineylab/chai1:latest")
-CHAI_CACHE_DIR = Path(os.environ.get("CHAI_CACHE_DIR", str(JOB_BASE_DIR_HOST / "chai_cache")))
+CHAI_CACHE_DIR = Path(os.environ.get("CHAI_CACHE_DIR", str(JOB_BASE_DIR / "chai_cache")))
 
 # LigandMPNN configuration (shared by ProteinMPNN and LigandMPNN model types)
 LIGANDMPNN_IMAGE = os.environ.get("LIGANDMPNN_IMAGE", "brineylab/ligandmpnn:latest")
@@ -171,7 +158,7 @@ RFDIFFUSION3_IMAGE = os.environ.get("RFDIFFUSION3_IMAGE", "brineylab/rfdiffusion
 
 # BoltzGen configuration
 BOLTZGEN_IMAGE = os.environ.get("BOLTZGEN_IMAGE", "brineylab/boltzgen:latest")
-BOLTZGEN_CACHE_DIR = Path(os.environ.get("BOLTZGEN_CACHE_DIR", str(JOB_BASE_DIR_HOST / "boltzgen_cache")))
+BOLTZGEN_CACHE_DIR = Path(os.environ.get("BOLTZGEN_CACHE_DIR", str(JOB_BASE_DIR / "boltzgen_cache")))
 
 
 #

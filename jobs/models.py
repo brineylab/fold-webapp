@@ -29,7 +29,6 @@ class Job(models.Model):
     input_payload = models.JSONField(default=dict, blank=True)
     output_payload = models.JSONField(default=dict, blank=True)
 
-    slurm_job_id = models.CharField(max_length=50, blank=True)
     error_message = models.TextField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -58,14 +57,6 @@ class Job(models.Model):
         return Path(base) / str(self.id)
 
     @property
-    def host_workdir(self) -> Path:
-        """Workdir as seen by the host (for SLURM sbatch scripts)."""
-        base = getattr(settings, "JOB_BASE_DIR_HOST", None)
-        if base is None:
-            return self.workdir
-        return Path(base) / str(self.id)
-
-    @property
     def current_attempt(self):
         prefetched = getattr(self, "prefetched_attempts", None)
         if prefetched is not None:
@@ -74,13 +65,10 @@ class Job(models.Model):
 
     @property
     def runtime_backend(self) -> str:
-        return "slurm" if self.slurm_job_id else "local"
+        return "local"
 
     @property
     def runtime_identifier(self) -> str:
-        if self.slurm_job_id:
-            return self.slurm_job_id
-
         attempt = self.current_attempt
         if attempt is None:
             return ""

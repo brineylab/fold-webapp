@@ -1,6 +1,5 @@
 from console.views.dashboard import dashboard
 from console.views.jobs import job_list, job_detail, job_cancel, job_bulk_action
-from console.views.monitoring import monitoring
 from console.views.stats import stats, stats_api_summary
 from console.views.audit import audit_log
 from console.views.users import (
@@ -37,7 +36,6 @@ __all__ = [
     "job_detail",
     "job_cancel",
     "job_bulk_action",
-    "monitoring",
     "stats",
     "stats_api_summary",
     "audit_log",
@@ -63,4 +61,3 @@ __all__ = [
     "update_runner_reason",
     "update_runner_config",
 ]
-

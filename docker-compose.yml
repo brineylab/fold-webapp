@@ -12,10 +12,11 @@ services:
       - DATA_DIR=/app/data
       - DATABASE_PATH=/app/data/db/db.sqlite3
       - JOB_BASE_DIR=/app/data/jobs
+      - HARNESS_BASE_DIR=/app/data/harness
     volumes:
       - ${DATA_DIR:-./data}/db:/app/data/db
       - ${DATA_DIR:-./data}/jobs:/app/data/jobs
-      - ${HARNESS_BASE_DIR_HOST:-./data/harness}:/app/data/harness
+      - ${HARNESS_BASE_DIR:-./data/harness}:/app/data/harness
     # Only run once, then exit
     restart: "no"
 
@@ -34,26 +35,19 @@ services:
       - DATA_DIR=/app/data
       - DATABASE_PATH=/app/data/db/db.sqlite3
       - JOB_BASE_DIR=/app/data/jobs
+      - HARNESS_BASE_DIR=/app/data/harness
     volumes:
       - ${DATA_DIR:-./data}/db:/app/data/db
       - ${DATA_DIR:-./data}/jobs:/app/data/jobs
-      - ${HARNESS_BASE_DIR_HOST:-./data/harness}:/app/data/harness
+      - ${HARNESS_BASE_DIR:-./data/harness}:/app/data/harness
       - static_files:/app/staticfiles
-      # Uncomment below to mount SLURM binaries from host (production only)
-      # - /usr/bin/sbatch:/usr/bin/sbatch:ro
-      # - /usr/bin/squeue:/usr/bin/squeue:ro
-      # - /usr/bin/sacct:/usr/bin/sacct:ro
-      # - /usr/bin/scancel:/usr/bin/scancel:ro
-      # - /usr/bin/scontrol:/usr/bin/scontrol:ro
-      # - /etc/slurm:/etc/slurm:ro
-      # - /var/run/munge:/var/run/munge:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
 
   # Background job worker (dispatch + reconciliation loop)
-  poller:
+  worker:
     build:
       context: .
       args:
@@ -65,17 +59,11 @@ services:
       - DATA_DIR=/app/data
       - DATABASE_PATH=/app/data/db/db.sqlite3
       - JOB_BASE_DIR=/app/data/jobs
+      - HARNESS_BASE_DIR=/app/data/harness
     volumes:
       - ${DATA_DIR:-./data}/db:/app/data/db
       - ${DATA_DIR:-./data}/jobs:/app/data/jobs
-      - ${HARNESS_BASE_DIR_HOST:-./data/harness}:/app/data/harness
-      # Uncomment below only if you explicitly enable the legacy SLURM fallback
-      # - /usr/bin/squeue:/usr/bin/squeue:ro
-      # - /usr/bin/sacct:/usr/bin/sacct:ro
-      # - /usr/bin/scancel:/usr/bin/scancel:ro
-      # - /usr/bin/scontrol:/usr/bin/scontrol:ro
-      # - /etc/slurm:/etc/slurm:ro
-      # - /var/run/munge:/var/run/munge:ro
+      - ${HARNESS_BASE_DIR:-./data/harness}:/app/data/harness
     depends_on:
       migrate:
         condition: service_completed_successfully

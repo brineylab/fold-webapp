@@ -44,13 +44,11 @@ class MaterializedCase:
     runner_key: str
     job_id: str
     transport: str
-    local_workdir: str
-    host_workdir: str
+    workdir: str
     output_dir: str
-    metadata_path_local: str
-    metadata_path_host: str
-    stdout_path_local: str
-    stderr_path_local: str
+    metadata_path: str
+    stdout_path: str
+    stderr_path: str
     expected_outputs: list[str | list[str]]
     timeout_sec: int
     requires: list[str]
@@ -135,44 +133,25 @@ def harness_root_local() -> Path:
     return Path(settings.HARNESS_BASE_DIR)
 
 
-def harness_root_host() -> Path:
-    return Path(settings.HARNESS_BASE_DIR_HOST)
-
-
 def run_root_local(run_id: str) -> Path:
     return harness_root_local() / "runs" / run_id
-
-
-def run_root_host(run_id: str) -> Path:
-    return harness_root_host() / "runs" / run_id
 
 
 def reports_dir_local(run_id: str) -> Path:
     return run_root_local(run_id) / "reports"
 
 
-def reports_dir_host(run_id: str) -> Path:
-    return run_root_host(run_id) / "reports"
-
-
 def direct_case_root_local(run_id: str, case_id: str) -> Path:
     return run_root_local(run_id) / "direct" / case_id
 
 
-def direct_case_root_host(run_id: str, case_id: str) -> Path:
-    return run_root_host(run_id) / "direct" / case_id
-
-
 def prepare_run_directories(run_id: str) -> dict[str, str]:
     local_root = run_root_local(run_id)
-    host_root = run_root_host(run_id)
     ensure_dir(reports_dir_local(run_id) / "direct")
     ensure_dir(local_root / "http")
     return {
-        "run_root_local": str(local_root),
-        "run_root_host": str(host_root),
-        "reports_dir_local": str(reports_dir_local(run_id)),
-        "reports_dir_host": str(reports_dir_host(run_id)),
+        "run_root": str(local_root),
+        "reports_dir": str(reports_dir_local(run_id)),
     }
 
 
@@ -232,12 +211,8 @@ def _materialized_report_path(run_id: str, case_id: str) -> Path:
     return reports_dir_local(run_id) / "direct" / f"{case_id}.json"
 
 
-def materialized_metadata_path_local(run_id: str, case_id: str) -> Path:
+def materialized_metadata_path(run_id: str, case_id: str) -> Path:
     return direct_case_root_local(run_id, case_id) / "metadata.json"
-
-
-def materialized_metadata_path_host(run_id: str, case_id: str) -> Path:
-    return direct_case_root_host(run_id, case_id) / "metadata.json"
 
 
 def _build_form(case: HarnessCase) -> tuple[Form, dict[str, Any], dict[str, SimpleUploadedFile]]:
@@ -257,11 +232,10 @@ def materialize_case(run_id: str, case_id: str) -> MaterializedCase:
     case = get_case(case_id)
     model_type = get_model_type(case.model_key)
 
-    local_root = direct_case_root_local(run_id, case.id)
-    host_root = direct_case_root_host(run_id, case.id)
-    if local_root.exists():
-        shutil.rmtree(local_root)
-    ensure_dir(local_root)
+    workdir = direct_case_root_local(run_id, case.id)
+    if workdir.exists():
+        shutil.rmtree(workdir)
+    ensure_dir(workdir)
 
     form, _, _ = _build_form(case)
     if not form.is_valid():
@@ -279,13 +253,12 @@ def materialize_case(run_id: str, case_id: str) -> MaterializedCase:
             self.model_key = case.model_key
             self.runner = runner_key
             self.params = input_payload.get("params", {})
-            self.workdir = local_root
-            self.host_workdir = host_root
+            self.workdir = workdir
 
     job = HarnessJob()
     model_type.prepare_workdir(job, input_payload)
     script = runner.build_script(job, config=config)
-    script_path = local_root / "job.sbatch"
+    script_path = workdir / "job.sh"
     write_text(script_path, script)
 
     metadata = MaterializedCase(
@@ -294,18 +267,16 @@ def materialize_case(run_id: str, case_id: str) -> MaterializedCase:
         runner_key=runner_key,
         job_id=job.id,
         transport=case.transport,
-        local_workdir=str(local_root),
-        host_workdir=str(host_root),
-        output_dir=str(local_root / "output"),
-        metadata_path_local=str(materialized_metadata_path_local(run_id, case.id)),
-        metadata_path_host=str(materialized_metadata_path_host(run_id, case.id)),
-        stdout_path_local=str(local_root / "stdout.log"),
-        stderr_path_local=str(local_root / "stderr.log"),
+        workdir=str(workdir),
+        output_dir=str(workdir / "output"),
+        metadata_path=str(materialized_metadata_path(run_id, case.id)),
+        stdout_path=str(workdir / "stdout.log"),
+        stderr_path=str(workdir / "stderr.log"),
         expected_outputs=case.expected_outputs,
         timeout_sec=case.timeout_sec,
         requires=case.requires,
     )
-    write_json(materialized_metadata_path_local(run_id, case.id), asdict(metadata))
+    write_json(materialized_metadata_path(run_id, case.id), asdict(metadata))
     return metadata
 
 
@@ -354,7 +325,7 @@ def verify_materialized_case(
     exit_code: int,
     materialized_only: bool = False,
 ) -> dict[str, Any]:
-    metadata_path = materialized_metadata_path_local(run_id, case_id)
+    metadata_path = materialized_metadata_path(run_id, case_id)
     metadata = read_json(metadata_path)
     output_dir = Path(metadata["output_dir"])
     report: dict[str, Any] = {
@@ -367,7 +338,7 @@ def verify_materialized_case(
         "errors": [],
         "matched_outputs": [],
         "output_files": [],
-        "workdir": metadata["host_workdir"],
+        "workdir": metadata["workdir"],
     }
 
     if not materialized_only and exit_code != 0:
@@ -391,8 +362,8 @@ def verify_materialized_case(
         )
         report["matched_outputs"] = matches
         report["errors"].extend(match_errors)
-        report["errors"].extend(_scan_text_log(Path(metadata["stdout_path_local"])))
-        report["errors"].extend(_scan_text_log(Path(metadata["stderr_path_local"])))
+        report["errors"].extend(_scan_text_log(Path(metadata["stdout_path"])))
+        report["errors"].extend(_scan_text_log(Path(metadata["stderr_path"])))
 
     report["ok"] = not report["errors"]
     write_json(_materialized_report_path(run_id, case_id), report)

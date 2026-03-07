@@ -4,24 +4,14 @@ import signal
 import threading
 from traceback import format_exc
 
-from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
-from jobs.execution import local_execution_enabled, run_local_worker_iteration
+from jobs.execution import run_local_worker_iteration
 
 
 def run_worker_iteration() -> None:
-    """Execute one worker iteration.
-
-    The worker entrypoint stays stable while the runtime backend changes.
-    Local mode is the default production path and dispatches queued jobs
-    directly to Docker while reconciling running attempts. SLURM mode is
-    kept only as a temporary fallback and still delegates to ``poll_jobs``.
-    """
-    if local_execution_enabled():
-        run_local_worker_iteration()
-        return
-    call_command("poll_jobs")
+    """Execute one local worker iteration."""
+    run_local_worker_iteration()
 
 
 def _install_signal_handlers(stop_event: threading.Event) -> None:

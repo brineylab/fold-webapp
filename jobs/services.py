@@ -6,11 +6,10 @@ from django.utils import timezone
 
 from console.models import RunnerConfig, SiteSettings
 from console.services.quota import check_quota, get_user_quota
-from jobs.execution import LocalDockerExecutor, job_uses_local_executor, local_execution_enabled
+from jobs.execution import LocalDockerExecutor, job_uses_local_executor
 from jobs.models import Job, JobAttempt
 from model_types.base import BaseModelType
 from runners import get_runner
-import slurm
 
 
 MAX_SEQUENCE_CHARS = 200_000  # coarse protection; refine later
@@ -64,7 +63,7 @@ def submit_job(
     model_key: str,
     input_payload: dict | None = None,
 ) -> Job:
-    """Create a Job, initialize its first attempt, and submit it to the active backend."""
+    """Create a Job, initialize its first attempt, and queue it for local execution."""
     allowed, error = check_maintenance_mode()
     if not allowed:
         raise ValidationError(error)
@@ -110,7 +109,7 @@ def submit_job(
             priority_tier_snapshot=quota.priority_tier,
             attempt_count=1,
         )
-        attempt = JobAttempt.objects.create(
+        JobAttempt.objects.create(
             job=job,
             attempt_number=1,
             status=JobAttempt.Status.PENDING,
@@ -119,21 +118,6 @@ def submit_job(
     try:
         model_type.prepare_workdir(job, input_payload or {})
 
-        if local_execution_enabled():
-            return job
-
-        config = RunnerConfig.get_config(runner_key)
-        script = runner.build_script(job, config=config)
-        submitted_at = timezone.now()
-        scheduler_job_id = slurm.submit(script, job.workdir, job.host_workdir)
-
-        with transaction.atomic():
-            job.slurm_job_id = scheduler_job_id
-            job.submitted_at = submitted_at
-            job.save(update_fields=["slurm_job_id", "submitted_at"])
-
-            attempt.scheduler_job_id = scheduler_job_id
-            attempt.save()
         return job
     except Exception as e:
         sync_job_status(
@@ -162,7 +146,6 @@ def get_or_create_current_attempt(job: Job) -> JobAttempt:
         job=job,
         attempt_number=1,
         status=job.status or Job.Status.PENDING,
-        scheduler_job_id=job.slurm_job_id,
         started_at=job.started_at,
         finished_at=job.finished_at or job.completed_at,
         failure_summary=job.error_message,
@@ -180,7 +163,7 @@ def sync_job_status(
     when=None,
     error_message: str | None = None,
     exit_code: int | None = None,
-    scheduler_job_id: str | None = None,
+    runtime_id: str | None = None,
 ) -> Job:
     """Keep the job row and its current attempt in sync during lifecycle changes."""
     when = when or timezone.now()
@@ -189,10 +172,8 @@ def sync_job_status(
         attempt = get_or_create_current_attempt(job)
         previous_status = job.status
 
-        if scheduler_job_id and job.slurm_job_id != scheduler_job_id:
-            job.slurm_job_id = scheduler_job_id
-        if scheduler_job_id and attempt.scheduler_job_id != scheduler_job_id:
-            attempt.scheduler_job_id = scheduler_job_id
+        if runtime_id and attempt.scheduler_job_id != runtime_id:
+            attempt.scheduler_job_id = runtime_id
 
         job.status = status
         attempt.status = status
@@ -275,8 +256,6 @@ def cancel_job(
 
     if job_uses_local_executor(job):
         LocalDockerExecutor().cancel(job)
-    elif job.slurm_job_id:
-        slurm.cancel(job.slurm_job_id)
 
     sync_job_status(
         job,

@@ -135,10 +135,6 @@
                             <td>{{ record.error_message }}</td>
                           </tr>
                           {% endif %}
-                          <tr>
-                            <td>Scheduler Job ID</td>
-                            <td>{{ record.slurm_job_id|default:"-" }}</td>
-                          </tr>
                         </tbody>
                       </table>
                       <p class="text-muted small mb-0">

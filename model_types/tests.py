@@ -526,14 +526,14 @@ class TestGetOutputContextBoltz2(TestCase):
         outdir = job.workdir / "output"
         outdir.mkdir(parents=True)
         (outdir / "model.pdb").write_text("ATOM")
-        (outdir / "slurm-123.out").write_text("log")
+        (outdir / "run.log").write_text("log")
 
         mt = get_model_type("boltz2")
         result = mt.get_output_context(job)
         primary_names = [f["name"] for f in result["primary_files"]]
         aux_names = [f["name"] for f in result["aux_files"]]
         self.assertIn("model.pdb", primary_names)
-        self.assertIn("slurm-123.out", aux_names)
+        self.assertIn("run.log", aux_names)
 
     def test_cif_and_mmcif_are_primary(self):
         job = self._make_fake_job()
@@ -885,7 +885,7 @@ class TestInverseFoldingOutputContext(TestCase):
         (outdir / "seqs" / "sample_1.fa").write_text(">designed\nACDEFG")
         (outdir / "backbones").mkdir(parents=True)
         (outdir / "backbones" / "sample_1.pdb").write_text("ATOM")
-        (outdir / "slurm-12345.out").write_text("log output")
+        (outdir / "run.log").write_text("log output")
         (outdir / "results.zip").write_bytes(b"PK\x03\x04fake")
 
         for key in ("protein_mpnn", "ligand_mpnn"):
@@ -897,7 +897,7 @@ class TestInverseFoldingOutputContext(TestCase):
                 self.assertEqual(primary_names, ["results.zip"])
                 self.assertIn("seqs/sample_1.fa", aux_names)
                 self.assertIn("backbones/sample_1.pdb", aux_names)
-                self.assertIn("slurm-12345.out", aux_names)
+                self.assertIn("run.log", aux_names)
                 self.assertNotIn("results.zip", aux_names)
 
     def test_fallback_without_zip(self):

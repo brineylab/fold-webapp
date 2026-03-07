@@ -159,41 +159,9 @@ class RunnerConfig(models.Model):
         blank=True,
         help_text="Reason for disabling this runner (shown to users)",
     )
-
-    # SLURM resource configuration
-    partition = models.CharField(
-        max_length=50, blank=True,
-        help_text="SLURM partition (e.g., 'gpu', 'cpu'). Empty = cluster default.",
-    )
-    gpus = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of GPUs (--gres=gpu:N). 0 = no GPU request.",
-    )
-    cpus = models.PositiveIntegerField(
-        default=1,
-        help_text="CPUs per task (--cpus-per-task).",
-    )
-    mem_gb = models.PositiveIntegerField(
-        default=8,
-        help_text="Memory in GB (--mem).",
-    )
-    time_limit = models.CharField(
-        max_length=20, blank=True,
-        help_text="Time limit (--time, e.g., '02:00:00'). Empty = cluster default.",
-    )
-
-    # Container configuration
     image_uri = models.CharField(
         max_length=200, blank=True,
         help_text="Container image override. Empty = use runner's default.",
-    )
-    extra_env = models.JSONField(
-        default=dict, blank=True,
-        help_text="Additional environment variables as JSON object.",
-    )
-    extra_mounts = models.JSONField(
-        default=list, blank=True,
-        help_text='Additional bind mounts as JSON array of {"source": "...", "target": "..."} objects.',
     )
 
     updated_at = models.DateTimeField(auto_now=True)
@@ -216,21 +184,6 @@ class RunnerConfig(models.Model):
     def __str__(self) -> str:
         status = "enabled" if self.enabled else "disabled"
         return f"{self.runner_key} ({status})"
-    
-    def get_slurm_directives(self) -> str:
-        """Generate #SBATCH directive lines from resource config."""
-        lines = []
-        if self.partition:
-            lines.append(f"#SBATCH --partition={self.partition}")
-        if self.gpus:
-            lines.append(f"#SBATCH --gres=gpu:{self.gpus}")
-        if self.cpus > 1:
-            lines.append(f"#SBATCH --cpus-per-task={self.cpus}")
-        if self.mem_gb:
-            lines.append(f"#SBATCH --mem={self.mem_gb}G")
-        if self.time_limit:
-            lines.append(f"#SBATCH --time={self.time_limit}")
-        return "\n".join(lines)
 
     @classmethod
     def get_config(cls, runner_key: str) -> "RunnerConfig":

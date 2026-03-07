@@ -7,11 +7,6 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install munge client library (required by SLURM's auth_munge plugin)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends libmunge2 && \
-    rm -rf /var/lib/apt/lists/*
-
 # Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -21,13 +16,6 @@ COPY . .
 
 # Collect static files
 RUN python manage.py collectstatic --noinput
-
-# Create slurm user so sbatch can validate SlurmUser in slurm.conf.
-# UID/GID must match the host slurm user; override at build time if needed.
-ARG SLURM_UID=64030
-ARG SLURM_GID=64030
-RUN groupadd -g "$SLURM_GID" slurm && \
-    useradd -u "$SLURM_UID" -g slurm -s /usr/sbin/nologin -M slurm
 
 # Create non-root user for security. Match the host install user's uid/gid by
 # default so bind-mounted data stays writable without manual chown cycles.

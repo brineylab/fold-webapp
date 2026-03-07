@@ -38,13 +38,12 @@ class _StubExecutorRunner:
 
     def build_script(self, job, config=None) -> str:
         return """#!/bin/bash
-#SBATCH --job-name=test
 set -euo pipefail
 docker run --rm --gpus all alpine echo hello
 """
 
 
-class LocalBackendSubmissionTests(TestCase):
+class LocalQueueSubmissionTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="local-submit", password="testpass")
         self.tmpdir = Path(tempfile.mkdtemp())
@@ -52,20 +51,11 @@ class LocalBackendSubmissionTests(TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    @patch("jobs.services.slurm.submit")
     @patch("jobs.services.get_runner")
-    def test_local_backend_queues_job_without_slurm_submission(
-        self,
-        mock_get_runner,
-        mock_submit,
-    ):
+    def test_submission_queues_job_without_runtime_identifier(self, mock_get_runner):
         mock_get_runner.return_value = _StubExecutorRunner()
 
-        with override_settings(
-            JOB_EXECUTION_BACKEND="local",
-            JOB_BASE_DIR=self.tmpdir,
-            GPU_SLOTS=[0],
-        ):
+        with override_settings(JOB_BASE_DIR=self.tmpdir, GPU_SLOTS=[0]):
             job = create_and_submit_job(
                 owner=self.user,
                 model_type=_StubModelType(),
@@ -84,12 +74,10 @@ class LocalBackendSubmissionTests(TestCase):
         attempt = job.attempts.get()
 
         self.assertEqual(job.status, Job.Status.PENDING)
-        self.assertEqual(job.submitted_at, None)
-        self.assertEqual(job.slurm_job_id, "")
+        self.assertIsNone(job.submitted_at)
         self.assertEqual(attempt.status, JobAttempt.Status.PENDING)
         self.assertEqual(attempt.scheduler_job_id, "")
         self.assertTrue(input_path.exists())
-        mock_submit.assert_not_called()
 
 
 class LocalWorkerDispatchTests(TestCase):
@@ -135,11 +123,7 @@ class LocalWorkerDispatchTests(TestCase):
             status=JobAttempt.Status.PENDING,
         )
 
-        with override_settings(
-            JOB_EXECUTION_BACKEND="local",
-            JOB_BASE_DIR=self.tmpdir,
-            GPU_SLOTS=[0],
-        ):
+        with override_settings(JOB_BASE_DIR=self.tmpdir, GPU_SLOTS=[0]):
             run_local_worker_iteration()
             paths = local_attempt_paths(priority_job, priority_attempt)
             runner_script = paths.runner_script.read_text(encoding="utf-8")
@@ -153,7 +137,6 @@ class LocalWorkerDispatchTests(TestCase):
         self.assertEqual(priority_attempt.status, JobAttempt.Status.RUNNING)
         self.assertEqual(priority_attempt.gpu_index, 0)
         self.assertEqual(priority_attempt.scheduler_job_id, "local:4242")
-
         self.assertTrue(paths.runner_script.exists())
         self.assertTrue(paths.launcher_script.exists())
         self.assertIn("--cidfile", runner_script)
@@ -183,11 +166,7 @@ class LocalWorkerDispatchTests(TestCase):
             started_at=started_at,
         )
 
-        with override_settings(
-            JOB_EXECUTION_BACKEND="local",
-            JOB_BASE_DIR=self.tmpdir,
-            GPU_SLOTS=[0],
-        ):
+        with override_settings(JOB_BASE_DIR=self.tmpdir, GPU_SLOTS=[0]):
             paths = local_attempt_paths(job, attempt)
             paths.root.mkdir(parents=True, exist_ok=True)
             paths.exit_code_file.write_text("0", encoding="utf-8")
@@ -232,10 +211,7 @@ class LocalCancellationTests(TestCase):
             gpu_index=0,
         )
 
-        with override_settings(
-            JOB_EXECUTION_BACKEND="local",
-            JOB_BASE_DIR=self.tmpdir,
-        ):
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
             paths = local_attempt_paths(job, attempt)
             paths.root.mkdir(parents=True, exist_ok=True)
             paths.container_file.write_text("container-123", encoding="utf-8")
@@ -255,29 +231,9 @@ class LocalCancellationTests(TestCase):
         )
 
 
-class WorkerBackendRoutingTests(SimpleTestCase):
-    @override_settings(JOB_EXECUTION_BACKEND="local")
-    @patch("jobs.management.commands.run_job_worker.call_command")
+class WorkerIterationTests(SimpleTestCase):
     @patch("jobs.management.commands.run_job_worker.run_local_worker_iteration")
-    def test_run_worker_iteration_uses_local_backend(
-        self,
-        mock_local_iteration,
-        mock_call_command,
-    ):
+    def test_run_worker_iteration_uses_local_executor(self, mock_local_iteration):
         run_worker_iteration()
 
         mock_local_iteration.assert_called_once()
-        mock_call_command.assert_not_called()
-
-    @override_settings(JOB_EXECUTION_BACKEND="slurm")
-    @patch("jobs.management.commands.run_job_worker.call_command")
-    @patch("jobs.management.commands.run_job_worker.run_local_worker_iteration")
-    def test_run_worker_iteration_keeps_slurm_path_available(
-        self,
-        mock_local_iteration,
-        mock_call_command,
-    ):
-        run_worker_iteration()
-
-        mock_local_iteration.assert_not_called()
-        mock_call_command.assert_called_once_with("poll_jobs")

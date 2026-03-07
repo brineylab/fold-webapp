@@ -29,7 +29,6 @@ def job_list(request):
             Q(id__icontains=search) |
             Q(name__icontains=search) |
             Q(owner__username__icontains=search) |
-            Q(slurm_job_id__icontains=search) |
             Q(attempts__scheduler_job_id__icontains=search) |
             Q(attempts__container_id__icontains=search)
         ).distinct()

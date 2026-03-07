@@ -1,97 +1,19 @@
 from __future__ import annotations
 
-import shutil
-import tempfile
 from datetime import timedelta
-from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.utils import timezone
 
 from jobs.models import Job, JobAttempt
-from jobs.services import cancel_job, create_and_submit_job, sync_job_status
-from model_types.base import BaseModelType
-
-
-class _StubModelType(BaseModelType):
-    key = "stub"
-    name = "Stub"
-
-    def validate(self, cleaned_data):
-        return None
-
-    def normalize_inputs(self, cleaned_data):
-        return {"sequences": "", "params": {}, "files": {}}
-
-    def resolve_runner_key(self, cleaned_data):
-        return "boltz-2"
-
-
-class Phase1SubmissionTests(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username="phase1", password="testpass")
-        self.tmpdir = Path(tempfile.mkdtemp())
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
-
-    @patch("jobs.services.get_runner")
-    @patch("jobs.services.slurm.submit", return_value="FAKE-123")
-    def test_submission_creates_first_attempt_and_priority_snapshot(
-        self,
-        mock_submit,
-        mock_get_runner,
-    ):
-        from console.services.quota import get_user_quota
-
-        class StubRunner:
-            def validate(self, sequences, params):
-                return []
-
-            def build_script(self, job, config):
-                return "echo test"
-
-        mock_get_runner.return_value = StubRunner()
-
-        quota = get_user_quota(self.user)
-        quota.priority_tier = "priority"
-        quota.save(update_fields=["priority_tier"])
-
-        with override_settings(
-            JOB_BASE_DIR=self.tmpdir,
-            JOB_EXECUTION_BACKEND="slurm",
-        ):
-            job = create_and_submit_job(
-                owner=self.user,
-                model_type=_StubModelType(),
-                runner_key="boltz-2",
-                sequences="",
-                params={},
-                model_key="stub",
-                input_payload={
-                    "sequences": "",
-                    "params": {},
-                    "files": {"input.pdb": b"ATOM"},
-                },
-            )
-
-        self.assertEqual(job.priority_tier_snapshot, "priority")
-        self.assertEqual(job.attempt_count, 1)
-        attempt = job.attempts.get()
-        self.assertEqual(attempt.attempt_number, 1)
-        self.assertEqual(attempt.status, JobAttempt.Status.PENDING)
-        self.assertEqual(attempt.scheduler_job_id, "FAKE-123")
-        self.assertEqual(job.slurm_job_id, "FAKE-123")
-        self.assertIsNotNone(job.submitted_at)
-        mock_submit.assert_called_once()
+from jobs.services import cancel_job, get_or_create_current_attempt, sync_job_status
 
 
 class Phase1LifecycleTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="lifecycle", password="testpass")
+        self.user = User.objects.create_user(username="phase1", password="testpass")
         self.job = Job.objects.create(
             owner=self.user,
             runner="boltz-2",
@@ -103,11 +25,9 @@ class Phase1LifecycleTests(TestCase):
             job=self.job,
             attempt_number=1,
             status=JobAttempt.Status.PENDING,
-            scheduler_job_id="123",
         )
         self.job.attempt_count = 1
-        self.job.slurm_job_id = "123"
-        self.job.save(update_fields=["attempt_count", "slurm_job_id"])
+        self.job.save(update_fields=["attempt_count"])
 
     def test_sync_job_status_records_usage_metrics(self):
         started_at = timezone.now() - timedelta(minutes=5)
@@ -130,8 +50,14 @@ class Phase1LifecycleTests(TestCase):
         self.assertEqual(self.attempt.started_at, started_at)
         self.assertEqual(self.attempt.finished_at, finished_at)
 
-    @patch("jobs.services.slurm.cancel")
-    def test_cancel_job_marks_cancelled(self, mock_cancel):
+    @patch("jobs.execution.subprocess.run")
+    def test_cancel_job_marks_cancelled(self, mock_run):
+        self.attempt.status = JobAttempt.Status.RUNNING
+        self.attempt.container_id = "container-123"
+        self.attempt.save(update_fields=["status", "container_id"])
+        self.job.status = Job.Status.RUNNING
+        self.job.save(update_fields=["status"])
+
         cancelled = cancel_job(self.job, actor=self.user, source="admin")
 
         self.job.refresh_from_db()
@@ -142,37 +68,25 @@ class Phase1LifecycleTests(TestCase):
         self.assertEqual(self.attempt.status, JobAttempt.Status.CANCELLED)
         self.assertIn("admin", self.job.error_message.lower())
         self.assertIsNotNone(self.job.completed_at)
-        mock_cancel.assert_called_once_with("123")
-
-
-class Phase1PollerTests(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(username="poll-phase1", password="testpass")
-        self.job = Job.objects.create(
-            owner=self.user,
-            runner="boltz-2",
-            model_key="stub",
-            status=Job.Status.RUNNING,
-            slurm_job_id="77",
-            queued_at=timezone.now() - timedelta(minutes=15),
-            submitted_at=timezone.now() - timedelta(minutes=14),
-        )
-        JobAttempt.objects.create(
-            job=self.job,
-            attempt_number=1,
-            status=JobAttempt.Status.RUNNING,
-            scheduler_job_id="77",
-            started_at=timezone.now() - timedelta(minutes=14),
+        mock_run.assert_called_once_with(
+            ["docker", "stop", "--time", "10", "container-123"],
+            capture_output=True,
+            text=True,
         )
 
-    @patch("jobs.management.commands.poll_jobs.slurm.check_status", return_value="CANCELLED")
-    def test_poll_jobs_marks_cancelled_terminal_state(self, mock_check_status):
-        call_command("poll_jobs")
+    def test_get_or_create_current_attempt_backfills_missing_attempt(self):
+        self.attempt.delete()
+        self.job.attempt_count = 3
+        self.job.started_at = timezone.now() - timedelta(minutes=1)
+        self.job.finished_at = timezone.now()
+        self.job.error_message = "failed"
+        self.job.save(
+            update_fields=["attempt_count", "started_at", "finished_at", "error_message"]
+        )
+
+        attempt = get_or_create_current_attempt(self.job)
 
         self.job.refresh_from_db()
-        attempt = self.job.attempts.get()
-
-        self.assertEqual(self.job.status, Job.Status.CANCELLED)
-        self.assertEqual(attempt.status, JobAttempt.Status.CANCELLED)
-        self.assertIsNotNone(self.job.completed_at)
-        mock_check_status.assert_called_once_with("77")
+        self.assertEqual(attempt.attempt_number, 1)
+        self.assertEqual(attempt.failure_summary, "failed")
+        self.assertEqual(self.job.attempt_count, 1)

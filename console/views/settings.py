@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -25,8 +23,6 @@ def settings_page(request):
             "config": config,
             "name": runner.name,
             "key": runner.key,
-            "extra_env_json": json.dumps(config.extra_env, indent=2) if config.extra_env else "",
-            "extra_mounts_json": json.dumps(config.extra_mounts, indent=2) if config.extra_mounts else "",
         })
     
     return render(request, "console/settings.html", {
@@ -133,7 +129,7 @@ def update_runner_reason(request, runner_key: str):
 @console_required
 @require_POST
 def update_runner_config(request, runner_key: str):
-    """Update SLURM resource and container settings for a runner."""
+    """Update the minimal runtime configuration for a runner."""
     config = get_object_or_404(RunnerConfig, runner_key=runner_key)
 
     # Get runner name for messages
@@ -143,63 +139,10 @@ def update_runner_config(request, runner_key: str):
             runner_name = runner.name
             break
 
-    # SLURM resource fields
-    config.partition = request.POST.get("partition", "").strip()
-    config.time_limit = request.POST.get("time_limit", "").strip()
-
-    # Numeric fields
-    errors = []
-    for field, label in [("gpus", "GPUs"), ("cpus", "CPUs"), ("mem_gb", "Memory (GB)")]:
-        raw = request.POST.get(field, "").strip()
-        if raw == "":
-            setattr(config, field, 0 if field == "gpus" else 1 if field == "cpus" else 8)
-        else:
-            try:
-                val = int(raw)
-                if val < 0:
-                    raise ValueError
-                setattr(config, field, val)
-            except (ValueError, TypeError):
-                errors.append(f"{label} must be a non-negative integer.")
-
-    # Container fields
     config.image_uri = request.POST.get("image_uri", "").strip()
-
-    # JSON fields
-    extra_env_raw = request.POST.get("extra_env", "").strip()
-    if extra_env_raw:
-        try:
-            parsed = json.loads(extra_env_raw)
-            if not isinstance(parsed, dict):
-                errors.append("Extra env must be a JSON object (e.g. {}).")
-            else:
-                config.extra_env = parsed
-        except json.JSONDecodeError:
-            errors.append("Extra env contains invalid JSON.")
-    else:
-        config.extra_env = {}
-
-    extra_mounts_raw = request.POST.get("extra_mounts", "").strip()
-    if extra_mounts_raw:
-        try:
-            parsed = json.loads(extra_mounts_raw)
-            if not isinstance(parsed, list):
-                errors.append("Extra mounts must be a JSON array (e.g. []).")
-            else:
-                config.extra_mounts = parsed
-        except json.JSONDecodeError:
-            errors.append("Extra mounts contains invalid JSON.")
-    else:
-        config.extra_mounts = []
-
-    if errors:
-        for err in errors:
-            messages.error(request, err)
-        return redirect("console:settings")
 
     config.updated_by = request.user
     config.save()
 
     messages.success(request, f"Configuration updated for {runner_name}.")
     return redirect("console:settings")
-

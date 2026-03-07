@@ -5,19 +5,13 @@ from console.models import RunnerConfig, SiteSettings, UserQuota
 
 @admin.register(RunnerConfig)
 class RunnerConfigAdmin(admin.ModelAdmin):
-    list_display = ("runner_key", "enabled", "partition", "gpus", "mem_gb", "time_limit", "image_uri")
+    list_display = ("runner_key", "enabled", "image_uri")
     list_filter = ("enabled",)
     search_fields = ("runner_key",)
     readonly_fields = ("updated_at", "updated_by")
     fieldsets = (
         (None, {
-            "fields": ("runner_key", "enabled", "disabled_reason"),
-        }),
-        ("SLURM Resources", {
-            "fields": ("partition", "gpus", "cpus", "mem_gb", "time_limit"),
-        }),
-        ("Container", {
-            "fields": ("image_uri", "extra_env", "extra_mounts"),
+            "fields": ("runner_key", "enabled", "disabled_reason", "image_uri"),
         }),
         ("Audit", {
             "fields": ("updated_at", "updated_by"),

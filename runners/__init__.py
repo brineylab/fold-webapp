@@ -9,12 +9,11 @@ class Runner(ABC):
 
     @abstractmethod
     def build_script(self, job, config=None) -> str:
-        """Generate sbatch script content for a Job.
+        """Generate the shell script content for a Job.
 
         Args:
             job: The Job instance.
-            config: Optional RunnerConfig with SLURM resource settings
-                and container overrides.
+            config: Optional RunnerConfig with a container image override.
         """
         raise NotImplementedError
 
@@ -43,5 +42,4 @@ def get_runner(key: str) -> Runner:
 
 def all_runners() -> list[Runner]:
     return list(_RUNNERS.values())
-
 

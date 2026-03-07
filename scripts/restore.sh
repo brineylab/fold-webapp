@@ -93,7 +93,7 @@ if [ "$SKIP_CONFIRM" = false ]; then
 fi
 
 # Stop services if running
-if docker compose -f "$PROJECT_DIR/docker-compose.yml" ps --status running 2>/dev/null | grep -q "web\|poller"; then
+if docker compose -f "$PROJECT_DIR/docker-compose.yml" ps --status running 2>/dev/null | grep -q "web\|worker"; then
     echo "Stopping Docker services..."
     docker compose -f "$PROJECT_DIR/docker-compose.yml" down
 fi

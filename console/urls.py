@@ -33,9 +33,6 @@ urlpatterns = [
     path("cleanup/delete-orphan/", views.delete_orphan, name="delete_orphan"),
     path("cleanup/delete-all-orphans/", views.delete_all_orphans, name="delete_all_orphans"),
     
-    # Monitoring
-    path("monitoring/", views.monitoring, name="monitoring"),
-    
     # Stats
     path("stats/", views.stats, name="stats"),
     path("stats/api/summary/", views.stats_api_summary, name="stats_api_summary"),
@@ -51,4 +48,3 @@ urlpatterns = [
     path("settings/runners/<str:runner_key>/reason/", views.update_runner_reason, name="update_runner_reason"),
     path("settings/runners/<str:runner_key>/config/", views.update_runner_config, name="update_runner_config"),
 ]
-

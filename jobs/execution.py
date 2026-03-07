@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import re
 import shlex
 import signal
 import subprocess
@@ -19,8 +18,6 @@ from jobs.models import Job, JobAttempt
 from runners import get_runner
 
 
-LOCAL_BACKEND = "local"
-SLURM_BACKEND = "slurm"
 DOCKER_RUN_SENTINEL = "docker run --rm --gpus all"
 LOCAL_STARTUP_GRACE_SECONDS = 5
 
@@ -42,14 +39,6 @@ class AttemptRuntimePaths:
 class ContainerState:
     status: str
     exit_code: int | None
-
-
-def get_execution_backend() -> str:
-    return str(getattr(settings, "JOB_EXECUTION_BACKEND", SLURM_BACKEND)).strip().lower()
-
-
-def local_execution_enabled() -> bool:
-    return get_execution_backend() == LOCAL_BACKEND
 
 
 def configured_gpu_slots() -> list[int]:
@@ -80,12 +69,9 @@ def local_attempt_paths(job: Job, attempt: JobAttempt) -> AttemptRuntimePaths:
 
 
 def job_uses_local_executor(job: Job) -> bool:
-    if job.slurm_job_id:
-        return False
-
     attempt = job.attempts.order_by("-attempt_number").first()
     if attempt is None:
-        return local_execution_enabled()
+        return True
 
     if (
         attempt.container_id
@@ -96,7 +82,7 @@ def job_uses_local_executor(job: Job) -> bool:
     ):
         return True
 
-    return local_attempt_paths(job, attempt).root.exists() or local_execution_enabled()
+    return local_attempt_paths(job, attempt).root.exists()
 
 
 def run_local_worker_iteration() -> None:
@@ -110,7 +96,7 @@ class LocalDockerExecutor:
         self.gpu_slots = list(gpu_slots if gpu_slots is not None else configured_gpu_slots())
 
     def reconcile(self) -> None:
-        qs = Job.objects.filter(status=Job.Status.RUNNING, slurm_job_id="").order_by("queued_at")
+        qs = Job.objects.filter(status=Job.Status.RUNNING).order_by("queued_at")
         for job in qs.iterator():
             self._reconcile_job(job)
 
@@ -120,7 +106,7 @@ class LocalDockerExecutor:
             return
 
         queued_jobs = list(
-            Job.objects.filter(status=Job.Status.PENDING, slurm_job_id="")
+            Job.objects.filter(status=Job.Status.PENDING)
             .annotate(
                 priority_rank=Case(
                     When(priority_tier_snapshot="priority", then=Value(0)),
@@ -160,7 +146,6 @@ class LocalDockerExecutor:
         used_slots = set(
             JobAttempt.objects.filter(
                 job__status=Job.Status.RUNNING,
-                job__slurm_job_id="",
                 gpu_index__isnull=False,
             ).values_list("gpu_index", flat=True)
         )
@@ -232,7 +217,7 @@ class LocalDockerExecutor:
         gpu_index: int,
     ) -> str:
         paths = local_attempt_paths(job, attempt)
-        rewritten = re.sub(r"^#SBATCH .*$\n?", "", script_content, flags=re.MULTILINE)
+        rewritten = script_content
         rewritten = rewritten.replace(
             "-e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}",
             "-e NVIDIA_VISIBLE_DEVICES=all",

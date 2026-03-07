@@ -13,18 +13,14 @@ class LigandMPNNRunner(Runner):
     name = "LigandMPNN"
 
     def build_script(self, job, config=None) -> str:
-        workdir = Path(job.host_workdir)
+        workdir = Path(job.workdir)
         outdir = workdir / "output"
 
-        # Use config image override, fall back to settings
         image = (
             config.image_uri
             if config and config.image_uri
             else settings.LIGANDMPNN_IMAGE
         )
-
-        # Build SLURM directives from config
-        slurm_directives = config.get_slurm_directives() if config else ""
 
         params = job.params or {}
         model_variant = params.get("model_variant", "protein_mpnn")
@@ -61,11 +57,6 @@ class LigandMPNNRunner(Runner):
             "-e CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}",
             f"-v {workdir}:/work",
         ]
-        if config:
-            for k, v in (config.extra_env or {}).items():
-                docker_args.append(f"-e {k}={v}")
-            for mount in config.extra_mounts or []:
-                docker_args.append(f"-v {mount['source']}:{mount['target']}")
         docker_args.extend([
             f"{image}",
             "--structure_path /work/input/input.pdb",
@@ -76,11 +67,6 @@ class LigandMPNNRunner(Runner):
         docker_cmd = " \\\n  ".join(docker_args)
 
         return f"""#!/bin/bash
-#SBATCH --job-name=ligandmpnn-{job.id}
-#SBATCH --output={outdir}/slurm-%j.out
-#SBATCH --error={outdir}/slurm-%j.err
-{slurm_directives}
-
 set -euo pipefail
 umask 000
 
@@ -92,10 +78,10 @@ echo "======================"
 
 {docker_cmd}
 
-# Ensure output stays writable by the webapp and host user
+# Ensure output stays writable for follow-up inspection and downloads.
 chmod -R a+rwX {outdir} 2>/dev/null || true
 
-# Package results into a single zip (exclude SLURM logs)
+# Package results into a single zip.
 cd {outdir}
-zip -r results.zip . -x 'slurm-*' 'results.zip'
+zip -r results.zip . -x 'results.zip'
 """

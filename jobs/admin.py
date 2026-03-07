@@ -19,7 +19,6 @@ class JobAdmin(admin.ModelAdmin):
     list_filter = ("status", "runner", "hidden_from_owner", "created_at")
     search_fields = (
         "id",
-        "slurm_job_id",
         "attempts__scheduler_job_id",
         "attempts__container_id",
         "owner__username",

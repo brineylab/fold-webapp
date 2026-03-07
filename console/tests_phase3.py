@@ -44,20 +44,20 @@ class Phase3ConsoleJobListTests(TestCase):
         self.assertContains(response, "Runtime ID")
 
 
-class Phase3MonitoringTests(TestCase):
-    @override_settings(JOB_EXECUTION_BACKEND="local", GPU_SLOTS=[0, 2])
-    def test_backend_status_reports_local_executor(self):
+class WorkerStatusTests(TestCase):
+    @override_settings(GPU_SLOTS=[0, 2])
+    def test_backend_status_reports_configured_gpu_slots(self):
         status = get_execution_backend_status()
 
         self.assertEqual(status["mode"], "local")
         self.assertEqual(status["label"], "Local Docker Executor")
         self.assertEqual(status["gpu_slots"], [0, 2])
-        self.assertFalse(status["uses_legacy_slurm"])
+        self.assertTrue(status["connected"])
 
-    @override_settings(JOB_EXECUTION_BACKEND="slurm", FAKE_SLURM=True)
-    def test_backend_status_reports_legacy_slurm_mode(self):
+    @override_settings(GPU_SLOTS=[])
+    def test_backend_status_reports_missing_gpu_slots(self):
         status = get_execution_backend_status()
 
-        self.assertEqual(status["mode"], "slurm")
-        self.assertTrue(status["uses_legacy_slurm"])
-        self.assertIn("FAKE_SLURM", status["message"])
+        self.assertEqual(status["mode"], "local")
+        self.assertEqual(status["gpu_slots"], [])
+        self.assertIn("no GPU slots", status["message"])
