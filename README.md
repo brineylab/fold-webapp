@@ -98,4 +98,5 @@ Harness artifacts are written under `HARNESS_BASE_DIR/runs/<run_id>/reports/`.
 - Job workdirs live under `JOB_BASE_DIR/<job_uuid>/`.
 - The current runtime is always the local Docker executor.
 - `RunnerConfig` now exposes only runner enable/disable state plus an optional image override.
+- Use Django admin for generic user/account edits; the console is focused on queue, policy, cleanup, and reporting.
 - The worker command `python manage.py run_job_worker --interval 10` is the canonical long-lived queue process.

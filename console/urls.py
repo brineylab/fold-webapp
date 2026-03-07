@@ -20,8 +20,6 @@ urlpatterns = [
     path("users/<int:user_id>/quota/", views.user_update_quota, name="user_update_quota"),
     path("users/<int:user_id>/disable/", views.user_disable, name="user_disable"),
     path("users/<int:user_id>/enable/", views.user_enable, name="user_enable"),
-    path("users/<int:user_id>/reset-password/", views.user_reset_password, name="user_reset_password"),
-    path("users/<int:user_id>/toggle-active/", views.user_toggle_active, name="user_toggle_active"),
     path("users/<int:user_id>/api-access/", views.user_toggle_api_access, name="user_toggle_api_access"),
     path("users/<int:user_id>/api-keys/create/", views.user_create_api_key, name="user_create_api_key"),
     path("users/<int:user_id>/api-keys/<int:key_id>/revoke/", views.user_revoke_api_key, name="user_revoke_api_key"),
@@ -30,8 +28,6 @@ urlpatterns = [
     # Data cleanup
     path("cleanup/", views.cleanup_dashboard, name="cleanup_dashboard"),
     path("cleanup/run/", views.run_cleanup, name="run_cleanup"),
-    path("cleanup/delete-orphan/", views.delete_orphan, name="delete_orphan"),
-    path("cleanup/delete-all-orphans/", views.delete_all_orphans, name="delete_all_orphans"),
     
     # Stats
     path("stats/", views.stats, name="stats"),

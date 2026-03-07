@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import models
-from simple_history.models import HistoricalRecords
 
 
 class UserQuota(models.Model):
@@ -77,9 +76,6 @@ class UserQuota(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    # Audit history tracking
-    history = HistoricalRecords()
-    
     class Meta:
         verbose_name = "User Quota"
         verbose_name_plural = "User Quotas"
@@ -115,9 +111,6 @@ class SiteSettings(models.Model):
         on_delete=models.SET_NULL,
         related_name="site_settings_updates",
     )
-    
-    # Audit history tracking
-    history = HistoricalRecords()
     
     class Meta:
         verbose_name = "Site Settings"
@@ -173,9 +166,6 @@ class RunnerConfig(models.Model):
         related_name="runner_config_updates",
     )
     
-    # Audit history tracking
-    history = HistoricalRecords()
-    
     class Meta:
         verbose_name = "Runner Configuration"
         verbose_name_plural = "Runner Configurations"
@@ -213,3 +203,65 @@ class RunnerConfig(models.Model):
         except cls.DoesNotExist:
             # If no config exists, runner is enabled by default
             return True
+
+
+class ActionLog(models.Model):
+    class Scope(models.TextChoices):
+        JOB = "job", "Job"
+        POLICY = "policy", "Policy"
+        SETTINGS = "settings", "Settings"
+        CLEANUP = "cleanup", "Cleanup"
+        API = "api", "API"
+
+    scope = models.CharField(max_length=20, choices=Scope.choices)
+    action = models.CharField(max_length=50)
+    source = models.CharField(max_length=20, blank=True, default="")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="action_logs_as_actor",
+    )
+    job = models.ForeignKey(
+        "jobs.Job",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="action_logs",
+    )
+    target_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="action_logs_as_target",
+    )
+    target_label = models.CharField(max_length=200, blank=True, default="")
+    runner_key = models.CharField(max_length=50, blank=True, default="")
+    message = models.TextField()
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        target = self.target_display or self.scope
+        return f"{self.scope}:{self.action} -> {target}"
+
+    @property
+    def actor_name(self) -> str:
+        if self.actor:
+            return self.actor.username
+        return "system"
+
+    @property
+    def target_display(self) -> str:
+        if self.job_id:
+            return str(self.job_id)
+        if self.target_user:
+            return self.target_user.username
+        if self.runner_key:
+            return self.runner_key
+        return self.target_label

@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from console.decorators import console_required
+from console.models import ActionLog
 from console.services.jobs import cancel_job, bulk_cancel_jobs, bulk_hide_jobs
 from jobs.models import Job, JobAttempt
 from jobs.services import list_output_files
@@ -92,6 +93,8 @@ def job_detail(request, job_id):
                 input_files.append(p.name)
     
     context = {
+        "action_logs": ActionLog.objects.filter(job=job)[:20],
+        "attempts": job.attempts.order_by("-attempt_number"),
         "job": job,
         "files": files,
         "input_files": input_files,

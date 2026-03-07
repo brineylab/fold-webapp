@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import secrets
-import string
-
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.contrib.auth.hashers import make_password
 from django.db.models import Count, Q
+from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from console.decorators import console_required, superops_required
+from console.services.audit import log_action
 from console.models import UserQuota
 from console.services.quota import get_user_quota, get_quota_status
 from jobs.models import Job
@@ -50,7 +48,13 @@ def user_list(request):
         users = users.filter(quota__is_disabled=True)
     
     # Pagination (simple limit for now)
-    users = users[:200]
+    users = list(users[:200])
+    quota_map = {
+        quota.user_id: quota
+        for quota in UserQuota.objects.filter(user_id__in=[user.id for user in users])
+    }
+    for user in users:
+        user.policy_quota = quota_map.get(user.id)
     
     context = {
         "users": users,
@@ -92,6 +96,10 @@ def user_detail(request, user_id):
 
     context = {
         "user_obj": user,
+        "admin_change_url": reverse(
+            f"admin:{user._meta.app_label}_{user._meta.model_name}_change",
+            args=[user.id],
+        ),
         "quota": quota,
         "quota_status": quota_status,
         "priority_tier_choices": UserQuota.PriorityTier.choices,
@@ -108,6 +116,14 @@ def user_update_quota(request, user_id):
     """Update a user's quota settings."""
     user = get_object_or_404(User, id=user_id)
     quota = get_user_quota(user)
+    before = {
+        "priority_tier": quota.priority_tier,
+        "max_concurrent_jobs": quota.max_concurrent_jobs,
+        "max_queued_jobs": quota.max_queued_jobs,
+        "jobs_per_day": quota.jobs_per_day,
+        "jobs_per_month": quota.jobs_per_month,
+        "retention_days": quota.retention_days,
+    }
     
     try:
         quota.max_concurrent_jobs = int(request.POST.get("max_concurrent_jobs", quota.max_concurrent_jobs))
@@ -119,6 +135,23 @@ def user_update_quota(request, user_id):
         if priority_tier in {choice[0] for choice in UserQuota.PriorityTier.choices}:
             quota.priority_tier = priority_tier
         quota.save()
+        after = {
+            "priority_tier": quota.priority_tier,
+            "max_concurrent_jobs": quota.max_concurrent_jobs,
+            "max_queued_jobs": quota.max_queued_jobs,
+            "jobs_per_day": quota.jobs_per_day,
+            "jobs_per_month": quota.jobs_per_month,
+            "retention_days": quota.retention_days,
+        }
+        log_action(
+            scope="policy",
+            action="quota_updated",
+            actor=request.user,
+            source="console",
+            target_user=user,
+            message=f"Updated quota policy for {user.username}.",
+            metadata={"before": before, "after": after},
+        )
         messages.success(request, f"Quota settings updated for {user.username}.")
     except (ValueError, TypeError) as e:
         messages.error(request, f"Invalid quota value: {e}")
@@ -144,8 +177,17 @@ def user_disable(request, user_id):
     quota.disabled_reason = reason
     quota.disabled_at = timezone.now()
     quota.save()
+    log_action(
+        scope="policy",
+        action="submissions_disabled",
+        actor=request.user,
+        source="console",
+        target_user=user,
+        message=f"Disabled new job submissions for {user.username}.",
+        metadata={"reason": reason},
+    )
     
-    messages.success(request, f"Account disabled for {user.username}.")
+    messages.success(request, f"New job submissions disabled for {user.username}.")
     return redirect("console:user_detail", user_id=user_id)
 
 
@@ -160,60 +202,16 @@ def user_enable(request, user_id):
     quota.disabled_reason = ""
     quota.disabled_at = None
     quota.save()
-    
-    messages.success(request, f"Account enabled for {user.username}.")
-    return redirect("console:user_detail", user_id=user_id)
-
-
-@superops_required
-@require_POST
-def user_reset_password(request, user_id):
-    """
-    Generate a temporary password for the user.
-    
-    In production, you'd typically send a password reset email instead.
-    This is a simple implementation for admin-initiated resets.
-    """
-    user = get_object_or_404(User, id=user_id)
-    
-    # Prevent resetting your own password via this method
-    if user == request.user:
-        messages.error(request, "Please use the standard password change flow for your own account.")
-        return redirect("console:user_detail", user_id=user_id)
-    
-    # Generate a random temporary password
-    alphabet = string.ascii_letters + string.digits
-    temp_password = ''.join(secrets.choice(alphabet) for _ in range(16))
-    
-    user.password = make_password(temp_password)
-    user.save(update_fields=["password"])
-    
-    # In production, you'd email this or use Django's password reset flow
-    messages.success(
-        request,
-        f"Password reset for {user.username}. Temporary password: {temp_password} "
-        "(Please share this securely with the user)"
+    log_action(
+        scope="policy",
+        action="submissions_enabled",
+        actor=request.user,
+        source="console",
+        target_user=user,
+        message=f"Re-enabled job submissions for {user.username}.",
     )
     
-    return redirect("console:user_detail", user_id=user_id)
-
-
-@superops_required
-@require_POST
-def user_toggle_active(request, user_id):
-    """Toggle a user's is_active status (Django's built-in account active flag)."""
-    user = get_object_or_404(User, id=user_id)
-    
-    # Prevent deactivating yourself
-    if user == request.user:
-        messages.error(request, "You cannot deactivate your own account.")
-        return redirect("console:user_detail", user_id=user_id)
-    
-    user.is_active = not user.is_active
-    user.save(update_fields=["is_active"])
-    
-    status = "activated" if user.is_active else "deactivated"
-    messages.success(request, f"Account {status} for {user.username}.")
+    messages.success(request, f"New job submissions enabled for {user.username}.")
     return redirect("console:user_detail", user_id=user_id)
 
 
@@ -231,6 +229,18 @@ def user_toggle_api_access(request, user_id):
 
     quota.api_enabled = not quota.api_enabled
     quota.save(update_fields=["api_enabled"])
+    log_action(
+        scope="api",
+        action="api_access_enabled" if quota.api_enabled else "api_access_disabled",
+        actor=request.user,
+        source="console",
+        target_user=user,
+        message=(
+            f"API access {'enabled' if quota.api_enabled else 'disabled'} "
+            f"for {user.username}."
+        ),
+        metadata={"api_enabled": quota.api_enabled},
+    )
 
     status = "enabled" if quota.api_enabled else "disabled"
     messages.success(request, f"API access {status} for {user.username}.")
@@ -248,6 +258,15 @@ def user_create_api_key(request, user_id):
 
     api_key = APIKey(user=user, label=label)
     api_key.save()
+    log_action(
+        scope="api",
+        action="api_key_created",
+        actor=request.user,
+        source="console",
+        target_user=user,
+        message=f"Created API key for {user.username}.",
+        metadata={"label": label},
+    )
 
     messages.success(
         request,
@@ -268,6 +287,15 @@ def user_revoke_api_key(request, user_id, key_id):
 
     api_key.is_active = False
     api_key.save(update_fields=["is_active"])
+    log_action(
+        scope="api",
+        action="api_key_revoked",
+        actor=request.user,
+        source="console",
+        target_user=user,
+        message=f"Revoked API key for {user.username}.",
+        metadata={"label": api_key.label},
+    )
 
     messages.success(request, f"API key revoked for {user.username}.")
     return redirect("console:user_detail", user_id=user_id)
@@ -281,8 +309,18 @@ def user_delete_api_key(request, user_id, key_id):
 
     user = get_object_or_404(User, id=user_id)
     api_key = get_object_or_404(APIKey, id=key_id, user=user)
-
+    label = api_key.label
     api_key.delete()
+
+    log_action(
+        scope="api",
+        action="api_key_deleted",
+        actor=request.user,
+        source="console",
+        target_user=user,
+        message=f"Deleted API key for {user.username}.",
+        metadata={"label": label},
+    )
 
     messages.success(request, f"API key deleted for {user.username}.")
     return redirect("console:user_detail", user_id=user_id)

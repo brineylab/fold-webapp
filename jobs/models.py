@@ -6,7 +6,6 @@ from pathlib import Path
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
-from simple_history.models import HistoricalRecords
 
 
 class Job(models.Model):
@@ -45,9 +44,6 @@ class Job(models.Model):
     attempt_count = models.PositiveIntegerField(default=0)
 
     hidden_from_owner = models.BooleanField(default=False)
-
-    # Audit history tracking
-    history = HistoricalRecords()
 
     @property
     def workdir(self) -> Path:

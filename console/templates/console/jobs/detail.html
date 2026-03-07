@@ -139,6 +139,55 @@
       </div>
     </div>
 
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Attempt Timeline</strong>
+        <span class="badge bg-secondary">{{ attempts|length }} attempt{{ attempts|length|pluralize }}</span>
+      </div>
+      <div class="card-body p-0">
+        {% if attempts %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Attempt</th>
+                <th>Status</th>
+                <th>Runtime ID</th>
+                <th>GPU</th>
+                <th>Started</th>
+                <th>Finished</th>
+                <th>Exit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for attempt in attempts %}
+              <tr>
+                <td>#{{ attempt.attempt_number }}</td>
+                <td><span class="fw-semibold status-{{ attempt.status }}">{{ attempt.status }}</span></td>
+                <td><code>{{ attempt.scheduler_job_id|default:attempt.container_id|default:"-" }}</code></td>
+                <td><code>{{ attempt.gpu_index|default:"-" }}</code></td>
+                <td class="text-muted">{{ attempt.started_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                <td class="text-muted">{{ attempt.finished_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                <td>{{ attempt.exit_code|default:"-" }}</td>
+              </tr>
+              {% if attempt.failure_summary %}
+              <tr class="table-light">
+                <td></td>
+                <td colspan="6">
+                  <small class="text-danger">{{ attempt.failure_summary }}</small>
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">No attempts recorded.</div>
+        {% endif %}
+      </div>
+    </div>
+
     <!-- Sequences -->
     <div class="card mb-4">
       <div class="card-header d-flex justify-content-between align-items-center">
@@ -215,6 +264,38 @@
       </div>
     </div>
 
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Recent Actions</strong>
+        <a href="{% url 'console:audit_log' %}?job={{ job.id }}" class="btn btn-outline-secondary btn-sm">
+          Full Log
+        </a>
+      </div>
+      <div class="card-body">
+        {% if action_logs %}
+        <ul class="list-group list-group-flush">
+          {% for record in action_logs %}
+          <li class="list-group-item px-0">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <code>{{ record.action }}</code>
+                <div>{{ record.message }}</div>
+                <small class="text-muted">
+                  {{ record.actor_name }}
+                  {% if record.source %}&bull; {{ record.source }}{% endif %}
+                </small>
+              </div>
+              <small class="text-muted">{{ record.created_at|date:"Y-m-d H:i" }}</small>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0">No action records for this job.</p>
+        {% endif %}
+      </div>
+    </div>
+
     <!-- Quick Links -->
     <div class="card">
       <div class="card-header">
@@ -225,7 +306,7 @@
           Edit in Django Admin
         </a>
         <a href="{% url 'console:audit_log' %}?job={{ job.id }}" class="list-group-item list-group-item-action">
-          View Audit History
+          View Operations Log
         </a>
       </div>
     </div>

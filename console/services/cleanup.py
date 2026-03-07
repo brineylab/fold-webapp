@@ -114,6 +114,8 @@ def cleanup_job_workdir(job: Job) -> bool:
 def cleanup_jobs(
     override_days: int | None = None,
     dry_run: bool = True,
+    actor=None,
+    source: str = "system",
 ) -> dict:
     """
     Clean up jobs past their retention period.
@@ -146,6 +148,24 @@ def cleanup_jobs(
                 if cleanup_job_workdir(job):
                     cleaned += 1
                     bytes_freed += item["workdir_size"]
+                    from console.services.audit import log_action
+
+                    log_action(
+                        scope="cleanup",
+                        action="workdir_cleaned",
+                        actor=actor,
+                        source=source,
+                        job=job,
+                        message=(
+                            f"Deleted workdir after {item['age_days']} days "
+                            f"(retention {item['retention_days']} days)."
+                        ),
+                        metadata={
+                            "age_days": item["age_days"],
+                            "retention_days": item["retention_days"],
+                            "bytes_freed": item["workdir_size"],
+                        },
+                    )
                 else:
                     errors.append(f"Failed to delete workdir for job {job.id}")
             else:
@@ -225,28 +245,6 @@ def detect_orphan_jobs() -> QuerySet:
             orphan_ids.append(job.id)
     
     return Job.objects.filter(id__in=orphan_ids)
-
-
-def delete_orphan_workdir(path: str | Path) -> bool:
-    """
-    Delete an orphan workdir.
-    
-    Args:
-        path: Path to the orphan workdir.
-    
-    Returns:
-        True if deleted successfully, False otherwise.
-    """
-    path = Path(path)
-    
-    if not path.exists():
-        return False
-    
-    try:
-        shutil.rmtree(path)
-        return True
-    except OSError:
-        return False
 
 
 def get_directory_size(path: Path) -> int:

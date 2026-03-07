@@ -254,6 +254,8 @@ def cancel_job(
     if job.status not in ACTIVE_JOB_STATUSES:
         return False
 
+    cancel_reason = reason or _build_cancel_reason(actor=actor, source=source)
+
     if job_uses_local_executor(job):
         LocalDockerExecutor().cancel(job)
 
@@ -261,7 +263,16 @@ def cancel_job(
         job,
         Job.Status.CANCELLED,
         when=timezone.now(),
-        error_message=reason or _build_cancel_reason(actor=actor, source=source),
+        error_message=cancel_reason,
+    )
+    _log_action(
+        scope="job",
+        action="cancelled",
+        actor=actor,
+        source=source,
+        job=job,
+        message=cancel_reason,
+        metadata={"status": job.status},
     )
     return True
 
@@ -277,6 +288,7 @@ def hide_job(
     if job.hidden_from_owner:
         return False
 
+    was_active = job.status in ACTIVE_JOB_STATUSES
     if cancel_if_active and job.status in ACTIVE_JOB_STATUSES:
         cancel_job(
             job,
@@ -287,6 +299,15 @@ def hide_job(
 
     job.hidden_from_owner = True
     job.save(update_fields=["hidden_from_owner"])
+    _log_action(
+        scope="job",
+        action="hidden_from_owner",
+        actor=actor,
+        source=source,
+        job=job,
+        message=_build_hide_reason(actor=actor, source=source),
+        metadata={"cancelled_active_job": was_active},
+    )
     return True
 
 
@@ -401,3 +422,20 @@ def _build_hide_cancel_reason(*, actor=None, source: str = "user") -> str:
     if source == "admin":
         return f"Cancelled and hidden by admin ({actor_name})"
     return f"Cancelled and hidden by {actor_name}"
+
+
+def _build_hide_reason(*, actor=None, source: str = "user") -> str:
+    actor_name = getattr(actor, "username", None) or "system"
+    if source == "api":
+        return f"Hidden by {actor_name} via API"
+    if source == "admin":
+        return f"Hidden from owner by admin ({actor_name})"
+    if source == "system":
+        return "Hidden from owner by system"
+    return f"Hidden from owner by {actor_name}"
+
+
+def _log_action(**kwargs) -> None:
+    from console.services.audit import log_action
+
+    log_action(**kwargs)
