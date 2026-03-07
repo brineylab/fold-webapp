@@ -6,6 +6,10 @@ from simple_history.models import HistoricalRecords
 
 
 class UserQuota(models.Model):
+    class PriorityTier(models.TextChoices):
+        STANDARD = "standard", "Standard"
+        PRIORITY = "priority", "Priority"
+
     """
     Per-user quota and account settings.
     
@@ -30,6 +34,16 @@ class UserQuota(models.Model):
     jobs_per_day = models.PositiveIntegerField(
         default=10,
         help_text="Maximum number of jobs that can be submitted per day",
+    )
+    jobs_per_month = models.PositiveIntegerField(
+        default=300,
+        help_text="Maximum number of jobs that can be submitted per calendar month",
+    )
+    priority_tier = models.CharField(
+        max_length=20,
+        choices=PriorityTier.choices,
+        default=PriorityTier.STANDARD,
+        help_text="Scheduling priority tier used for queue ordering and reporting",
     )
     
     # Data retention (days, 0 = never delete)
@@ -72,6 +86,10 @@ class UserQuota(models.Model):
     
     def __str__(self) -> str:
         return f"Quota for {self.user.username}"
+
+    @property
+    def max_running_jobs(self) -> int:
+        return self.max_concurrent_jobs
 
 
 class SiteSettings(models.Model):

@@ -215,7 +215,7 @@ Returns full job details including parameters and a list of output files (availa
 POST /api/v1/jobs/<uuid>/cancel/
 ```
 
-Cancels a job that is `PENDING` or `RUNNING`. Returns 400 if the job has already completed or failed.
+Cancels a job that is `PENDING` or `RUNNING`. Returns 400 if the job is already terminal.
 
 **Response:**
 
@@ -223,7 +223,7 @@ Cancels a job that is `PENDING` or `RUNNING`. Returns 400 if the job has already
 {
   "job": {
     "id": "a1b2c3d4-...",
-    "status": "FAILED",
+    "status": "CANCELLED",
     "error_message": "Cancelled by user via API"
   }
 }
@@ -237,7 +237,7 @@ Cancels a job that is `PENDING` or `RUNNING`. Returns 400 if the job has already
 DELETE /api/v1/jobs/<uuid>/
 ```
 
-Soft-deletes a job (hides it from your job list). Pending jobs are cancelled first. The job data is retained for admin visibility.
+Soft-deletes a job (hides it from your job list). Active jobs are cancelled first. The job data is retained for admin visibility.
 
 **Response:**
 

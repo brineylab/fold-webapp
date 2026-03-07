@@ -127,6 +127,7 @@ class TestPollJobsCommand(TestCase):
             username="polluser", password="testpass"
         )
         self.tmpdir = Path(tempfile.mkdtemp())
+        self.model_type = get_model_type("boltz2")
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)

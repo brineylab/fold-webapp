@@ -114,6 +114,9 @@
           
           <dt class="col-sm-6">Failed</dt>
           <dd class="col-sm-6 text-danger">{{ job_stats.failed }}</dd>
+
+          <dt class="col-sm-6">Cancelled</dt>
+          <dd class="col-sm-6 text-warning">{{ job_stats.cancelled }}</dd>
           
           <dt class="col-sm-6">Running</dt>
           <dd class="col-sm-6 text-info">{{ job_stats.running }}</dd>
@@ -132,6 +135,8 @@
         <strong>Quota Settings</strong>
         {% if quota_status.is_exempt %}
         <span class="badge bg-info">Exempt (Staff)</span>
+        {% else %}
+        <span class="badge bg-secondary text-uppercase">{{ quota_status.priority_tier }}</span>
         {% endif %}
       </div>
       <div class="card-body">
@@ -139,11 +144,20 @@
           {% csrf_token %}
           <div class="row g-3">
             <div class="col-md-6">
-              <label for="max_concurrent_jobs" class="form-label">Max Concurrent Jobs</label>
+              <label for="priority_tier" class="form-label">Priority Tier</label>
+              <select class="form-select" id="priority_tier" name="priority_tier">
+                {% for value, label in priority_tier_choices %}
+                <option value="{{ value }}" {% if quota.priority_tier == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <small class="text-muted">Used for queue ordering and usage snapshots.</small>
+            </div>
+            <div class="col-md-6">
+              <label for="max_concurrent_jobs" class="form-label">Max Running Jobs</label>
               <input type="number" class="form-control" id="max_concurrent_jobs" name="max_concurrent_jobs" 
                      value="{{ quota.max_concurrent_jobs }}" min="0">
               <small class="text-muted">
-                Current: {{ quota_status.concurrent_jobs.current }}/{{ quota_status.concurrent_jobs.max }}
+                Current: {{ quota_status.running_jobs.current }}/{{ quota_status.running_jobs.max }}
               </small>
             </div>
             <div class="col-md-6">
@@ -160,6 +174,14 @@
                      value="{{ quota.jobs_per_day }}" min="0">
               <small class="text-muted">
                 Today: {{ quota_status.daily_jobs.current }}/{{ quota_status.daily_jobs.max }}
+              </small>
+            </div>
+            <div class="col-md-6">
+              <label for="jobs_per_month" class="form-label">Jobs Per Month</label>
+              <input type="number" class="form-control" id="jobs_per_month" name="jobs_per_month" 
+                     value="{{ quota.jobs_per_month }}" min="0">
+              <small class="text-muted">
+                This month: {{ quota_status.monthly_jobs.current }}/{{ quota_status.monthly_jobs.max }}
               </small>
             </div>
             <div class="col-md-6">
@@ -345,4 +367,3 @@
   </div>
 </div>
 {% endblock %}
-

@@ -48,23 +48,12 @@ def _get_stats_summary() -> dict:
         .values_list("status", "count")
     )
     
-    # Average runtime (for completed jobs)
-    completed_jobs = Job.objects.filter(
-        status=Job.Status.COMPLETED,
-        submitted_at__isnull=False,
-        completed_at__isnull=False,
+    avg_runtime = (
+        Job.objects.filter(
+            status=Job.Status.COMPLETED,
+            run_seconds__isnull=False,
+        ).aggregate(avg_runtime=Avg("run_seconds"))["avg_runtime"]
     )
-    
-    avg_runtime = None
-    if completed_jobs.exists():
-        # Calculate average runtime in seconds
-        runtimes = []
-        for job in completed_jobs[:1000]:  # Limit to prevent slow queries
-            if job.submitted_at and job.completed_at:
-                delta = job.completed_at - job.submitted_at
-                runtimes.append(delta.total_seconds())
-        if runtimes:
-            avg_runtime = sum(runtimes) / len(runtimes)
     
     return {
         "jobs_by_day": jobs_by_day,
@@ -88,4 +77,3 @@ def stats_api_summary(request):
     """JSON API endpoint for stats summary data."""
     summary = _get_stats_summary()
     return JsonResponse(summary)
-

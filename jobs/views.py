@@ -1,30 +1,21 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-import slurm
 from console.models import SiteSettings
 from jobs.forms import get_disabled_runners
 from jobs.models import Job
-from jobs.services import create_and_submit_job
+from jobs.services import create_and_submit_job, cancel_job, hide_job, list_output_files
 from model_types import get_model_type, get_model_types_by_category, get_submittable_model_types
 
 
 def _fallback_output_context(job):
     """Output context for jobs whose model_key no longer has a registered ModelType."""
-    outdir = job.workdir / "output"
-    files = []
-    if outdir.exists() and outdir.is_dir():
-        for p in sorted(outdir.iterdir()):
-            if p.is_file():
-                files.append({"name": p.name, "size": p.stat().st_size})
+    files = list_output_files(job)
     return {"files": files, "primary_files": [], "aux_files": []}
 
 
@@ -142,13 +133,7 @@ def download_file(request, job_id, filename):
 def job_cancel(request, job_id):
     job = get_object_or_404(_job_queryset_for(request.user), id=job_id)
 
-    if job.status in {Job.Status.PENDING, Job.Status.RUNNING} and job.slurm_job_id:
-        slurm.cancel(job.slurm_job_id)
-        job.status = Job.Status.FAILED
-        job.error_message = "Cancelled by user"
-        job.completed_at = timezone.now()
-        job.save(update_fields=["status", "error_message", "completed_at"])
-
+    cancel_job(job, actor=request.user, source="user", reason="Cancelled by user")
     return redirect("job_detail", job_id=job.id)
 
 
@@ -157,14 +142,7 @@ def job_cancel(request, job_id):
 def job_delete(request, job_id):
     job = get_object_or_404(_job_queryset_for(request.user), id=job_id)
 
-    # For pending jobs, cancel the SLURM job first
-    if job.status == Job.Status.PENDING and job.slurm_job_id:
-        slurm.cancel(job.slurm_job_id)
-
-    # Soft delete: hide from owner but keep for admins
-    job.hidden_from_owner = True
-    job.save(update_fields=["hidden_from_owner"])
-
+    hide_job(job, actor=request.user, source="user")
     return redirect("job_list")
 
 

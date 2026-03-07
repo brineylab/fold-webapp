@@ -26,7 +26,13 @@ def get_user_quota(user: User) -> UserQuota:
             "max_concurrent_jobs": getattr(settings, "DEFAULT_MAX_CONCURRENT_JOBS", 1),
             "max_queued_jobs": getattr(settings, "DEFAULT_MAX_QUEUED_JOBS", 5),
             "jobs_per_day": getattr(settings, "DEFAULT_JOBS_PER_DAY", 10),
+            "jobs_per_month": getattr(settings, "DEFAULT_JOBS_PER_MONTH", 300),
             "retention_days": getattr(settings, "DEFAULT_RETENTION_DAYS", 30),
+            "priority_tier": getattr(
+                settings,
+                "DEFAULT_PRIORITY_TIER",
+                UserQuota.PriorityTier.STANDARD,
+            ),
         },
     )
     return quota
@@ -87,6 +93,7 @@ def check_quota(user: User) -> tuple[bool, str | None]:
     
     # Check daily submission limit
     today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = today_start.replace(day=1)
     jobs_today = Job.objects.filter(
         owner=user,
         created_at__gte=today_start,
@@ -96,6 +103,17 @@ def check_quota(user: User) -> tuple[bool, str | None]:
         return False, (
             f"You have reached the maximum number of jobs per day "
             f"({quota.jobs_per_day}). Please try again tomorrow."
+        )
+
+    jobs_this_month = Job.objects.filter(
+        owner=user,
+        created_at__gte=month_start,
+    ).count()
+
+    if jobs_this_month >= quota.jobs_per_month:
+        return False, (
+            f"You have reached the maximum number of jobs per month "
+            f"({quota.jobs_per_month}). Please try again next month."
         )
     
     return True, None
@@ -109,6 +127,7 @@ def get_quota_status(user: User) -> dict:
     """
     quota = get_user_quota(user)
     today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = today_start.replace(day=1)
     
     running_count = Job.objects.filter(
         owner=user,
@@ -124,12 +143,22 @@ def get_quota_status(user: User) -> dict:
         owner=user,
         created_at__gte=today_start,
     ).count()
+    jobs_this_month = Job.objects.filter(
+        owner=user,
+        created_at__gte=month_start,
+    ).count()
     
     return {
         "is_exempt": is_quota_exempt(user),
         "is_disabled": quota.is_disabled,
         "disabled_reason": quota.disabled_reason,
+        "priority_tier": quota.priority_tier,
         "concurrent_jobs": {
+            "current": running_count,
+            "max": quota.max_concurrent_jobs,
+            "remaining": max(0, quota.max_concurrent_jobs - running_count),
+        },
+        "running_jobs": {
             "current": running_count,
             "max": quota.max_concurrent_jobs,
             "remaining": max(0, quota.max_concurrent_jobs - running_count),
@@ -144,6 +173,10 @@ def get_quota_status(user: User) -> dict:
             "max": quota.jobs_per_day,
             "remaining": max(0, quota.jobs_per_day - jobs_today),
         },
+        "monthly_jobs": {
+            "current": jobs_this_month,
+            "max": quota.jobs_per_month,
+            "remaining": max(0, quota.jobs_per_month - jobs_this_month),
+        },
         "retention_days": quota.retention_days,
     }
-

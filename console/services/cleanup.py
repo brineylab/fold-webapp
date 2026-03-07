@@ -51,9 +51,9 @@ def get_jobs_for_cleanup(
     now = timezone.now()
     results = []
     
-    # Get completed/failed jobs only
+    # Get terminal jobs only
     jobs = Job.objects.filter(
-        status__in=[Job.Status.COMPLETED, Job.Status.FAILED],
+        status__in=[Job.Status.COMPLETED, Job.Status.FAILED, Job.Status.CANCELLED],
         completed_at__isnull=False,
     ).select_related("owner")
     

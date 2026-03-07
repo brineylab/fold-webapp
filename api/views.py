@@ -5,43 +5,18 @@ import json
 from django.core.exceptions import ValidationError
 from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from api.auth import api_auth_required
 from jobs.models import Job
-from jobs.services import create_and_submit_job
+from jobs.services import (
+    cancel_job,
+    create_and_submit_job,
+    hide_job,
+    serialize_job,
+)
 from model_types import get_model_type, get_submittable_model_types
-
-import slurm
-
-
-def _job_to_dict(job: Job) -> dict:
-    """Serialize a Job to a JSON-compatible dict."""
-    return {
-        "id": str(job.id),
-        "name": job.name,
-        "model_key": job.model_key,
-        "runner": job.runner,
-        "status": job.status,
-        "error_message": job.error_message,
-        "created_at": job.created_at.isoformat() if job.created_at else None,
-        "submitted_at": job.submitted_at.isoformat() if job.submitted_at else None,
-        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
-    }
-
-
-def _output_files(job: Job) -> list[dict]:
-    """List output files for a job."""
-    outdir = job.workdir / "output"
-    files = []
-    if outdir.exists() and outdir.is_dir():
-        for p in sorted(outdir.rglob("*")):
-            if p.is_file():
-                rel = p.relative_to(outdir)
-                files.append({"name": str(rel), "size": p.stat().st_size})
-    return files
 
 
 def _job_queryset_for(user):
@@ -131,7 +106,7 @@ def job_create(request):
 def _job_list(request):
     """List the user's recent jobs."""
     jobs = _job_queryset_for(request.user).order_by("-created_at")[:100]
-    return JsonResponse({"jobs": [_job_to_dict(j) for j in jobs]})
+    return JsonResponse({"jobs": [serialize_job(j) for j in jobs]})
 
 
 def _job_submit(request):
@@ -194,7 +169,7 @@ def _job_submit(request):
             model_key=model_type.key,
             input_payload=input_payload,
         )
-        return JsonResponse({"job": _job_to_dict(job)}, status=201)
+        return JsonResponse({"job": serialize_job(job)}, status=201)
     except ValidationError as e:
         msg = e.message if hasattr(e, "message") else str(e)
         return JsonResponse({"error": msg}, status=400)
@@ -216,17 +191,16 @@ def job_detail(request, job_id):
     job = get_object_or_404(_job_queryset_for(request.user), id=job_id)
 
     if request.method == "GET":
-        result = _job_to_dict(job)
-        result["params"] = job.params
-        result["output_files"] = _output_files(job)
+        result = serialize_job(
+            job,
+            include_params=True,
+            include_output_files=True,
+            include_attempts=True,
+        )
         return JsonResponse({"job": result})
 
     if request.method == "DELETE":
-        # Soft-delete: hide from owner
-        if job.status == Job.Status.PENDING and job.slurm_job_id:
-            slurm.cancel(job.slurm_job_id)
-        job.hidden_from_owner = True
-        job.save(update_fields=["hidden_from_owner"])
+        hide_job(job, actor=request.user, source="api")
         return JsonResponse({"status": "deleted"})
 
     return JsonResponse({"error": "Method not allowed."}, status=405)
@@ -245,15 +219,13 @@ def job_cancel(request, job_id):
             status=400,
         )
 
-    if job.slurm_job_id:
-        slurm.cancel(job.slurm_job_id)
-
-    job.status = Job.Status.FAILED
-    job.error_message = "Cancelled by user via API"
-    job.completed_at = timezone.now()
-    job.save(update_fields=["status", "error_message", "completed_at"])
-
-    return JsonResponse({"job": _job_to_dict(job)})
+    cancel_job(
+        job,
+        actor=request.user,
+        source="api",
+        reason="Cancelled by user via API",
+    )
+    return JsonResponse({"job": serialize_job(job)})
 
 
 # ---------------------------------------------------------------------------

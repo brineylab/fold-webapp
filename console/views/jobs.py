@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 from console.decorators import console_required
 from console.services.jobs import cancel_job, bulk_cancel_jobs, bulk_hide_jobs
 from jobs.models import Job
+from jobs.services import list_output_files
 
 
 @console_required
@@ -65,13 +66,7 @@ def job_detail(request, job_id):
     """Detailed view of a single job for admin purposes."""
     job = get_object_or_404(Job.objects.select_related("owner"), id=job_id)
     
-    # Get output files
-    outdir = job.workdir / "output"
-    files = []
-    if outdir.exists() and outdir.is_dir():
-        for p in sorted(outdir.iterdir()):
-            if p.is_file():
-                files.append(p.name)
+    files = [item["name"] for item in list_output_files(job)]
     
     # Get input files
     indir = job.workdir / "input"
@@ -126,4 +121,3 @@ def job_bulk_action(request):
         messages.error(request, f"Unknown action: {action}")
     
     return redirect("console:job_list")
-

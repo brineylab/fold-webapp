@@ -5,6 +5,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 
@@ -14,6 +15,7 @@ class Job(models.Model):
         RUNNING = "RUNNING"
         COMPLETED = "COMPLETED"
         FAILED = "FAILED"
+        CANCELLED = "CANCELLED"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -31,8 +33,17 @@ class Job(models.Model):
     error_message = models.TextField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    queued_at = models.DateTimeField(default=timezone.now)
     submitted_at = models.DateTimeField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    wait_seconds = models.PositiveIntegerField(null=True, blank=True)
+    run_seconds = models.PositiveIntegerField(null=True, blank=True)
+    gpu_seconds = models.PositiveIntegerField(null=True, blank=True)
+    priority_tier_snapshot = models.CharField(max_length=20, blank=True, default="")
+    attempt_count = models.PositiveIntegerField(default=0)
 
     hidden_from_owner = models.BooleanField(default=False)
 
@@ -57,3 +68,45 @@ class Job(models.Model):
     def __str__(self) -> str:
         return f"{self.id} ({self.runner})"
 
+
+class JobAttempt(models.Model):
+    class Status(models.TextChoices):
+        PENDING = Job.Status.PENDING, "Pending"
+        RUNNING = Job.Status.RUNNING, "Running"
+        COMPLETED = Job.Status.COMPLETED, "Completed"
+        FAILED = Job.Status.FAILED, "Failed"
+        CANCELLED = Job.Status.CANCELLED, "Cancelled"
+
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="attempts")
+    attempt_number = models.PositiveIntegerField()
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+
+    scheduler_job_id = models.CharField(max_length=50, blank=True)
+    container_id = models.CharField(max_length=200, blank=True)
+    gpu_index = models.PositiveIntegerField(null=True, blank=True)
+
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    exit_code = models.IntegerField(null=True, blank=True)
+    stdout_path = models.CharField(max_length=500, blank=True)
+    stderr_path = models.CharField(max_length=500, blank=True)
+    failure_summary = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["attempt_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["job", "attempt_number"],
+                name="jobs_jobattempt_unique_attempt_number",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.job_id} attempt {self.attempt_number}"

@@ -80,6 +80,7 @@ def user_detail(request, user_id):
         "total": Job.objects.filter(owner=user).count(),
         "completed": Job.objects.filter(owner=user, status=Job.Status.COMPLETED).count(),
         "failed": Job.objects.filter(owner=user, status=Job.Status.FAILED).count(),
+        "cancelled": Job.objects.filter(owner=user, status=Job.Status.CANCELLED).count(),
         "running": Job.objects.filter(owner=user, status=Job.Status.RUNNING).count(),
         "pending": Job.objects.filter(owner=user, status=Job.Status.PENDING).count(),
     }
@@ -93,6 +94,7 @@ def user_detail(request, user_id):
         "user_obj": user,
         "quota": quota,
         "quota_status": quota_status,
+        "priority_tier_choices": UserQuota.PriorityTier.choices,
         "recent_jobs": recent_jobs,
         "job_stats": job_stats,
         "api_keys": api_keys,
@@ -111,7 +113,11 @@ def user_update_quota(request, user_id):
         quota.max_concurrent_jobs = int(request.POST.get("max_concurrent_jobs", quota.max_concurrent_jobs))
         quota.max_queued_jobs = int(request.POST.get("max_queued_jobs", quota.max_queued_jobs))
         quota.jobs_per_day = int(request.POST.get("jobs_per_day", quota.jobs_per_day))
+        quota.jobs_per_month = int(request.POST.get("jobs_per_month", quota.jobs_per_month))
         quota.retention_days = int(request.POST.get("retention_days", quota.retention_days))
+        priority_tier = request.POST.get("priority_tier", quota.priority_tier)
+        if priority_tier in {choice[0] for choice in UserQuota.PriorityTier.choices}:
+            quota.priority_tier = priority_tier
         quota.save()
         messages.success(request, f"Quota settings updated for {user.username}.")
     except (ValueError, TypeError) as e:
@@ -280,4 +286,3 @@ def user_delete_api_key(request, user_id, key_id):
 
     messages.success(request, f"API key deleted for {user.username}.")
     return redirect("console:user_detail", user_id=user_id)
-

@@ -53,12 +53,14 @@ def get_dashboard_stats() -> dict[str, Any]:
             "running": status_counts_all.get(Job.Status.RUNNING, 0),
             "completed": status_counts_all.get(Job.Status.COMPLETED, 0),
             "failed": status_counts_all.get(Job.Status.FAILED, 0),
+            "cancelled": status_counts_all.get(Job.Status.CANCELLED, 0),
         },
         "status_counts_24h": {
             "pending": status_counts_24h.get(Job.Status.PENDING, 0),
             "running": status_counts_24h.get(Job.Status.RUNNING, 0),
             "completed": status_counts_24h.get(Job.Status.COMPLETED, 0),
             "failed": status_counts_24h.get(Job.Status.FAILED, 0),
+            "cancelled": status_counts_24h.get(Job.Status.CANCELLED, 0),
         },
         "queue_depth": queue_depth,
         "recent_failures": recent_failures,
@@ -168,4 +170,3 @@ def get_slurm_cluster_status() -> dict[str, Any]:
         # "jobs_queued": ...,
         # "jobs_running": ...,
     }
-

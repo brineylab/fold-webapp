@@ -21,11 +21,13 @@ def _normalize_state(raw_state: str) -> str:
     state = raw_state.split()[0].split("+")[0].strip().upper()
     if state == "COMPLETED":
         return "COMPLETED"
+    if state == "CANCELLED":
+        return "CANCELLED"
     if state in {"PENDING", "CONFIGURING"}:
         return "PENDING"
     if state in {"RUNNING", "COMPLETING", "SUSPENDED"}:
         return "RUNNING"
-    if state in {"CANCELLED", "FAILED", "TIMEOUT", "NODE_FAIL", "OUT_OF_MEMORY", "PREEMPTED"}:
+    if state in {"FAILED", "TIMEOUT", "NODE_FAIL", "OUT_OF_MEMORY", "PREEMPTED"}:
         return "FAILED"
     return "FAILED"
 
@@ -231,7 +233,7 @@ def submit(script_content: str, workdir: Path, host_workdir: Path | None = None)
 
 def check_status(slurm_job_id: str) -> str:
     """
-    Return one of: PENDING, RUNNING, COMPLETED, FAILED, UNKNOWN.
+    Return one of: PENDING, RUNNING, COMPLETED, FAILED, CANCELLED, UNKNOWN.
 
     In FAKE_SLURM mode, transitions based on time since submit.
     """
@@ -242,7 +244,7 @@ def check_status(slurm_job_id: str) -> str:
         workdir = _job_base_dir() / job_uuid
         canceled = workdir / ".fake_slurm_canceled"
         if canceled.exists():
-            return "FAILED"
+            return "CANCELLED"
 
         started_path = workdir / ".fake_slurm_started_at"
         if not started_path.exists():

@@ -481,7 +481,7 @@ class Command(BaseCommand):
             )
             payload = response.json()
             status = payload.get("job", {}).get("status")
-            if status in {"COMPLETED", "FAILED"}:
+            if status in {"COMPLETED", "FAILED", "CANCELLED"}:
                 return payload
             time.sleep(5)
         return {"job": {"status": "TIMEOUT", "error_message": "Harness poll timeout"}}
