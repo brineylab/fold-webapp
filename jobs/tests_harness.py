@@ -11,12 +11,12 @@ from api.models import APIKey
 from jobs.harness import (
     get_case,
     load_cases,
-    materialize_case,
+    prepare_executor_case,
     prepare_run_directories,
     read_json,
     resolve_case_fields,
     run_root_local,
-    verify_materialized_case,
+    verify_prepared_case,
 )
 from model_types import get_submittable_model_types
 
@@ -55,26 +55,26 @@ class TestHarnessMaterialization(TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def test_materialize_case_writes_inputs_and_script(self):
+    def test_prepare_executor_case_writes_inputs_and_script(self):
         with override_settings(
             JOB_BASE_DIR=self.job_dir,
             HARNESS_BASE_DIR=self.harness_dir,
         ):
             prepare_run_directories("run-1")
-            metadata = materialize_case("run-1", "smoke-protein-mpnn")
+            metadata = prepare_executor_case("run-1", "smoke-protein-mpnn")
 
             workdir = Path(metadata.workdir)
             self.assertTrue((workdir / "input" / "input.pdb").exists())
             self.assertTrue((workdir / "job.sh").exists())
             self.assertTrue((workdir / "metadata.json").exists())
 
-    def test_verify_materialized_case_passes_when_expected_outputs_exist(self):
+    def test_verify_prepared_case_passes_when_expected_outputs_exist(self):
         with override_settings(
             JOB_BASE_DIR=self.job_dir,
             HARNESS_BASE_DIR=self.harness_dir,
         ):
             prepare_run_directories("run-2")
-            metadata = materialize_case("run-2", "smoke-protein-mpnn")
+            metadata = prepare_executor_case("run-2", "smoke-protein-mpnn")
             workdir = Path(metadata.workdir)
             output_dir = workdir / "output"
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -82,23 +82,23 @@ class TestHarnessMaterialization(TestCase):
             (workdir / "stdout.log").write_text("", encoding="utf-8")
             (workdir / "stderr.log").write_text("", encoding="utf-8")
 
-            report = verify_materialized_case("run-2", "smoke-protein-mpnn", exit_code=0)
+            report = verify_prepared_case("run-2", "smoke-protein-mpnn", exit_code=0)
 
             self.assertTrue(report["ok"])
             self.assertEqual(report["output_files"], ["results.zip"])
 
-    def test_verify_materialized_case_fails_when_outputs_missing(self):
+    def test_verify_prepared_case_fails_when_outputs_missing(self):
         with override_settings(
             JOB_BASE_DIR=self.job_dir,
             HARNESS_BASE_DIR=self.harness_dir,
         ):
             prepare_run_directories("run-3")
-            metadata = materialize_case("run-3", "smoke-protein-mpnn")
+            metadata = prepare_executor_case("run-3", "smoke-protein-mpnn")
             workdir = Path(metadata.workdir)
             (workdir / "stdout.log").write_text("", encoding="utf-8")
             (workdir / "stderr.log").write_text("", encoding="utf-8")
 
-            report = verify_materialized_case("run-3", "smoke-protein-mpnn", exit_code=0)
+            report = verify_prepared_case("run-3", "smoke-protein-mpnn", exit_code=0)
 
             self.assertFalse(report["ok"])
             self.assertTrue(report["errors"])
@@ -133,8 +133,8 @@ class TestHarnessPrepareCommand(TestCase):
             payload = read_json(run_root_local("run-prepare") / "prepare.json")
 
             self.assertEqual(payload["run_id"], "run-prepare")
-            self.assertTrue(payload["direct_case_ids"])
-            self.assertTrue(payload["materialize_case_ids"])
+            self.assertTrue(payload["executor_case_ids"])
+            self.assertTrue(payload["prepare_only_case_ids"])
             self.assertEqual(payload["users"]["admin"]["username"], "harness_admin")
             self.assertTrue(
                 APIKey.objects.filter(user__username="harness_admin").exists()

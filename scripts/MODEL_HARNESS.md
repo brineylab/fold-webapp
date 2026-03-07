@@ -5,8 +5,8 @@
 ## What It Covers
 
 - Live login, model selection, submit, detail, and API checks against the running deployment
-- One direct runner execution for each submittable web model
-- Extended materialization-only coverage for alternate form and workdir branches in `harness/cases.yaml`
+- One executor validation run for each submittable web model
+- Extended prepare-only coverage for alternate form and workdir branches in `harness/cases.yaml`
 
 ## Reports
 
@@ -16,7 +16,7 @@ By default `./deploy.sh install` provisions `HARNESS_BASE_DIR=$DATA_DIR/harness`
 
 - `reports/summary.md`
 - `reports/summary.json`
-- `reports/direct/*.json`
+- `reports/executor/*.json`
 - `reports/http.json`
 
-Successful direct-run workdirs are deleted by default. Pass `--keep-workdirs` to retain them.
+Successful executor-run workdirs are deleted by default. Pass `--keep-workdirs` to retain them.

@@ -11,6 +11,14 @@ from console.services.quota import get_user_quota
 from jobs.harness import prepare_run_directories, run_root_local, select_cases, write_json
 
 User = get_user_model()
+PHASE_ALIASES = {
+    "direct": "executor",
+    "materialize": "prepare",
+}
+
+
+def _normalize_phase(phase: str) -> str:
+    return PHASE_ALIASES.get(phase, phase)
 
 
 class Command(BaseCommand):
@@ -26,7 +34,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--phase",
-            choices=["all", "http", "direct", "materialize"],
+            choices=["all", "http", "executor", "prepare", "direct", "materialize"],
             default="all",
             help="Harness phase to prepare.",
         )
@@ -40,7 +48,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         run_id = options["run_id"]
         tier = options["tier"]
-        phase = options["phase"]
+        phase = _normalize_phase(options["phase"])
         case_id = options["case"] or None
         base_url = options["base_url"].rstrip("/")
 
@@ -61,18 +69,18 @@ class Command(BaseCommand):
             label="harness-limited",
         )
 
-        direct_case_ids: list[str] = []
-        materialize_case_ids: list[str] = []
+        executor_case_ids: list[str] = []
+        prepare_only_case_ids: list[str] = []
         http_case_ids: list[str] = []
 
-        if phase in {"all", "direct"}:
-            direct_case_ids = [case.id for case in selected if case.tier == "smoke"]
+        if phase in {"all", "executor"}:
+            executor_case_ids = [case.id for case in selected if case.tier == "smoke"]
             if tier == "extended":
-                materialize_case_ids = [
+                prepare_only_case_ids = [
                     case.id for case in selected if case.tier == "extended"
                 ]
-        elif phase == "materialize":
-            materialize_case_ids = [case.id for case in selected]
+        elif phase == "prepare":
+            prepare_only_case_ids = [case.id for case in selected]
 
         if phase in {"all", "http"}:
             http_case_ids = [
@@ -110,8 +118,10 @@ class Command(BaseCommand):
                 }
                 for case in selected
             ],
-            "direct_case_ids": direct_case_ids,
-            "materialize_case_ids": materialize_case_ids,
+            "executor_case_ids": executor_case_ids,
+            "prepare_only_case_ids": prepare_only_case_ids,
+            "direct_case_ids": executor_case_ids,
+            "materialize_case_ids": prepare_only_case_ids,
             "http_case_ids": http_case_ids,
         }
         prepare_path = run_root_local(run_id) / "prepare.json"

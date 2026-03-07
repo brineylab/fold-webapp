@@ -24,12 +24,12 @@ Usage: ./scripts/run_model_harness.sh [options]
 
 Options:
   --tier smoke|extended         Coverage tier (default: smoke)
-  --phase all|http|direct|materialize
+  --phase all|http|executor|prepare
                                Which phases to run (default: all)
   --case CASE_ID               Run a single manifest case
   --base-url URL               Base URL for HTTP checks (default: http://localhost:8000)
   --run-id ID                  Override generated run id
-  --keep-workdirs              Preserve successful direct/materialized workdirs
+  --keep-workdirs              Preserve successful executor/prepared workdirs
   -h, --help                   Show this help message
 EOF
 }
@@ -78,6 +78,15 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+case "$PHASE" in
+    direct)
+        PHASE="executor"
+        ;;
+    materialize)
+        PHASE="prepare"
+        ;;
+esac
 
 check_prereqs() {
     command -v docker >/dev/null || {
@@ -222,12 +231,12 @@ host_harness_dir_writable() {
     rm -f "$probe"
 }
 
-run_direct_case() {
+run_executor_case() {
     local case_id="$1"
-    step "Materializing direct case: $case_id"
+    step "Preparing executor case: $case_id"
     local metadata_json
-    if ! metadata_json="$(run_manage harness_materialize --run-id "$RUN_ID" --case "$case_id")"; then
-        warn "Failed to materialize direct case: $case_id"
+    if ! metadata_json="$(run_manage harness_executor --run-id "$RUN_ID" --case "$case_id")"; then
+        warn "Failed to prepare executor case: $case_id"
         return 1
     fi
     local workdir workdir_local timeout_sec
@@ -239,7 +248,7 @@ run_direct_case() {
     local stderr_path="$workdir/stderr.log"
     local rc=0
 
-    step "Executing materialized runner script: $case_id"
+    step "Executing prepared runner script: $case_id"
     if command -v timeout >/dev/null 2>&1; then
         set +e
         timeout "${timeout_sec}s" bash "$workdir/job.sh" >"$stdout_path" 2>"$stderr_path"
@@ -254,38 +263,38 @@ run_direct_case() {
     fi
 
     local verify_json
-    verify_json="$(run_manage harness_materialize --run-id "$RUN_ID" --case "$case_id" --verify --exit-code "$rc")"
+    verify_json="$(run_manage harness_executor --run-id "$RUN_ID" --case "$case_id" --verify --exit-code "$rc")"
     local ok
     ok="$(json_field_from_text "ok" "$verify_json")"
     if [[ "$ok" != "True" ]]; then
-        warn "Direct case failed: $case_id"
+        warn "Executor case failed: $case_id"
         return 1
     fi
 
-    cleanup_workdir "$workdir" "$workdir_local" "direct-run"
+    cleanup_workdir "$workdir" "$workdir_local" "executor-run"
     return 0
 }
 
-run_materialize_case() {
+run_prepare_case() {
     local case_id="$1"
-    step "Materializing extended case: $case_id"
+    step "Preparing extended case: $case_id"
     local metadata_json
-    if ! metadata_json="$(run_manage harness_materialize --run-id "$RUN_ID" --case "$case_id")"; then
-        warn "Failed to materialize extended case: $case_id"
+    if ! metadata_json="$(run_manage harness_executor --run-id "$RUN_ID" --case "$case_id")"; then
+        warn "Failed to prepare extended case: $case_id"
         return 1
     fi
     local workdir workdir_local
     workdir="$(json_field_from_text "workdir" "$metadata_json")"
     workdir_local="$workdir"
     local verify_json
-    verify_json="$(run_manage harness_materialize --run-id "$RUN_ID" --case "$case_id" --verify --materialized-only)"
+    verify_json="$(run_manage harness_executor --run-id "$RUN_ID" --case "$case_id" --verify --prepare-only)"
     local ok
     ok="$(json_field_from_text "ok" "$verify_json")"
     if [[ "$ok" != "True" ]]; then
-        warn "Materialization failed: $case_id"
+        warn "Prepare-only case failed: $case_id"
         return 1
     fi
-    cleanup_workdir "$workdir" "$workdir_local" "materialized"
+    cleanup_workdir "$workdir" "$workdir_local" "prepared"
     return 0
 }
 
@@ -308,10 +317,10 @@ if host_harness_dir_writable "$HOST_HARNESS_DIR"; then
     HOST_CAN_WRITE=true
 fi
 
-if [[ "$PHASE" == "all" || "$PHASE" == "direct" ]]; then
+if [[ "$PHASE" == "all" || "$PHASE" == "executor" ]]; then
     if [[ "$HOST_CAN_WRITE" != true ]]; then
         error "The host account cannot write to HARNESS_BASE_DIR: $HOST_HARNESS_DIR"
-        error "Direct execution requires host write access to the shared harness directory."
+        error "Executor validation requires host write access to the shared harness directory."
         exit 1
     fi
 fi
@@ -329,18 +338,18 @@ run_manage "${prepare_args[@]}" >/dev/null
 
 run_failed=0
 
-if [[ "$PHASE" == "all" || "$PHASE" == "direct" ]]; then
+if [[ "$PHASE" == "all" || "$PHASE" == "executor" ]]; then
     while IFS= read -r case_id; do
         [[ -n "$case_id" ]] || continue
-        run_direct_case "$case_id" || run_failed=1
-    done < <(json_field "$PREPARE_JSON" "direct_case_ids")
+        run_executor_case "$case_id" || run_failed=1
+    done < <(json_field "$PREPARE_JSON" "executor_case_ids")
 fi
 
-if [[ "$PHASE" == "all" || "$PHASE" == "direct" || "$PHASE" == "materialize" ]]; then
+if [[ "$PHASE" == "all" || "$PHASE" == "executor" || "$PHASE" == "prepare" ]]; then
     while IFS= read -r case_id; do
         [[ -n "$case_id" ]] || continue
-        run_materialize_case "$case_id" || run_failed=1
-    done < <(json_field "$PREPARE_JSON" "materialize_case_ids")
+        run_prepare_case "$case_id" || run_failed=1
+    done < <(json_field "$PREPARE_JSON" "prepare_only_case_ids")
 fi
 
 if [[ "$PHASE" == "all" || "$PHASE" == "http" ]]; then
