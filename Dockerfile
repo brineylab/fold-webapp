@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+FROM docker:cli AS dockercli
 FROM python:3.11-slim
 
 # Prevent Python from writing pyc files and buffering stdout/stderr
@@ -10,6 +11,9 @@ WORKDIR /app
 # Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# The compose-packaged web/worker processes shell out to the host Docker daemon.
+COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
 
 # Copy application code
 COPY . .

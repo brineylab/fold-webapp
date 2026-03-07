@@ -9,14 +9,12 @@ services:
     command: sh -lc "umask 000 && python manage.py migrate --noinput"
     env_file: .env
     environment:
-      - DATA_DIR=/app/data
-      - DATABASE_PATH=/app/data/db/db.sqlite3
-      - JOB_BASE_DIR=/app/data/jobs
-      - HARNESS_BASE_DIR=/app/data/harness
+      - DATA_DIR=${DATA_DIR:-/tmp/fold-webapp-data}
+      - DATABASE_PATH=${DATA_DIR:-/tmp/fold-webapp-data}/db/db.sqlite3
+      - JOB_BASE_DIR=${DATA_DIR:-/tmp/fold-webapp-data}/jobs
+      - HARNESS_BASE_DIR=${DATA_DIR:-/tmp/fold-webapp-data}/harness
     volumes:
-      - ${DATA_DIR:-./data}/db:/app/data/db
-      - ${DATA_DIR:-./data}/jobs:/app/data/jobs
-      - ${HARNESS_BASE_DIR:-./data/harness}:/app/data/harness
+      - ${DATA_DIR:-/tmp/fold-webapp-data}:${DATA_DIR:-/tmp/fold-webapp-data}
     # Only run once, then exit
     restart: "no"
 
@@ -27,19 +25,19 @@ services:
       args:
         APP_UID: ${APP_UID:-1000}
         APP_GID: ${APP_GID:-1000}
+    user: "0:0"
     command: sh -lc "umask 000 && gunicorn bioportal.wsgi:application --bind 0.0.0.0:8000 --workers 2"
     ports:
       - "8000:8000"
     env_file: .env
     environment:
-      - DATA_DIR=/app/data
-      - DATABASE_PATH=/app/data/db/db.sqlite3
-      - JOB_BASE_DIR=/app/data/jobs
-      - HARNESS_BASE_DIR=/app/data/harness
+      - DATA_DIR=${DATA_DIR:-/tmp/fold-webapp-data}
+      - DATABASE_PATH=${DATA_DIR:-/tmp/fold-webapp-data}/db/db.sqlite3
+      - JOB_BASE_DIR=${DATA_DIR:-/tmp/fold-webapp-data}/jobs
+      - HARNESS_BASE_DIR=${DATA_DIR:-/tmp/fold-webapp-data}/harness
     volumes:
-      - ${DATA_DIR:-./data}/db:/app/data/db
-      - ${DATA_DIR:-./data}/jobs:/app/data/jobs
-      - ${HARNESS_BASE_DIR:-./data/harness}:/app/data/harness
+      - ${DATA_DIR:-/tmp/fold-webapp-data}:${DATA_DIR:-/tmp/fold-webapp-data}
+      - /var/run/docker.sock:/var/run/docker.sock
       - static_files:/app/staticfiles
     depends_on:
       migrate:
@@ -53,17 +51,17 @@ services:
       args:
         APP_UID: ${APP_UID:-1000}
         APP_GID: ${APP_GID:-1000}
+    user: "0:0"
     command: sh -lc "umask 000 && python manage.py run_job_worker --interval 10"
     env_file: .env
     environment:
-      - DATA_DIR=/app/data
-      - DATABASE_PATH=/app/data/db/db.sqlite3
-      - JOB_BASE_DIR=/app/data/jobs
-      - HARNESS_BASE_DIR=/app/data/harness
+      - DATA_DIR=${DATA_DIR:-/tmp/fold-webapp-data}
+      - DATABASE_PATH=${DATA_DIR:-/tmp/fold-webapp-data}/db/db.sqlite3
+      - JOB_BASE_DIR=${DATA_DIR:-/tmp/fold-webapp-data}/jobs
+      - HARNESS_BASE_DIR=${DATA_DIR:-/tmp/fold-webapp-data}/harness
     volumes:
-      - ${DATA_DIR:-./data}/db:/app/data/db
-      - ${DATA_DIR:-./data}/jobs:/app/data/jobs
-      - ${HARNESS_BASE_DIR:-./data/harness}:/app/data/harness
+      - ${DATA_DIR:-/tmp/fold-webapp-data}:${DATA_DIR:-/tmp/fold-webapp-data}
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       migrate:
         condition: service_completed_successfully

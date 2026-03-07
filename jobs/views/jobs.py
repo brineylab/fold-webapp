@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -129,7 +130,13 @@ def download_file(request, job_id, filename):
 @require_POST
 def job_cancel(request, job_id):
     job = get_object_or_404(_job_queryset_for(request.user), id=job_id)
-    cancel_job(job, actor=request.user, source="user", reason="Cancelled by user")
+    if cancel_job(job, actor=request.user, source="user", reason="Cancelled by user"):
+        messages.success(request, "Job cancelled.")
+    else:
+        messages.error(
+            request,
+            "Could not cancel the job because the local runtime did not stop cleanly.",
+        )
     return redirect("job_detail", job_id=job.id)
 
 
@@ -137,5 +144,12 @@ def job_cancel(request, job_id):
 @require_POST
 def job_delete(request, job_id):
     job = get_object_or_404(_job_queryset_for(request.user), id=job_id)
-    hide_job(job, actor=request.user, source="user")
-    return redirect("job_list")
+    if hide_job(job, actor=request.user, source="user"):
+        messages.success(request, "Job removed from your list.")
+        return redirect("job_list")
+
+    messages.error(
+        request,
+        "Could not remove the job because the active runtime did not stop cleanly.",
+    )
+    return redirect("job_detail", job_id=job.id)

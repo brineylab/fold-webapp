@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -52,6 +53,7 @@ class Phase1LifecycleTests(TestCase):
 
     @patch("jobs.execution.subprocess.run")
     def test_cancel_job_marks_cancelled(self, mock_run):
+        mock_run.return_value = SimpleNamespace(returncode=0)
         self.attempt.status = JobAttempt.Status.RUNNING
         self.attempt.container_id = "container-123"
         self.attempt.save(update_fields=["status", "container_id"])

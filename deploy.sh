@@ -171,6 +171,9 @@ ensure_data_dirs() {
     fi
 
     if [ -f .env ]; then
+        if [ -z "$(get_env_value DATA_DIR)" ] || [ "$(get_env_value DATA_DIR)" != "$data_dir" ]; then
+            set_env_value DATA_DIR "$data_dir"
+        fi
         if [ -z "$(get_env_value HARNESS_BASE_DIR)" ] || [ "$(get_env_value HARNESS_BASE_DIR)" != "$harness_dir" ]; then
             set_env_value HARNESS_BASE_DIR "$harness_dir"
         fi

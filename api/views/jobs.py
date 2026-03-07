@@ -109,7 +109,16 @@ def job_detail(request, job_id):
         return JsonResponse({"job": result})
 
     if request.method == "DELETE":
-        hide_job(job, actor=request.user, source="api")
+        if not hide_job(job, actor=request.user, source="api"):
+            return JsonResponse(
+                {
+                    "error": (
+                        "Could not delete the job because the active runtime did "
+                        "not stop cleanly."
+                    )
+                },
+                status=409,
+            )
         return JsonResponse({"status": "deleted"})
 
     return JsonResponse({"error": "Method not allowed."}, status=405)
@@ -127,12 +136,21 @@ def job_cancel(request, job_id):
             status=400,
         )
 
-    cancel_job(
+    if not cancel_job(
         job,
         actor=request.user,
         source="api",
         reason="Cancelled by user via API",
-    )
+    ):
+        return JsonResponse(
+            {
+                "error": (
+                    "Could not cancel the job because the local runtime did not "
+                    "stop cleanly."
+                )
+            },
+            status=409,
+        )
     return JsonResponse({"job": serialize_job(job)})
 
 

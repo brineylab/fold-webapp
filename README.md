@@ -41,6 +41,10 @@ For containerized deployments, `docker compose up -d --build` starts:
 - `web`
 - `worker`
 
+The compose packaging path mounts `DATA_DIR` into the containers at the same
+absolute host path and exposes `/var/run/docker.sock`, so the local executor's
+direct `docker run` mounts resolve correctly on the host.
+
 ## Common Commands
 
 ```bash

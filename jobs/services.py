@@ -256,8 +256,20 @@ def cancel_job(
 
     cancel_reason = reason or _build_cancel_reason(actor=actor, source=source)
 
-    if job_uses_local_executor(job):
-        LocalDockerExecutor().cancel(job)
+    if job.status == Job.Status.RUNNING and job_uses_local_executor(job):
+        cancelled = LocalDockerExecutor().cancel(job)
+        if not cancelled:
+            failure_message = "Failed to stop the local runtime. Job remains active."
+            _log_action(
+                scope="job",
+                action="cancel_failed",
+                actor=actor,
+                source=source,
+                job=job,
+                message=failure_message,
+                metadata={"status": job.status},
+            )
+            return False
 
     sync_job_status(
         job,
@@ -290,12 +302,14 @@ def hide_job(
 
     was_active = job.status in ACTIVE_JOB_STATUSES
     if cancel_if_active and job.status in ACTIVE_JOB_STATUSES:
-        cancel_job(
+        cancelled = cancel_job(
             job,
             actor=actor,
             source=source,
             reason=_build_hide_cancel_reason(actor=actor, source=source),
         )
+        if not cancelled:
+            return False
 
     job.hidden_from_owner = True
     job.save(update_fields=["hidden_from_owner"])

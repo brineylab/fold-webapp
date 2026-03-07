@@ -14,7 +14,7 @@ from django.utils import timezone
 from jobs.execution import local_attempt_paths, run_local_worker_iteration
 from jobs.management.commands.run_job_worker import run_worker_iteration
 from jobs.models import Job, JobAttempt
-from jobs.services import cancel_job, create_and_submit_job
+from jobs.services import cancel_job, create_and_submit_job, hide_job
 from model_types.base import BaseModelType
 
 
@@ -197,6 +197,7 @@ class LocalCancellationTests(TestCase):
 
     @patch("jobs.execution.subprocess.run")
     def test_cancel_job_stops_running_local_container(self, mock_run):
+        mock_run.return_value = SimpleNamespace(returncode=0)
         job = Job.objects.create(
             owner=self.user,
             runner="boltz-2",
@@ -229,6 +230,66 @@ class LocalCancellationTests(TestCase):
             capture_output=True,
             text=True,
         )
+
+    @patch("jobs.execution.subprocess.run")
+    def test_cancel_job_keeps_running_when_local_stop_fails(self, mock_run):
+        mock_run.return_value = SimpleNamespace(returncode=1)
+        job = Job.objects.create(
+            owner=self.user,
+            runner="boltz-2",
+            model_key="stub",
+            status=Job.Status.RUNNING,
+            queued_at=timezone.now() - timedelta(minutes=2),
+        )
+        attempt = JobAttempt.objects.create(
+            job=job,
+            attempt_number=1,
+            status=JobAttempt.Status.RUNNING,
+            gpu_index=0,
+        )
+
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            paths = local_attempt_paths(job, attempt)
+            paths.root.mkdir(parents=True, exist_ok=True)
+            paths.container_file.write_text("container-456", encoding="utf-8")
+
+            cancelled = cancel_job(job, actor=self.user, source="admin")
+
+        job.refresh_from_db()
+        attempt.refresh_from_db()
+
+        self.assertFalse(cancelled)
+        self.assertEqual(job.status, Job.Status.RUNNING)
+        self.assertEqual(attempt.status, JobAttempt.Status.RUNNING)
+
+    @patch("jobs.execution.subprocess.run")
+    def test_hide_job_does_not_hide_active_job_when_cancel_fails(self, mock_run):
+        mock_run.return_value = SimpleNamespace(returncode=1)
+        job = Job.objects.create(
+            owner=self.user,
+            runner="boltz-2",
+            model_key="stub",
+            status=Job.Status.RUNNING,
+            queued_at=timezone.now() - timedelta(minutes=2),
+        )
+        attempt = JobAttempt.objects.create(
+            job=job,
+            attempt_number=1,
+            status=JobAttempt.Status.RUNNING,
+            gpu_index=0,
+        )
+
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            paths = local_attempt_paths(job, attempt)
+            paths.root.mkdir(parents=True, exist_ok=True)
+            paths.container_file.write_text("container-789", encoding="utf-8")
+
+            hidden = hide_job(job, actor=self.user, source="admin")
+
+        job.refresh_from_db()
+        self.assertFalse(hidden)
+        self.assertFalse(job.hidden_from_owner)
+        self.assertEqual(job.status, Job.Status.RUNNING)
 
 
 class WorkerIterationTests(SimpleTestCase):

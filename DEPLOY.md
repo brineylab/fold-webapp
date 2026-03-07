@@ -41,7 +41,7 @@ python manage.py run_job_worker --interval 10
 - `web`
 - `worker`
 
-The runtime model is still the same local Docker executor. There is no scheduler bridge, poller, or SLURM sidecar to configure.
+The runtime model is still the same local Docker executor. There is no scheduler bridge, poller, or SLURM sidecar to configure. Compose mounts `DATA_DIR` at the same absolute host path inside the containers and exposes the host Docker socket so `run_job_worker` and job cancellation can launch and stop runner containers directly.
 
 ## Validation
 

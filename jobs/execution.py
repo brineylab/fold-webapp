@@ -4,6 +4,7 @@ import os
 import shlex
 import signal
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,6 +21,8 @@ from runners import get_runner
 
 DOCKER_RUN_SENTINEL = "docker run --rm --gpus all"
 LOCAL_STARTUP_GRACE_SECONDS = 5
+LOCAL_CANCEL_GRACE_SECONDS = 10
+LOCAL_CANCEL_POLL_INTERVAL_SECONDS = 0.2
 
 
 @dataclass(frozen=True)
@@ -121,26 +124,44 @@ class LocalDockerExecutor:
             attempt = self._current_attempt(job)
             self._launch_attempt(job, attempt, gpu_index)
 
-    def cancel(self, job: Job) -> None:
+    def cancel(self, job: Job) -> bool:
         attempt = self._current_attempt(job)
         paths = local_attempt_paths(job, attempt)
         container_id = attempt.container_id or _read_text(paths.container_file)
         if container_id:
-            subprocess.run(
+            result = subprocess.run(
                 ["docker", "stop", "--time", "10", container_id],
                 capture_output=True,
                 text=True,
             )
-            return
+            if result.returncode != 0:
+                return False
+
+            pid = _read_pid(paths.pid_file)
+            if pid is not None and not _wait_for_process_exit(
+                pid, timeout_seconds=LOCAL_CANCEL_GRACE_SECONDS
+            ):
+                return False
+            return True
 
         pid = _read_pid(paths.pid_file)
         if pid is None:
-            return
+            return True
 
         try:
             os.killpg(pid, signal.SIGTERM)
         except OSError:
-            return
+            return True
+
+        if _wait_for_process_exit(pid, timeout_seconds=LOCAL_CANCEL_GRACE_SECONDS):
+            return True
+
+        try:
+            os.killpg(pid, signal.SIGKILL)
+        except OSError:
+            return True
+
+        return _wait_for_process_exit(pid, timeout_seconds=2)
 
     def _free_gpu_slots(self) -> list[int]:
         used_slots = set(
@@ -434,3 +455,12 @@ def _make_executable(path: Path) -> None:
         path.chmod(0o775)
     except OSError:
         pass
+
+
+def _wait_for_process_exit(pid: int, *, timeout_seconds: float) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if not _process_is_running(pid):
+            return True
+        time.sleep(LOCAL_CANCEL_POLL_INTERVAL_SECONDS)
+    return not _process_is_running(pid)
