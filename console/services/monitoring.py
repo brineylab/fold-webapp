@@ -11,9 +11,10 @@ from typing import Any
 
 import django
 from django.conf import settings
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils import timezone
 
+from jobs.execution import configured_gpu_slots, get_execution_backend, LOCAL_BACKEND
 from jobs.models import Job
 
 
@@ -139,34 +140,60 @@ def get_job_directory_stats() -> dict[str, Any]:
         }
 
 
-def get_slurm_cluster_status() -> dict[str, Any]:
+def get_execution_backend_status() -> dict[str, Any]:
     """
-    Get SLURM cluster status.
-    
-    This is a stub that can be expanded to query actual SLURM status.
-    
-    Returns:
-        Dictionary containing cluster connectivity and status information.
+    Get status for the currently configured execution backend.
+
+    Phase 3 switches the default runtime to the local Docker executor, while
+    keeping the SLURM path available only as an explicit compatibility fallback.
     """
+    backend = get_execution_backend()
+    gpu_slots = configured_gpu_slots()
+
+    if backend == LOCAL_BACKEND:
+        if gpu_slots:
+            message = (
+                "Jobs are launched directly from the database queue into Docker. "
+                f"Configured GPU slots: {', '.join(str(slot) for slot in gpu_slots)}."
+            )
+        else:
+            message = (
+                "Jobs are queued for the local Docker executor, but no GPU slots "
+                "are configured, so queued jobs will not start."
+            )
+        return {
+            "mode": "local",
+            "label": "Local Docker Executor",
+            "connected": True,
+            "message": message,
+            "gpu_slots": gpu_slots,
+            "uses_legacy_slurm": False,
+        }
+
     fake_slurm = getattr(settings, "FAKE_SLURM", False)
-    
     if fake_slurm:
         return {
-            "mode": "fake",
+            "mode": "slurm",
+            "label": "Legacy SLURM Compatibility",
             "connected": True,
-            "message": "Running in FAKE_SLURM mode (no real cluster)",
+            "message": "Legacy SLURM backend enabled with FAKE_SLURM compatibility mode.",
+            "gpu_slots": gpu_slots,
+            "uses_legacy_slurm": True,
         }
-    
-    # TODO: Implement real SLURM status checks
-    # This could use sinfo, squeue, etc. to get cluster status
+
     return {
-        "mode": "real",
-        "connected": None,  # Unknown until we implement actual checks
-        "message": "SLURM status check not yet implemented",
-        # Future fields:
-        # "nodes_total": ...,
-        # "nodes_available": ...,
-        # "nodes_down": ...,
-        # "jobs_queued": ...,
-        # "jobs_running": ...,
+        "mode": "slurm",
+        "label": "Legacy SLURM Compatibility",
+        "connected": None,
+        "message": (
+            "Legacy SLURM backend is enabled as an explicit fallback. The local "
+            "Docker executor is the default production path."
+        ),
+        "gpu_slots": gpu_slots,
+        "uses_legacy_slurm": True,
     }
+
+
+def get_slurm_cluster_status() -> dict[str, Any]:
+    """Backward-compatible alias for the old monitoring API."""
+    return get_execution_backend_status()

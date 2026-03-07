@@ -1,8 +1,8 @@
 # fold-webapp
 
-Minimal intranet web UI for submitting protein structure prediction jobs to SLURM.
+Minimal intranet web UI for submitting protein structure prediction jobs to a local Docker-backed queue.
 
-The current runtime is still Docker + `SLURM`, but the accepted simplification target now assumes a host-run Django and worker control plane with Docker retained only for model execution. Phase 0 artifacts for that target live in [`docs/architecture/0001-host-run-control-plane.md`](docs/architecture/0001-host-run-control-plane.md) and [`docs/operations/PHASE0_HOST_RUNTIME.md`](docs/operations/PHASE0_HOST_RUNTIME.md).
+The default runtime now uses the host-run Django app plus a database-backed worker that launches model containers directly. The legacy `SLURM` path remains available only as an explicit fallback pending phase 4 cleanup. Phase 0 artifacts for the target architecture live in [`docs/architecture/0001-host-run-control-plane.md`](docs/architecture/0001-host-run-control-plane.md) and [`docs/operations/PHASE0_HOST_RUNTIME.md`](docs/operations/PHASE0_HOST_RUNTIME.md).
 
 ## Quick Start (Development)
 
@@ -18,7 +18,7 @@ pip install -r requirements.txt
 
 # Configure environment
 cp env.example .env
-# Edit .env and set FAKE_SLURM=1 for local development
+# Edit .env and confirm JOB_EXECUTION_BACKEND=local and GPU_SLOTS=0
 
 # Run migrations and create admin user
 python manage.py migrate
@@ -151,7 +151,9 @@ Fresh installs now optimize for a single-user deployment: `DATA_DIR` defaults to
 | `DATABASE_PATH` | Path to SQLite database file | `$DATA_DIR/db/db.sqlite3` |
 | `JOB_BASE_DIR` | Directory for job working files | `$DATA_DIR/jobs` |
 | `HARNESS_BASE_DIR_HOST` | Host directory for post-install harness runs | `$DATA_DIR/harness` |
-| `FAKE_SLURM` | Simulate SLURM for local dev (`1` or `0`) | `0` |
+| `FAKE_SLURM` | Legacy SLURM compatibility switch (`1` or `0`) | `0` |
+| `JOB_EXECUTION_BACKEND` | Execution backend (`local` or `slurm`) | `local` |
+| `GPU_SLOTS` | Comma-separated GPU indices available to the worker | `0` |
 | `BACKUP_DIR` | Directory for backup archives | `./backups` |
 | `BACKUP_RETENTION` | Days to keep old backups | `30` |
 
@@ -204,6 +206,6 @@ See **[api/README.md](api/README.md)** for full endpoint documentation, authenti
 ## Notes
 
 - **Job directories**: Controlled filesystem layout under `JOB_BASE_DIR/<job_uuid>/...`
-- **Fake mode**: Set `FAKE_SLURM=1` to develop without SLURM; jobs transition PENDING→RUNNING→COMPLETED automatically after ~15 seconds
+- **Default runtime**: Set `JOB_EXECUTION_BACKEND=local` and `GPU_SLOTS` to the host GPU indices the worker may use
 - **Worker entrypoint**: `python manage.py run_job_worker --interval 10` is the canonical long-lived worker command
 - **Runners**: Stub implementations in `runners/` — replace with actual tool invocations for production

@@ -14,8 +14,9 @@ def run_worker_iteration() -> None:
     """Execute one worker iteration.
 
     The worker entrypoint stays stable while the runtime backend changes.
-    Local mode dispatches queued jobs directly to Docker and reconciles
-    running attempts. SLURM mode keeps delegating to ``poll_jobs``.
+    Local mode is the default production path and dispatches queued jobs
+    directly to Docker while reconciling running attempts. SLURM mode is
+    kept only as a temporary fallback and still delegates to ``poll_jobs``.
     """
     if local_execution_enabled():
         run_local_worker_iteration()

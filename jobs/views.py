@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Prefetch
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from console.models import SiteSettings
 from jobs.forms import get_disabled_runners
-from jobs.models import Job
+from jobs.models import Job, JobAttempt
 from jobs.services import create_and_submit_job, cancel_job, hide_job, list_output_files
 from model_types import get_model_type, get_model_types_by_category, get_submittable_model_types
 
@@ -20,8 +21,15 @@ def _fallback_output_context(job):
 
 
 def _job_queryset_for(user):
+    latest_attempts = Prefetch(
+        "attempts",
+        queryset=JobAttempt.objects.order_by("-attempt_number"),
+        to_attr="prefetched_attempts",
+    )
     return Job.objects.filter(owner=user, hidden_from_owner=False).select_related(
         "owner"
+    ).prefetch_related(
+        latest_attempts
     )
 
 

@@ -52,7 +52,7 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
-  # Background job worker (currently wraps poll_jobs)
+  # Background job worker (dispatch + reconciliation loop)
   poller:
     build:
       context: .
@@ -69,7 +69,7 @@ services:
       - ${DATA_DIR:-./data}/db:/app/data/db
       - ${DATA_DIR:-./data}/jobs:/app/data/jobs
       - ${HARNESS_BASE_DIR_HOST:-./data/harness}:/app/data/harness
-      # Uncomment below to mount SLURM binaries from host (production only)
+      # Uncomment below only if you explicitly enable the legacy SLURM fallback
       # - /usr/bin/squeue:/usr/bin/squeue:ro
       # - /usr/bin/sacct:/usr/bin/sacct:ro
       # - /usr/bin/scancel:/usr/bin/scancel:ro

@@ -333,12 +333,20 @@ def serialize_job(
     include_output_files: bool = False,
     include_attempts: bool = False,
 ) -> dict:
+    current_attempt = job.current_attempt
     payload = {
         "id": str(job.id),
         "name": job.name,
         "model_key": job.model_key,
         "runner": job.runner,
         "status": job.status,
+        "execution_backend": job.runtime_backend,
+        "runtime_id": job.runtime_identifier,
+        "runtime_container_id": job.runtime_container_id,
+        "runtime_gpu_index": job.runtime_gpu_index,
+        "current_attempt_number": (
+            current_attempt.attempt_number if current_attempt else None
+        ),
         "error_message": job.error_message,
         "created_at": _isoformat(job.created_at),
         "queued_at": _isoformat(job.queued_at),

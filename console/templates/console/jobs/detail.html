@@ -54,9 +54,46 @@
           </div>
         </div>
         <div class="row mb-3">
-          <div class="col-sm-3"><strong>SLURM Job ID</strong></div>
-          <div class="col-sm-9"><code>{{ job.slurm_job_id|default:"-" }}</code></div>
+          <div class="col-sm-3"><strong>Execution Backend</strong></div>
+          <div class="col-sm-9"><code>{{ job.runtime_backend }}</code></div>
         </div>
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Runtime ID</strong></div>
+          <div class="col-sm-9"><code>{{ job.runtime_identifier|default:"-" }}</code></div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Current Attempt</strong></div>
+          <div class="col-sm-9">
+            {% if job.current_attempt %}
+            #{{ job.current_attempt.attempt_number }} ({{ job.current_attempt.status }})
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>GPU Slot</strong></div>
+          <div class="col-sm-9"><code>{{ job.runtime_gpu_index|default:"-" }}</code></div>
+        </div>
+        {% if job.runtime_container_id %}
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Container ID</strong></div>
+          <div class="col-sm-9"><code>{{ job.runtime_container_id }}</code></div>
+        </div>
+        {% endif %}
+        {% if job.current_attempt.stdout_path or job.current_attempt.stderr_path %}
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Attempt Logs</strong></div>
+          <div class="col-sm-9">
+            {% if job.current_attempt.stdout_path %}
+            <div><code class="text-break">{{ job.current_attempt.stdout_path }}</code></div>
+            {% endif %}
+            {% if job.current_attempt.stderr_path %}
+            <div><code class="text-break">{{ job.current_attempt.stderr_path }}</code></div>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
         {% if job.error_message %}
         <div class="row mb-3">
           <div class="col-sm-3"><strong>Error</strong></div>
@@ -85,6 +122,19 @@
         <div class="row">
           <div class="col-sm-3"><strong>Completed</strong></div>
           <div class="col-sm-9">{{ job.completed_at|date:"Y-m-d H:i:s"|default:"-" }}</div>
+        </div>
+        <hr>
+        <div class="row mb-2">
+          <div class="col-sm-3"><strong>Wait Seconds</strong></div>
+          <div class="col-sm-9">{{ job.wait_seconds|default:"-" }}</div>
+        </div>
+        <div class="row mb-2">
+          <div class="col-sm-3"><strong>Run Seconds</strong></div>
+          <div class="col-sm-9">{{ job.run_seconds|default:"-" }}</div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3"><strong>GPU Seconds</strong></div>
+          <div class="col-sm-9">{{ job.gpu_seconds|default:"-" }}</div>
         </div>
       </div>
     </div>
@@ -182,4 +232,3 @@
   </div>
 </div>
 {% endblock %}
-

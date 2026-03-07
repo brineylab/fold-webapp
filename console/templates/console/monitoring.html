@@ -45,41 +45,50 @@
     </div>
   </div>
 
-  <!-- SLURM Status -->
+  <!-- Execution Backend -->
   <div class="col-md-6 mb-4">
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>SLURM Cluster</strong>
-        {% if slurm_status.mode == "fake" %}
-        <span class="badge bg-warning">Fake Mode</span>
+        <strong>Execution Backend</strong>
+        {% if backend_status.mode == "local" %}
+        <span class="badge bg-success">Default</span>
         {% else %}
-        <span class="badge bg-info">Real Mode</span>
+        <span class="badge bg-warning">Legacy Fallback</span>
         {% endif %}
       </div>
       <div class="card-body">
-        {% if slurm_status.mode == "fake" %}
+        {% if backend_status.mode == "local" %}
+        <div class="alert alert-success mb-3">
+          <strong>Phase 3 Runtime:</strong> The worker dispatches queued jobs directly to Docker.
+        </div>
+        {% elif backend_status.uses_legacy_slurm %}
         <div class="alert alert-warning mb-3">
-          <strong>Development Mode:</strong> Running with FAKE_SLURM enabled. 
-          Jobs are simulated locally.
+          <strong>Legacy Mode:</strong> This install is still using the temporary SLURM fallback.
         </div>
         {% endif %}
         
         <table class="table table-sm mb-0">
           <tbody>
             <tr>
-              <td class="fw-semibold" style="width: 40%;">Mode</td>
+              <td class="fw-semibold" style="width: 40%;">Backend</td>
               <td>
-                <span class="badge {% if slurm_status.mode == 'fake' %}bg-warning{% else %}bg-info{% endif %}">
-                  {{ slurm_status.mode|upper }}
+                <span class="badge {% if backend_status.mode == 'local' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                  {{ backend_status.label }}
                 </span>
               </td>
             </tr>
             <tr>
-              <td class="fw-semibold">Connected</td>
+              <td class="fw-semibold">Mode</td>
               <td>
-                {% if slurm_status.connected == True %}
+                <code>{{ backend_status.mode }}</code>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">Ready</td>
+              <td>
+                {% if backend_status.connected == True %}
                 <span class="text-success">Yes</span>
-                {% elif slurm_status.connected == False %}
+                {% elif backend_status.connected == False %}
                 <span class="text-danger">No</span>
                 {% else %}
                 <span class="text-muted">Unknown</span>
@@ -88,7 +97,17 @@
             </tr>
             <tr>
               <td class="fw-semibold">Status</td>
-              <td>{{ slurm_status.message }}</td>
+              <td>{{ backend_status.message }}</td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">GPU Slots</td>
+              <td>
+                {% if backend_status.gpu_slots %}
+                <code>{{ backend_status.gpu_slots|join:", " }}</code>
+                {% else %}
+                <span class="text-muted">None configured</span>
+                {% endif %}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -97,9 +116,8 @@
         
         <div class="text-muted">
           <small>
-            <em>Future expansion:</em> This section will show cluster nodes, 
-            queue summary, and resource utilization when connected to a real 
-            SLURM cluster.
+            <em>Future expansion:</em> This section can grow into queue depth,
+            worker heartbeat, and GPU utilization checks if needed.
           </small>
         </div>
       </div>
@@ -180,8 +198,8 @@
       <div class="card-body text-muted">
         <p>This section is designed for future expansion. Planned features include:</p>
         <ul class="mb-0">
-          <li>Real-time SLURM queue monitoring (squeue integration)</li>
-          <li>Node availability and health status (sinfo integration)</li>
+          <li>Real-time queue depth and worker heartbeat monitoring</li>
+          <li>GPU slot occupancy and container health status</li>
           <li>Resource utilization charts (CPU, memory, GPU)</li>
           <li>Job throughput metrics</li>
           <li>Alerting and notifications</li>
@@ -191,4 +209,3 @@
   </div>
 </div>
 {% endblock %}
-

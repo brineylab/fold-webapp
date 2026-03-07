@@ -146,9 +146,10 @@ HARNESS_BASE_DIR_HOST = Path(
     os.environ.get("HARNESS_BASE_DIR_HOST", str(JOB_BASE_DIR_HOST.parent / "harness"))
 )
 
-# Set to "1" for development without SLURM (fake job IDs), "0" for production with real SLURM.
+# Legacy SLURM compatibility switch. The local Docker executor is now the
+# default runtime; keep this at 0 unless you explicitly need the old path.
 FAKE_SLURM = os.environ.get("FAKE_SLURM", "0") == "1"
-JOB_EXECUTION_BACKEND = os.environ.get("JOB_EXECUTION_BACKEND", "slurm").strip().lower()
+JOB_EXECUTION_BACKEND = os.environ.get("JOB_EXECUTION_BACKEND", "local").strip().lower()
 GPU_SLOTS = _parse_gpu_slots(os.environ.get("GPU_SLOTS", ""))
 
 # Boltz-2 configuration

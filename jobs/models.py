@@ -65,6 +65,45 @@ class Job(models.Model):
             return self.workdir
         return Path(base) / str(self.id)
 
+    @property
+    def current_attempt(self):
+        prefetched = getattr(self, "prefetched_attempts", None)
+        if prefetched is not None:
+            return prefetched[0] if prefetched else None
+        return self.attempts.order_by("-attempt_number").first()
+
+    @property
+    def runtime_backend(self) -> str:
+        return "slurm" if self.slurm_job_id else "local"
+
+    @property
+    def runtime_identifier(self) -> str:
+        if self.slurm_job_id:
+            return self.slurm_job_id
+
+        attempt = self.current_attempt
+        if attempt is None:
+            return ""
+        if attempt.scheduler_job_id:
+            return attempt.scheduler_job_id
+        if attempt.container_id:
+            return attempt.container_id
+        return ""
+
+    @property
+    def runtime_container_id(self) -> str:
+        attempt = self.current_attempt
+        if attempt is None:
+            return ""
+        return attempt.container_id
+
+    @property
+    def runtime_gpu_index(self):
+        attempt = self.current_attempt
+        if attempt is None:
+            return None
+        return attempt.gpu_index
+
     def __str__(self) -> str:
         return f"{self.id} ({self.runner})"
 

@@ -60,7 +60,10 @@ class Phase1SubmissionTests(TestCase):
         quota.priority_tier = "priority"
         quota.save(update_fields=["priority_tier"])
 
-        with override_settings(JOB_BASE_DIR=self.tmpdir):
+        with override_settings(
+            JOB_BASE_DIR=self.tmpdir,
+            JOB_EXECUTION_BACKEND="slurm",
+        ):
             job = create_and_submit_job(
                 owner=self.user,
                 model_type=_StubModelType(),

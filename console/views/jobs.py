@@ -1,20 +1,26 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.db.models import Prefetch
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from console.decorators import console_required
 from console.services.jobs import cancel_job, bulk_cancel_jobs, bulk_hide_jobs
-from jobs.models import Job
+from jobs.models import Job, JobAttempt
 from jobs.services import list_output_files
 
 
 @console_required
 def job_list(request):
     """List all jobs across all users with search/filter capabilities."""
-    jobs = Job.objects.select_related("owner").order_by("-created_at")
+    latest_attempts = Prefetch(
+        "attempts",
+        queryset=JobAttempt.objects.order_by("-attempt_number"),
+        to_attr="prefetched_attempts",
+    )
+    jobs = Job.objects.select_related("owner").prefetch_related(latest_attempts)
     
     # Search
     search = request.GET.get("search", "").strip()
@@ -23,8 +29,10 @@ def job_list(request):
             Q(id__icontains=search) |
             Q(name__icontains=search) |
             Q(owner__username__icontains=search) |
-            Q(slurm_job_id__icontains=search)
-        )
+            Q(slurm_job_id__icontains=search) |
+            Q(attempts__scheduler_job_id__icontains=search) |
+            Q(attempts__container_id__icontains=search)
+        ).distinct()
     
     # Filter by status
     status = request.GET.get("status", "")
@@ -47,7 +55,7 @@ def job_list(request):
     runners = Job.objects.values_list("runner", flat=True).distinct()
     
     # Pagination (simple limit for now)
-    jobs = jobs[:200]
+    jobs = jobs.order_by("-created_at")[:200]
     
     context = {
         "jobs": jobs,
@@ -64,7 +72,15 @@ def job_list(request):
 @console_required
 def job_detail(request, job_id):
     """Detailed view of a single job for admin purposes."""
-    job = get_object_or_404(Job.objects.select_related("owner"), id=job_id)
+    latest_attempts = Prefetch(
+        "attempts",
+        queryset=JobAttempt.objects.order_by("-attempt_number"),
+        to_attr="prefetched_attempts",
+    )
+    job = get_object_or_404(
+        Job.objects.select_related("owner").prefetch_related(latest_attempts),
+        id=job_id,
+    )
     
     files = [item["name"] for item in list_output_files(job)]
     

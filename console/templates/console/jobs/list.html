@@ -24,7 +24,7 @@
       <div class="col-md-4">
         <label for="search" class="form-label">Search</label>
         <input type="text" class="form-control" id="search" name="search" value="{{ search }}" 
-               placeholder="Job ID, name, owner, SLURM ID&#x2026;">
+               placeholder="Job ID, name, owner, runtime ID&#x2026;">
       </div>
       <div class="col-md-2">
         <label for="status" class="form-label">Status</label>
@@ -96,7 +96,7 @@
               <th>Owner</th>
               <th>Runner</th>
               <th>Status</th>
-              <th>SLURM ID</th>
+              <th>Runtime ID</th>
               <th>Created</th>
               <th>Hidden</th>
               <th></th>
@@ -117,7 +117,7 @@
               <td>{{ job.owner.username }}</td>
               <td><span class="badge bg-secondary">{{ job.runner }}</span></td>
               <td><span class="fw-semibold status-{{ job.status }}">{{ job.status }}</span></td>
-              <td><code class="text-muted">{{ job.slurm_job_id|default:"-" }}</code></td>
+              <td><code class="text-muted">{{ job.runtime_identifier|default:"-" }}</code></td>
               <td class="text-muted">{{ job.created_at|date:"Y-m-d H:i" }}</td>
               <td>
                 {% if job.hidden_from_owner %}
@@ -169,4 +169,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

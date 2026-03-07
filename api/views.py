@@ -3,13 +3,14 @@ from __future__ import annotations
 import json
 
 from django.core.exceptions import ValidationError
+from django.db.models import Prefetch
 from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from api.auth import api_auth_required
-from jobs.models import Job
+from jobs.models import Job, JobAttempt
 from jobs.services import (
     cancel_job,
     create_and_submit_job,
@@ -20,8 +21,15 @@ from model_types import get_model_type, get_submittable_model_types
 
 
 def _job_queryset_for(user):
+    latest_attempts = Prefetch(
+        "attempts",
+        queryset=JobAttempt.objects.order_by("-attempt_number"),
+        to_attr="prefetched_attempts",
+    )
     return Job.objects.filter(owner=user, hidden_from_owner=False).select_related(
         "owner"
+    ).prefetch_related(
+        latest_attempts
     )
 
 

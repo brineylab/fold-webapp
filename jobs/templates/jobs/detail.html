@@ -20,8 +20,20 @@
           <div><span class="fw-semibold status-{{ job.status }}">{{ job.status }}</span></div>
         </div>
         <div class="col-auto">
-          <div class="text-muted small">SLURM ID</div>
-          <div class="text-muted">{{ job.slurm_job_id|default:"-" }}</div>
+          <div class="text-muted small">Backend</div>
+          <div class="text-uppercase">{{ job.runtime_backend }}</div>
+        </div>
+        <div class="col-auto">
+          <div class="text-muted small">Runtime ID</div>
+          <div class="text-muted">{{ job.runtime_identifier|default:"-" }}</div>
+        </div>
+        <div class="col-auto">
+          <div class="text-muted small">Attempt</div>
+          <div>{{ job.current_attempt.attempt_number|default:"-" }}</div>
+        </div>
+        <div class="col-auto">
+          <div class="text-muted small">GPU</div>
+          <div>{{ job.runtime_gpu_index|default:"-" }}</div>
         </div>
         <div class="col-auto">
           <div class="text-muted small">Created</div>
