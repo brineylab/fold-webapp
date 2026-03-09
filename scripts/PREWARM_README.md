@@ -1,226 +1,174 @@
-# Pre-warming Script
+# Prewarming
 
-The `prewarm.sh` script prepares your deployment by pulling Docker images and downloading model weights before the first production job is submitted. This significantly reduces the wait time for initial jobs.
+`./deploy.sh prewarm` and `./scripts/prewarm.sh` prepare a deployment so the
+first real jobs do not spend their time pulling images or downloading model
+weights.
 
-## Quick Start
+Prewarm is a readiness step. It is not a validation step. After prewarming,
+run the smoke harness with `./deploy.sh validate-models --tier smoke`.
 
-```bash
-# After deployment, run:
-./deploy.sh prewarm
+## What The Script Actually Does
 
-# Or run directly:
-./scripts/prewarm.sh
-```
+Unless you skip a phase with flags, `scripts/prewarm.sh` does two things:
 
-## What It Does
+1. It prepares images.
+2. It prepares weight caches.
 
-1. **Pulls/builds Docker images** for all model runners:
-   - `brineylab/boltz2:latest` (~5 GB)
-   - `brineylab/chai1:latest` (~5 GB)
-   - `brineylab/ligandmpnn:latest` (~2 GB)
-   - Main web application image
+### Image Preparation
 
-2. **Downloads model weights** by running minimal test predictions:
-   - Boltz-2 weights (~2-3 GB) → cached to `BOLTZ_CACHE_DIR`
-   - Chai-1 weights (~2-3 GB) → cached to `CHAI_CACHE_DIR`
-   - LigandMPNN weights (already in Docker image)
+For each model image, the script first tries `docker pull`. If that fails, it
+falls back to a local `docker build` from the corresponding directory under
+`containers/`.
 
-3. **Verifies** that containers can run and access GPUs
+It does this for:
 
-## When to Run
+- `BOLTZ_IMAGE`
+- `CHAI_IMAGE`
+- `LIGANDMPNN_IMAGE`
+- `BINDCRAFT_IMAGE`
+- `RFDIFFUSION3_IMAGE`
+- `BOLTZGEN_IMAGE`
 
-- **After initial deployment** - Download all weights once
-- **After model updates** - New model versions (e.g., Boltz-3)
-- **After adding new models** - New model types entirely
-- **Before production cutover** - Ensure everything is ready
-- **Periodically** - Keep weights up to date
+After the model images, it runs `docker compose build` for the main web app
+image.
 
-## Usage
+### Weight Preparation
 
-### Basic Usage
+The script then calls `scripts/download_weights.sh`, which downloads caches for:
 
-```bash
-./deploy.sh prewarm
-```
+- Boltz-2 into `BOLTZ_CACHE_DIR`
+- Chai-1 into `CHAI_CACHE_DIR`
+- BoltzGen into `BOLTZGEN_CACHE_DIR`
 
-### With Docker Registry
-
-If you're pulling images from a registry instead of building locally:
-
-```bash
-./scripts/prewarm.sh --registry registry.example.com:5000
-```
-
-This will pull:
-- `registry.example.com:5000/brineylab/boltz2:latest`
-- `registry.example.com:5000/brineylab/chai1:latest`
-- `registry.example.com:5000/brineylab/ligandmpnn:latest`
-
-### Partial Pre-warming
-
-Skip images if already built/pulled:
-
-```bash
-./scripts/prewarm.sh --skip-images
-```
-
-Skip weights if already downloaded:
-
-```bash
-./scripts/prewarm.sh --skip-weights
-```
-
-Only pull/build images (no weight downloads):
-
-```bash
-./scripts/prewarm.sh --skip-weights
-```
+ProteinMPNN, LigandMPNN, BindCraft, and RFdiffusion3 do not have a separate
+weight-download step in this script. Their runtime assets are expected to be
+available in the image that was pulled or built.
 
 ## Requirements
 
-- Docker with GPU support (`nvidia-docker2`)
-- NVIDIA GPU accessible to Docker
-- Sufficient disk space (~15-20 GB for images + weights)
-- Network connectivity for downloads
+- Docker Engine
+- Docker Compose v2
+- Network access for image pulls and weight downloads
+- Writable cache directories
 
-## Environment Variables
+The script also probes Docker GPU access and prints a warning if GPUs are not
+available. That warning is informational for prewarming itself: the explicit
+weight-download steps do not require a GPU. Real jobs and the smoke harness do.
 
-The script reads from `.env` (or `env.example` if `.env` doesn't exist):
+## Usage
+
+### Recommended
 
 ```bash
-BOLTZ_IMAGE=brineylab/boltz2:latest
-BOLTZ_CACHE_DIR=/path/to/boltz_cache
-
-CHAI_IMAGE=brineylab/chai1:latest
-CHAI_CACHE_DIR=/path/to/chai_cache
-
-LIGANDMPNN_IMAGE=brineylab/ligandmpnn:latest
+./deploy.sh prewarm
 ```
+
+### Direct
+
+```bash
+./scripts/prewarm.sh
+```
+
+If `.env` exists, the script reads configuration from it. If `.env` does not
+exist, it falls back to `env.example`. In that fallback case, `DATA_DIR`
+defaults to `./data` inside the repo.
+
+## Options
+
+```bash
+./scripts/prewarm.sh --skip-images
+./scripts/prewarm.sh --skip-weights
+./scripts/prewarm.sh --registry registry.example.com
+```
+
+### `--skip-images`
+
+Skip image pulls and builds. Use this when the needed images are already
+present locally and you only want to refresh weight caches.
+
+### `--skip-weights`
+
+Skip `scripts/download_weights.sh`. Use this when images are the only thing you
+want to refresh.
+
+### `--registry`
+
+Prefix every configured image name with a registry URL.
+
+Example:
+
+- If `BOLTZ_IMAGE=brineylab/boltz2:latest`
+- And you run `./scripts/prewarm.sh --registry registry.example.com`
+- The script will use `registry.example.com/brineylab/boltz2:latest`
+
+This flag prefixes the image name that is already present in `.env`; it does
+not replace it.
+
+## Model And Cache Mapping
+
+| Model surface | Image variable | Cache variable | Separate download step |
+| --- | --- | --- | --- |
+| Boltz-2 | `BOLTZ_IMAGE` | `BOLTZ_CACHE_DIR` | Yes |
+| Chai-1 | `CHAI_IMAGE` | `CHAI_CACHE_DIR` | Yes |
+| ProteinMPNN and LigandMPNN | `LIGANDMPNN_IMAGE` | None | No |
+| BindCraft | `BINDCRAFT_IMAGE` | None | No |
+| RFdiffusion3 | `RFDIFFUSION3_IMAGE` | None | No |
+| BoltzGen | `BOLTZGEN_IMAGE` | `BOLTZGEN_CACHE_DIR` | Yes |
+
+## Typical Workflow
+
+```bash
+./deploy.sh install
+./deploy.sh prewarm
+./deploy.sh validate-models --tier smoke
+```
+
+If prewarm succeeds and the smoke harness passes, the deployment is both warmed
+and tested.
 
 ## Troubleshooting
 
-### GPU not accessible
-
-```
-WARNING: GPU not accessible via Docker. Model weight downloads may fail.
-```
-
-**Solution**: Install and configure `nvidia-docker2`:
-
-```bash
-# Ubuntu/Debian
-sudo apt-get install nvidia-docker2
-sudo systemctl restart docker
-
-# Test GPU access
-docker run --rm --gpus all nvidia/cuda:12.2.2-base-ubuntu22.04 nvidia-smi
-```
-
 ### Image pull fails
 
-```
-WARNING: Failed to pull brineylab/boltz2:latest from registry.
-```
+This is not automatically fatal. The script already falls back to a local build
+from `containers/<model>/` when a pull fails.
 
-**Expected behavior**: If images haven't been pushed to a registry yet, the script will automatically fall back to building them locally.
+If you intended to pull from a private registry, confirm that:
 
-**Solution for production**:
-1. Build images: `docker build -t registry.example.com/boltz2:latest containers/boltz2/`
-2. Push to registry: `docker push registry.example.com/boltz2:latest`
-3. Run prewarm with registry: `./scripts/prewarm.sh --registry registry.example.com`
+- The registry prefix passed to `--registry` is correct
+- You are logged in to that registry
+- The image names in `.env` point at the expected repository and tag
 
 ### Weight download fails
 
-```
-WARNING: Boltz-2 pre-warm failed. Weights may not be fully cached.
+Common causes:
+
+- No outbound network access
+- Cache directory permissions
+- The referenced image does not contain the expected runtime package
+
+Useful retries:
+
+```bash
+./scripts/prewarm.sh --skip-images
+./scripts/download_weights.sh
+./scripts/download_weights.sh boltz2 --overwrite
 ```
 
-**Possible causes**:
-- Network timeout during download
-- Insufficient disk space
-- GPU out of memory
+### GPU probe warns
 
-**Solution**:
-1. Check disk space: `df -h`
-2. Check GPU availability: `nvidia-smi`
-3. Check network connectivity
-4. Re-run: `./scripts/prewarm.sh --skip-images` (skip image pull, retry weights)
+If you see a warning that Docker cannot access a GPU, prewarm may still finish.
+That does not mean the deployment is ready for real inference jobs. Fix GPU
+access before running the smoke harness or accepting user traffic.
 
 ### Cache directory permissions
 
-**Solution**: Ensure cache directories are writable. Replace `$DATA_DIR` with your configured data directory (defaults to `./data`):
+The weight-download helpers require writable cache directories. By default those
+live under `DATA_DIR/jobs/`. Ensure the account running the script can create
+and write those directories.
 
-```bash
-sudo chown -R $(whoami):$(whoami) $DATA_DIR/jobs/boltz_cache $DATA_DIR/jobs/chai_cache
-```
+## Related Docs
 
-## Performance Impact
-
-### Time Estimates
-
-| Step | Duration | Network-dependent |
-|------|----------|-------------------|
-| Image pull/build | 5-15 min | Yes (if pulling) |
-| Boltz-2 weights | 5-15 min | Yes |
-| Chai-1 weights | 5-15 min | Yes |
-| **Total** | **15-45 min** | Yes |
-
-### Disk Usage
-
-| Component | Size |
-|-----------|------|
-| Boltz-2 image | ~5 GB |
-| Chai-1 image | ~5 GB |
-| LigandMPNN image | ~2 GB |
-| Boltz-2 weights | ~2-3 GB |
-| Chai-1 weights | ~2-3 GB |
-| **Total** | **~16-20 GB** |
-
-## Benefits
-
-Without pre-warming, the first job for each model will:
-1. Pull the Docker image (5-15 min)
-2. Download model weights (5-15 min)
-3. Run the prediction
-
-**First job total**: 10-30+ minutes
-
-With pre-warming:
-- All images are cached locally
-- All weights are cached locally
-
-**First job total**: <1-5 minutes (just prediction time)
-
-## Integration with deploy.sh
-
-The prewarm script is integrated into `deploy.sh`:
-
-```bash
-# Via deploy.sh (recommended)
-./deploy.sh prewarm [options]
-
-# Direct invocation
-./scripts/prewarm.sh [options]
-```
-
-Both approaches are equivalent. Use whichever is more convenient.
-
-## Example Deployment Workflow
-
-```bash
-# 1. Initial setup
-./deploy.sh install
-
-# 2. Pre-warm (can run in background)
-./deploy.sh prewarm &
-
-# 3. Deploy is ready when prewarm completes
-# First jobs will be fast!
-```
-
-## See Also
-
-- `deploy.sh` - Main deployment script
-- `backup.sh` - Backup script
-- `restore.sh` - Restore script
-- `env.example` - Environment variable template
+- [`../README.md`](../README.md) for the end-to-end install path
+- [`../DEPLOY.md`](../DEPLOY.md) for runtime configuration and operations
+- [`MODEL_HARNESS.md`](MODEL_HARNESS.md) for the post-install validation harness
