@@ -1,0 +1,127 @@
+version: 1
+sequences:
+- protein:
+    id: A
+    sequence: ADPFKVLQEPTCVSDYMSISTCEWKMNGPTQCSTELRLLYQLVFLLSEAHTCIPENNGGAGCVCHLLMDDVVSADQYTLDLWAGQQLLWKGSFKPSEHVKPRAPGNLTVHTQVSDTLLLTWSNPYPPDNYLYNHLTYAVNIWSENDPADFRIYQVTYLEPSLRIAASTLKSGISYRARVRAWAQCYNTTWSEWSPSTKWHNSYRE
+    modifications: null
+- ligand:
+    id: A_glycan1_1
+    ccd: NAG
+- ligand:
+    id: A_glycan1_2
+    ccd: NAG
+- ligand:
+    id: A_glycan1_3
+    ccd: MAN
+- ligand:
+    id: A_glycan1_4
+    ccd: MAN
+- ligand:
+    id: A_glycan1_5
+    ccd: MAN
+- ligand:
+    id: A_glycan2_1
+    ccd: NAG
+- ligand:
+    id: A_glycan2_2
+    ccd: NAG
+- ligand:
+    id: A_glycan2_3
+    ccd: MAN
+- ligand:
+    id: A_glycan2_4
+    ccd: MAN
+- ligand:
+    id: A_glycan2_5
+    ccd: MAN
+constraints:
+- bond:
+    atom1:
+    - A_glycan1_4
+    - 1
+    - O4
+    atom2:
+    - A_glycan1_5
+    - 1
+    - C1
+- bond:
+    atom1:
+    - A_glycan1_3
+    - 1
+    - O4
+    atom2:
+    - A_glycan1_4
+    - 1
+    - C1
+- bond:
+    atom1:
+    - A_glycan1_2
+    - 1
+    - O4
+    atom2:
+    - A_glycan1_3
+    - 1
+    - C1
+- bond:
+    atom1:
+    - A_glycan1_1
+    - 1
+    - O4
+    atom2:
+    - A_glycan1_2
+    - 1
+    - C1
+- bond:
+    atom1:
+    - A
+    - 106
+    - ND2
+    atom2:
+    - A_glycan1_1
+    - 1
+    - C1
+- bond:
+    atom1:
+    - A_glycan2_4
+    - 1
+    - O4
+    atom2:
+    - A_glycan2_5
+    - 1
+    - C1
+- bond:
+    atom1:
+    - A_glycan2_3
+    - 1
+    - O4
+    atom2:
+    - A_glycan2_4
+    - 1
+    - C1
+- bond:
+    atom1:
+    - A_glycan2_2
+    - 1
+    - O4
+    atom2:
+    - A_glycan2_3
+    - 1
+    - C1
+- bond:
+    atom1:
+    - A_glycan2_1
+    - 1
+    - O4
+    atom2:
+    - A_glycan2_2
+    - 1
+    - C1
+- bond:
+    atom1:
+    - A
+    - 187
+    - ND2
+    atom2:
+    - A_glycan2_1
+    - 1
+    - C1
