@@ -4,7 +4,12 @@ from pathlib import Path
 
 from django.conf import settings
 
-from runners import Runner, optional_cuda_visible_devices_env_setup, register
+from runners import (
+    Runner,
+    docker_resource_flags,
+    optional_cuda_visible_devices_env_setup,
+    register,
+)
 
 
 @register
@@ -44,6 +49,10 @@ class BindCraftRunner(Runner):
 
         docker_args = [
             "docker run --rm --gpus all",
+            *docker_resource_flags(
+                shm_size=settings.BINDCRAFT_DOCKER_SHM_SIZE,
+                ipc_mode=settings.BINDCRAFT_DOCKER_IPC_MODE,
+            ),
             "-e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}",
             "${cuda_visible_devices_flag}",
             f"-v {workdir}:/work",

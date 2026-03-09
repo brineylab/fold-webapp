@@ -6,8 +6,10 @@ ARG TORCH_CUDA_INDEX_URL=https://download.pytorch.org/whl/cu128
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         python3 \
+        python3-dev \
         python3-venv \
         python3-pip \
+        build-essential \
         git \
         curl \
         ca-certificates \
@@ -15,6 +17,8 @@ RUN apt-get update \
 
 RUN python3 -m venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH \
+    CC=/usr/bin/gcc \
+    CXX=/usr/bin/g++ \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONUNBUFFERED=1
 

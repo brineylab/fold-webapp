@@ -42,6 +42,14 @@ class Boltz2SubmitForm(forms.Form):
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
         help_text="Apply inference-time potentials for improved physical plausibility.",
     )
+    no_kernels = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        help_text=(
+            "Disable Boltz CUDA kernels. Useful for troubleshooting older GPUs "
+            "or cuequivariance kernel failures."
+        ),
+    )
     output_format = forms.ChoiceField(
         required=False,
         choices=[("mmcif", "mmCIF"), ("pdb", "PDB")],

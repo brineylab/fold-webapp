@@ -24,6 +24,7 @@ class Boltz2ModelType(BaseModelType):
         params = {
             "use_msa_server": bool(cleaned_data.get("use_msa_server")),
             "use_potentials": bool(cleaned_data.get("use_potentials")),
+            "no_kernels": bool(cleaned_data.get("no_kernels")),
             "output_format": cleaned_data.get("output_format"),
             "recycling_steps": cleaned_data.get("recycling_steps"),
             "sampling_steps": cleaned_data.get("sampling_steps"),
@@ -52,10 +53,12 @@ class Boltz2ModelType(BaseModelType):
         outdir = job.workdir / "output"
         primary, aux = [], []
         if outdir.exists() and outdir.is_dir():
-            for p in sorted(outdir.iterdir()):
-                if not p.is_file():
-                    continue
-                entry = {"name": p.name, "size": p.stat().st_size}
+            for p in sorted(
+                (candidate for candidate in outdir.rglob("*") if candidate.is_file()),
+                key=lambda candidate: candidate.relative_to(outdir).as_posix(),
+            ):
+                rel_name = p.relative_to(outdir).as_posix()
+                entry = {"name": rel_name, "size": p.stat().st_size}
                 if p.suffix in (".pdb", ".cif", ".mmcif"):
                     primary.append(entry)
                 else:

@@ -130,11 +130,13 @@ class TestInputPayloadContract(TestCase):
         payload = mt.normalize_inputs({
             "sequences": ">s\nMKTAYI",
             "use_msa_server": True,
+            "no_kernels": True,
             "output_format": "pdb",
         })
         self._assert_payload_shape(payload)
         self.assertEqual(payload["sequences"], ">s\nMKTAYI")
         self.assertIn("use_msa_server", payload["params"])
+        self.assertIn("no_kernels", payload["params"])
         self.assertEqual(payload["files"], {})
 
     def test_boltz2_strips_falsy_params(self):
@@ -143,6 +145,7 @@ class TestInputPayloadContract(TestCase):
             "sequences": ">s\nMKTAYI",
             "use_msa_server": False,
             "use_potentials": False,
+            "no_kernels": False,
             "output_format": None,
             "recycling_steps": None,
             "sampling_steps": None,
@@ -158,6 +161,7 @@ class TestInputPayloadContract(TestCase):
             "sequences": ">s\nMKTAYI",
             "use_msa_server": True,
             "use_potentials": True,
+            "no_kernels": True,
             "output_format": "mmcif",
             "recycling_steps": 3,
             "sampling_steps": 10,
@@ -166,6 +170,7 @@ class TestInputPayloadContract(TestCase):
         self.assertEqual(payload["params"], {
             "use_msa_server": True,
             "use_potentials": True,
+            "no_kernels": True,
             "output_format": "mmcif",
             "recycling_steps": 3,
             "sampling_steps": 10,
@@ -564,6 +569,20 @@ class TestGetOutputContextBoltz2(TestCase):
         primary_names = [f["name"] for f in result["primary_files"]]
         aux_names = [f["name"] for f in result["aux_files"]]
         self.assertEqual(all_names, primary_names + aux_names)
+
+    def test_nested_outputs_are_listed_with_relative_paths(self):
+        job = self._make_fake_job()
+        outdir = job.workdir / "output" / "predictions" / "prot"
+        outdir.mkdir(parents=True)
+        (outdir / "prot_model_0.cif").write_text("data_block")
+        (outdir / "confidence.json").write_text("{}")
+
+        mt = get_model_type("boltz2")
+        result = mt.get_output_context(job)
+        primary_names = [f["name"] for f in result["primary_files"]]
+        aux_names = [f["name"] for f in result["aux_files"]]
+        self.assertIn("predictions/prot/prot_model_0.cif", primary_names)
+        self.assertIn("predictions/prot/confidence.json", aux_names)
 
     def test_empty_output_dir(self):
         job = self._make_fake_job()

@@ -137,26 +137,82 @@ HARNESS_BASE_DIR = Path(
 )
 GPU_SLOTS = _parse_gpu_slots(os.environ.get("GPU_SLOTS", ""))
 
+
+def _parse_optional_runtime_value(name: str, default: str = "") -> str:
+    return str(os.environ.get(name, default)).strip()
+
+
+DOCKER_DEFAULT_SHM_SIZE = _parse_optional_runtime_value("DOCKER_DEFAULT_SHM_SIZE", "8g")
+DOCKER_DEFAULT_IPC_MODE = _parse_optional_runtime_value("DOCKER_DEFAULT_IPC_MODE", "")
+
 # Boltz-2 configuration
 BOLTZ_IMAGE = os.environ.get("BOLTZ_IMAGE", "brineylab/boltz2:latest")
 BOLTZ_CACHE_DIR = Path(os.environ.get("BOLTZ_CACHE_DIR", str(JOB_BASE_DIR / "boltz_cache")))
+BOLTZ_DOCKER_SHM_SIZE = _parse_optional_runtime_value(
+    "BOLTZ_DOCKER_SHM_SIZE",
+    "16g",
+)
+BOLTZ_DOCKER_IPC_MODE = _parse_optional_runtime_value(
+    "BOLTZ_DOCKER_IPC_MODE",
+    DOCKER_DEFAULT_IPC_MODE,
+)
 
 # Chai-1 configuration
 CHAI_IMAGE = os.environ.get("CHAI_IMAGE", "brineylab/chai1:latest")
 CHAI_CACHE_DIR = Path(os.environ.get("CHAI_CACHE_DIR", str(JOB_BASE_DIR / "chai_cache")))
+CHAI_DOCKER_SHM_SIZE = _parse_optional_runtime_value(
+    "CHAI_DOCKER_SHM_SIZE",
+    DOCKER_DEFAULT_SHM_SIZE,
+)
+CHAI_DOCKER_IPC_MODE = _parse_optional_runtime_value(
+    "CHAI_DOCKER_IPC_MODE",
+    DOCKER_DEFAULT_IPC_MODE,
+)
 
 # LigandMPNN configuration (shared by ProteinMPNN and LigandMPNN model types)
 LIGANDMPNN_IMAGE = os.environ.get("LIGANDMPNN_IMAGE", "brineylab/ligandmpnn:latest")
+LIGANDMPNN_DOCKER_SHM_SIZE = _parse_optional_runtime_value(
+    "LIGANDMPNN_DOCKER_SHM_SIZE",
+    DOCKER_DEFAULT_SHM_SIZE,
+)
+LIGANDMPNN_DOCKER_IPC_MODE = _parse_optional_runtime_value(
+    "LIGANDMPNN_DOCKER_IPC_MODE",
+    DOCKER_DEFAULT_IPC_MODE,
+)
 
 # BindCraft configuration
 BINDCRAFT_IMAGE = os.environ.get("BINDCRAFT_IMAGE", "brineylab/bindcraft:latest")
+BINDCRAFT_DOCKER_SHM_SIZE = _parse_optional_runtime_value(
+    "BINDCRAFT_DOCKER_SHM_SIZE",
+    DOCKER_DEFAULT_SHM_SIZE,
+)
+BINDCRAFT_DOCKER_IPC_MODE = _parse_optional_runtime_value(
+    "BINDCRAFT_DOCKER_IPC_MODE",
+    DOCKER_DEFAULT_IPC_MODE,
+)
 
 # RFdiffusion3 configuration
 RFDIFFUSION3_IMAGE = os.environ.get("RFDIFFUSION3_IMAGE", "brineylab/rfdiffusion3:latest")
+RFDIFFUSION3_DOCKER_SHM_SIZE = _parse_optional_runtime_value(
+    "RFDIFFUSION3_DOCKER_SHM_SIZE",
+    DOCKER_DEFAULT_SHM_SIZE,
+)
+RFDIFFUSION3_DOCKER_IPC_MODE = _parse_optional_runtime_value(
+    "RFDIFFUSION3_DOCKER_IPC_MODE",
+    DOCKER_DEFAULT_IPC_MODE,
+)
 
 # BoltzGen configuration
 BOLTZGEN_IMAGE = os.environ.get("BOLTZGEN_IMAGE", "brineylab/boltzgen:latest")
 BOLTZGEN_CACHE_DIR = Path(os.environ.get("BOLTZGEN_CACHE_DIR", str(JOB_BASE_DIR / "boltzgen_cache")))
+BOLTZGEN_DOCKER_SHM_SIZE = _parse_optional_runtime_value(
+    "BOLTZGEN_DOCKER_SHM_SIZE",
+    DOCKER_DEFAULT_SHM_SIZE,
+)
+BOLTZGEN_DOCKER_IPC_MODE = _parse_optional_runtime_value(
+    "BOLTZGEN_DOCKER_IPC_MODE",
+    DOCKER_DEFAULT_IPC_MODE,
+)
 
 
 #

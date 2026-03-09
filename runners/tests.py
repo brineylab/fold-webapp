@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from console.models import RunnerConfig
 from runners import get_runner
@@ -24,6 +24,7 @@ class TestBoltzRunnerBuildScript(TestCase):
 
         self.assertIn("#!/bin/bash", script)
         self.assertIn("docker run --rm --gpus all", script)
+        self.assertIn("--shm-size 16g", script)
         self.assertNotIn("#SBATCH", script)
 
     def test_config_image_override(self):
@@ -37,6 +38,7 @@ class TestBoltzRunnerBuildScript(TestCase):
         job = _FakeJob(
             params={
                 "use_msa_server": True,
+                "no_kernels": True,
                 "output_format": "pdb",
                 "recycling_steps": 5,
             }
@@ -45,6 +47,7 @@ class TestBoltzRunnerBuildScript(TestCase):
         script = self.runner.build_script(job)
 
         self.assertIn("--use_msa_server", script)
+        self.assertIn("--no_kernels", script)
         self.assertIn("--output_format pdb", script)
         self.assertIn("--recycling_steps 5", script)
 
@@ -60,6 +63,7 @@ class TestLigandMPNNRunnerBuildScript(TestCase):
 
         self.assertIn("#!/bin/bash", script)
         self.assertIn("docker run --rm --gpus all", script)
+        self.assertIn("--shm-size 8g", script)
         self.assertNotIn("#SBATCH", script)
 
     def test_config_image_override(self):
@@ -148,6 +152,33 @@ class TestRunnerShellScripts(TestCase):
                 script,
                 runner_key,
             )
+
+    def test_gpu_runners_include_shared_memory_budget(self):
+        cases = {
+            "bindcraft": ("--shm-size 8g", _FakeJob()),
+            "boltz-2": ("--shm-size 16g", _FakeJob()),
+            "boltzgen": ("--shm-size 8g", _FakeJob()),
+            "chai-1": ("--shm-size 8g", _FakeJob()),
+            "ligandmpnn": (
+                "--shm-size 8g",
+                _FakeJob(params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"}),
+            ),
+            "rfdiffusion3": ("--shm-size 8g", _FakeJob()),
+        }
+        for runner_key, (expected_flag, job) in cases.items():
+            script = get_runner(runner_key).build_script(job)
+            self.assertIn(expected_flag, script, runner_key)
+
+    @override_settings(
+        DOCKER_DEFAULT_SHM_SIZE="12g",
+        DOCKER_DEFAULT_IPC_MODE="host",
+        CHAI_DOCKER_SHM_SIZE="12g",
+        CHAI_DOCKER_IPC_MODE="host",
+    )
+    def test_gpu_runner_supports_ipc_override(self):
+        script = get_runner("chai-1").build_script(_FakeJob())
+        self.assertIn("--shm-size 12g", script)
+        self.assertIn("--ipc host", script)
 
     def test_boltzgen_uses_entrypoint_subcommand(self):
         script = get_runner("boltzgen").build_script(_FakeJob())

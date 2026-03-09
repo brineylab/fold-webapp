@@ -491,6 +491,19 @@ class TestJobDetailOutputContext(TestCase):
         self.assertIn("model.pdb", primary_names)
         self.assertIn("stdout.log", aux_names)
 
+    def test_detail_view_boltz2_lists_nested_prediction_outputs(self):
+        job = self._create_job(model_key="boltz2")
+        outdir = self.tmpdir / str(job.id) / "output" / "predictions" / "prot"
+        outdir.mkdir(parents=True)
+        (outdir / "prot_model_0.cif").write_text("data_block")
+        (outdir / "confidence.json").write_text("{}")
+        with override_settings(JOB_BASE_DIR=self.tmpdir):
+            response = self.client.get(f"/jobs/{job.id}/")
+        primary_names = [f["name"] for f in response.context["primary_files"]]
+        aux_names = [f["name"] for f in response.context["aux_files"]]
+        self.assertIn("predictions/prot/prot_model_0.cif", primary_names)
+        self.assertIn("predictions/prot/confidence.json", aux_names)
+
     def test_detail_view_unknown_model_key_falls_back(self):
         """Jobs with unrecognized model_key should fall back to default model type."""
         job = self._create_job(model_key="nonexistent_model")

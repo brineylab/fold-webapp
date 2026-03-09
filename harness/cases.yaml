@@ -8,12 +8,8 @@ cases:
     fields:
       name: Harness Boltz-2 Smoke
       sequences:
-        fixture_text: boltz2/de-novo-monomer_1LQ7.fasta
+        fixture_text: boltz2/PG16_3MUG.fasta
       use_msa_server: true
-      output_format: pdb
-      recycling_steps: 1
-      sampling_steps: 1
-      diffusion_samples: 1
     files: {}
     artifact_checks:
       - patterns: ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
@@ -161,7 +157,7 @@ cases:
     fields:
       name: Harness Boltz-2 YAML
     files:
-      input_file: boltz2/sevil-dimer_6LF2.yaml
+      input_file: boltz2/PG16_3MUG.yaml
     expected_outputs: []
 
   - id: extended-boltz2-glycan

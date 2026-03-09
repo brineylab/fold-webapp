@@ -44,6 +44,17 @@
         </div>
 
         <div class="mb-3">
+          <div class="form-check">
+            {{ form.no_kernels }}
+            <label class="form-check-label" for="{{ form.no_kernels.id_for_label }}">
+              Disable optimized kernels
+            </label>
+          </div>
+          <div class="form-text">{{ form.no_kernels.help_text }}</div>
+          {{ form.no_kernels.errors }}
+        </div>
+
+        <div class="mb-3">
           <label for="{{ form.output_format.id_for_label }}" class="form-label">Output format</label>
           {{ form.output_format }}
           <div class="form-text">{{ form.output_format.help_text }}</div>

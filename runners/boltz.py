@@ -4,7 +4,12 @@ from pathlib import Path
 
 from django.conf import settings
 
-from runners import Runner, optional_cuda_visible_devices_env_setup, register
+from runners import (
+    Runner,
+    docker_resource_flags,
+    optional_cuda_visible_devices_env_setup,
+    register,
+)
 
 
 @register
@@ -30,6 +35,8 @@ class BoltzRunner(Runner):
             flags.append("--use_msa_server")
         if params.get("use_potentials"):
             flags.append("--use_potentials")
+        if params.get("no_kernels"):
+            flags.append("--no_kernels")
         if params.get("output_format"):
             flags.extend(["--output_format", str(params["output_format"])])
         if params.get("recycling_steps"):
@@ -43,6 +50,10 @@ class BoltzRunner(Runner):
 
         docker_args = [
             "docker run --rm --gpus all",
+            *docker_resource_flags(
+                shm_size=settings.BOLTZ_DOCKER_SHM_SIZE,
+                ipc_mode=settings.BOLTZ_DOCKER_IPC_MODE,
+            ),
             "-e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}",
             "${cuda_visible_devices_flag}",
             "-e BOLTZ_CACHE=/cache",
