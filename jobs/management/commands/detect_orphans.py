@@ -7,19 +7,13 @@ from django.core.management.base import BaseCommand
 from console.services.cleanup import (
     detect_orphan_workdirs,
     detect_orphan_jobs,
-    delete_orphan_workdir,
 )
 
 
 class Command(BaseCommand):
-    help = "Detect orphaned workdirs (no DB record) and orphaned jobs (no workdir)"
+    help = "Report orphaned workdirs (no DB record) and jobs with missing workdirs"
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--fix",
-            action="store_true",
-            help="Automatically fix orphans (delete orphan workdirs, mark orphan jobs)",
-        )
         parser.add_argument(
             "--verbose",
             action="store_true",
@@ -27,14 +21,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        fix_mode = options["fix"]
         verbose = options["verbose"]
-
-        if fix_mode:
-            self.stdout.write(
-                self.style.WARNING("FIX MODE - orphan workdirs will be deleted")
-            )
-            self.stdout.write("")
 
         # Detect orphan workdirs (files without DB records)
         self.stdout.write("Scanning for orphan workdirs...")
@@ -61,18 +48,6 @@ class Command(BaseCommand):
                     )
                 self.stdout.write("-" * 80)
 
-            if fix_mode:
-                self.stdout.write("")
-                deleted = 0
-                for orphan in orphan_workdirs:
-                    if delete_orphan_workdir(orphan["path"]):
-                        deleted += 1
-                        self.stdout.write(f"  Deleted: {orphan['name']}")
-                    else:
-                        self.stdout.write(
-                            self.style.ERROR(f"  Failed to delete: {orphan['name']}")
-                        )
-                self.stdout.write(f"Deleted {deleted} orphan workdir(s)")
         else:
             self.stdout.write(self.style.SUCCESS("No orphan workdirs found"))
 
@@ -101,15 +76,8 @@ class Command(BaseCommand):
                     self.stdout.write(f"  ... and {orphan_count - 50} more")
                 self.stdout.write("-" * 80)
 
-            if fix_mode:
-                self.stdout.write("")
-                self.stdout.write(
-                    "Note: Orphan jobs are not automatically modified. "
-                    "Review them manually and decide whether to hide or delete."
-                )
         else:
             self.stdout.write(self.style.SUCCESS("No orphan jobs found"))
 
         self.stdout.write("")
-        self.stdout.write(self.style.SUCCESS("Orphan detection complete"))
-
+        self.stdout.write(self.style.SUCCESS("Filesystem anomaly review complete"))

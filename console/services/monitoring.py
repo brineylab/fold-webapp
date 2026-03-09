@@ -11,9 +11,10 @@ from typing import Any
 
 import django
 from django.conf import settings
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils import timezone
 
+from jobs.execution import configured_gpu_slots
 from jobs.models import Job
 
 
@@ -53,12 +54,14 @@ def get_dashboard_stats() -> dict[str, Any]:
             "running": status_counts_all.get(Job.Status.RUNNING, 0),
             "completed": status_counts_all.get(Job.Status.COMPLETED, 0),
             "failed": status_counts_all.get(Job.Status.FAILED, 0),
+            "cancelled": status_counts_all.get(Job.Status.CANCELLED, 0),
         },
         "status_counts_24h": {
             "pending": status_counts_24h.get(Job.Status.PENDING, 0),
             "running": status_counts_24h.get(Job.Status.RUNNING, 0),
             "completed": status_counts_24h.get(Job.Status.COMPLETED, 0),
             "failed": status_counts_24h.get(Job.Status.FAILED, 0),
+            "cancelled": status_counts_24h.get(Job.Status.CANCELLED, 0),
         },
         "queue_depth": queue_depth,
         "recent_failures": recent_failures,
@@ -137,35 +140,30 @@ def get_job_directory_stats() -> dict[str, Any]:
         }
 
 
-def get_slurm_cluster_status() -> dict[str, Any]:
-    """
-    Get SLURM cluster status.
-    
-    This is a stub that can be expanded to query actual SLURM status.
-    
-    Returns:
-        Dictionary containing cluster connectivity and status information.
-    """
-    fake_slurm = getattr(settings, "FAKE_SLURM", False)
-    
-    if fake_slurm:
-        return {
-            "mode": "fake",
-            "connected": True,
-            "message": "Running in FAKE_SLURM mode (no real cluster)",
-        }
-    
-    # TODO: Implement real SLURM status checks
-    # This could use sinfo, squeue, etc. to get cluster status
-    return {
-        "mode": "real",
-        "connected": None,  # Unknown until we implement actual checks
-        "message": "SLURM status check not yet implemented",
-        # Future fields:
-        # "nodes_total": ...,
-        # "nodes_available": ...,
-        # "nodes_down": ...,
-        # "jobs_queued": ...,
-        # "jobs_running": ...,
-    }
+def get_execution_backend_status() -> dict[str, Any]:
+    """Get status for the local Docker executor."""
+    gpu_slots = configured_gpu_slots()
 
+    if gpu_slots:
+        message = (
+            "Jobs are launched directly from the database queue into Docker. "
+            f"Configured GPU slots: {', '.join(str(slot) for slot in gpu_slots)}."
+        )
+        return {
+            "mode": "local",
+            "label": "Local Docker Executor",
+            "connected": True,
+            "message": message,
+            "gpu_slots": gpu_slots,
+        }
+
+    return {
+        "mode": "local",
+        "label": "Local Docker Executor",
+        "connected": True,
+        "message": (
+            "Jobs are queued for the local Docker executor, but no GPU slots "
+            "are configured, so queued jobs will not start."
+        ),
+        "gpu_slots": gpu_slots,
+    }

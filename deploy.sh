@@ -92,9 +92,9 @@ resolve_data_dir() {
 resolve_host_harness_dir() {
     local data_dir="$1"
     local legacy_harness_dir="/tmp/fold-webapp-harness"
-    local harness_dir="${HARNESS_BASE_DIR_HOST:-}"
+    local harness_dir="${HARNESS_BASE_DIR:-}"
     if [ -z "$harness_dir" ]; then
-        harness_dir="$(get_env_value HARNESS_BASE_DIR_HOST)"
+        harness_dir="$(get_env_value HARNESS_BASE_DIR)"
     fi
     case "$harness_dir" in
         ""|"$legacy_harness_dir"|"$SCRIPT_DIR/.harness_runtime"|"$SCRIPT_DIR/.harness_runtime_uid"*)
@@ -171,11 +171,11 @@ ensure_data_dirs() {
     fi
 
     if [ -f .env ]; then
-        if [ -z "$(get_env_value JOB_BASE_DIR_HOST)" ]; then
-            set_env_value JOB_BASE_DIR_HOST "$data_dir/jobs"
+        if [ -z "$(get_env_value DATA_DIR)" ] || [ "$(get_env_value DATA_DIR)" != "$data_dir" ]; then
+            set_env_value DATA_DIR "$data_dir"
         fi
-        if [ -z "$(get_env_value HARNESS_BASE_DIR_HOST)" ] || [ "$(get_env_value HARNESS_BASE_DIR_HOST)" != "$harness_dir" ]; then
-            set_env_value HARNESS_BASE_DIR_HOST "$harness_dir"
+        if [ -z "$(get_env_value HARNESS_BASE_DIR)" ] || [ "$(get_env_value HARNESS_BASE_DIR)" != "$harness_dir" ]; then
+            set_env_value HARNESS_BASE_DIR "$harness_dir"
         fi
         if [ -z "$(get_env_value APP_UID)" ]; then
             set_env_value APP_UID "$app_uid"
@@ -184,66 +184,6 @@ ensure_data_dirs() {
             set_env_value APP_GID "$app_gid"
         fi
     fi
-
-    warn_if_untraversable_host_jobs_dir
-}
-
-get_host_jobs_dir() {
-    local host_jobs_dir="${JOB_BASE_DIR_HOST:-}"
-    if [ -z "$host_jobs_dir" ]; then
-        host_jobs_dir="$(get_env_value JOB_BASE_DIR_HOST)"
-    fi
-    if [ -z "$host_jobs_dir" ]; then
-        host_jobs_dir="$(resolve_data_dir)/jobs"
-    fi
-    ensure_absolute_dir "$host_jobs_dir"
-}
-
-digit_has_exec() {
-    case "$1" in
-        1|3|5|7) return 0 ;;
-        *) return 1 ;;
-    esac
-}
-
-warn_if_untraversable_host_jobs_dir() {
-    local host_jobs_dir
-    host_jobs_dir="$(get_host_jobs_dir)"
-    local app_uid
-    local app_gid
-    app_uid="$(resolve_app_uid)"
-    app_gid="$(resolve_app_gid)"
-    local current="/"
-    local owner_uid group_gid perms owner_digit group_digit other_digit
-    local -a parts=()
-
-    IFS='/' read -r -a parts <<< "${host_jobs_dir#/}"
-    for part in "${parts[@]}"; do
-        [ -n "$part" ] || continue
-        current="${current%/}/$part"
-        [ -d "$current" ] || continue
-
-        read -r owner_uid group_gid perms < <(stat -c '%u %g %a' "$current")
-        perms="$(printf '%03d' "$((10#$perms))")"
-        owner_digit="${perms:0:1}"
-        group_digit="${perms:1:1}"
-        other_digit="${perms:2:1}"
-
-        if [ "$owner_uid" = "$app_uid" ] && digit_has_exec "$owner_digit"; then
-            continue
-        fi
-        if [ "$group_gid" = "$app_gid" ] && digit_has_exec "$group_digit"; then
-            continue
-        fi
-        if digit_has_exec "$other_digit"; then
-            continue
-        fi
-
-        warn "JOB_BASE_DIR_HOST uses a parent directory that uid:$app_uid gid:$app_gid cannot traverse: $current"
-        warn "Real SLURM jobs may fail before startup, often as ExitCode=1:0 with no slurm-<jobid>.out/err files."
-        warn "Use a path the app uid/gid can traverse, such as ~/.fold-webapp/data, or relax execute permissions on the parent directories."
-        return 0
-    done
 }
 
 usage() {
@@ -269,7 +209,6 @@ Commands:
   prewarm [opts]    Pre-warm by pulling images and downloading model weights
   download-weights  Download/cache model weights only (no image building)
   validate-models   Run the post-install model validation harness
-  setup-slurm       Configure Slurm on this host (requires sudo)
   destroy           Tear down everything (containers, images, data, .env)
 
 Options:
@@ -351,8 +290,7 @@ cmd_install() {
         set_env_value DATA_DIR "$data_dir"
         set_env_value APP_UID "$install_uid"
         set_env_value APP_GID "$install_gid"
-        set_env_value JOB_BASE_DIR_HOST "$data_dir/jobs"
-        set_env_value HARNESS_BASE_DIR_HOST "$data_dir/harness"
+        set_env_value HARNESS_BASE_DIR "$data_dir/harness"
 
         info ".env created. You can edit it later at: $SCRIPT_DIR/.env"
         info "Using single-user defaults for $install_user ($install_uid:$install_gid)"
@@ -388,7 +326,6 @@ cmd_install() {
     echo
     echo "  Access the application at: http://localhost:8000"
     echo "  Manage with: ./deploy.sh <command>"
-    echo "  For real SLURM execution on this host: sudo ./deploy.sh setup-slurm"
     echo "  Run ./deploy.sh --help for available commands."
     echo
 }
@@ -416,7 +353,7 @@ cmd_adopt_single_user_layout() {
     target_data_dir="$(default_data_dir "$install_user")"
     target_data_dir="$(ensure_absolute_dir "$target_data_dir")"
     current_data_dir="$(resolve_data_dir)"
-    configured_harness_dir="$(get_env_value HARNESS_BASE_DIR_HOST)"
+    configured_harness_dir="$(get_env_value HARNESS_BASE_DIR)"
     current_harness_dir="${configured_harness_dir:-$current_data_dir/harness}"
 
     if [ "$install_uid" -eq 0 ] || [ "$install_gid" -eq 0 ]; then
@@ -458,8 +395,7 @@ cmd_adopt_single_user_layout() {
     set_env_value DATA_DIR "$target_data_dir"
     set_env_value APP_UID "$install_uid"
     set_env_value APP_GID "$install_gid"
-    set_env_value JOB_BASE_DIR_HOST "$target_data_dir/jobs"
-    set_env_value HARNESS_BASE_DIR_HOST "$target_data_dir/harness"
+    set_env_value HARNESS_BASE_DIR "$target_data_dir/harness"
 
     if [ -d "$current_harness_dir" ] && [ "$current_harness_dir" != "$target_data_dir/harness" ]; then
         mkdir -p "$target_data_dir/harness"
@@ -606,12 +542,8 @@ cmd_validate_models() {
     check_docker
     ensure_data_dirs
     info "Reconciling harness service mounts..."
-    docker compose up -d web poller
+    docker compose up -d web worker
     exec "$SCRIPT_DIR/scripts/run_model_harness.sh" "$@"
-}
-
-cmd_setup_slurm() {
-    exec "$SCRIPT_DIR/scripts/setup-slurm.sh" "$@"
 }
 
 # ---------- main ----------
@@ -640,7 +572,6 @@ case "$COMMAND" in
     prewarm)          cmd_prewarm "$@" ;;
     download-weights) cmd_download_weights "$@" ;;
     validate-models)  cmd_validate_models "$@" ;;
-    setup-slurm)      cmd_setup_slurm "$@" ;;
     destroy)          cmd_destroy "$@" ;;
     -h|--help|help)   usage ;;
     *)

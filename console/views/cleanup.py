@@ -7,11 +7,10 @@ from django.views.decorators.http import require_POST
 from console.decorators import console_required, superops_required
 from console.services.cleanup import (
     cleanup_jobs,
-    get_cleanup_summary,
-    get_jobs_for_cleanup,
     detect_orphan_workdirs,
     detect_orphan_jobs,
-    delete_orphan_workdir,
+    get_cleanup_summary,
+    get_jobs_for_cleanup,
 )
 
 
@@ -48,7 +47,9 @@ def run_cleanup(request):
         except ValueError:
             messages.error(request, "Invalid override days value")
             return redirect("console:cleanup_dashboard")
-    
+    kwargs["actor"] = request.user
+    kwargs["source"] = "console"
+
     result = cleanup_jobs(**kwargs)
     
     if dry_run:
@@ -65,48 +66,3 @@ def run_cleanup(request):
         )
     
     return redirect("console:cleanup_dashboard")
-
-
-@superops_required
-@require_POST
-def delete_orphan(request):
-    """Delete a specific orphan workdir."""
-    path = request.POST.get("path", "")
-    
-    if not path:
-        messages.error(request, "No path specified")
-        return redirect("console:cleanup_dashboard")
-    
-    if delete_orphan_workdir(path):
-        messages.success(request, f"Deleted orphan workdir: {path}")
-    else:
-        messages.error(request, f"Failed to delete orphan workdir: {path}")
-    
-    return redirect("console:cleanup_dashboard")
-
-
-@superops_required
-@require_POST
-def delete_all_orphans(request):
-    """Delete all orphan workdirs."""
-    orphans = detect_orphan_workdirs()
-    
-    deleted = 0
-    failed = 0
-    
-    for orphan in orphans:
-        if delete_orphan_workdir(orphan["path"]):
-            deleted += 1
-        else:
-            failed += 1
-    
-    if failed > 0:
-        messages.warning(
-            request,
-            f"Deleted {deleted} orphan workdir(s), {failed} failed"
-        )
-    else:
-        messages.success(request, f"Deleted {deleted} orphan workdir(s)")
-    
-    return redirect("console:cleanup_dashboard")
-

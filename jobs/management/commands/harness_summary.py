@@ -39,10 +39,10 @@ class Command(BaseCommand):
             "",
         ]
 
-        if summary["direct_reports"]:
-            lines.append("## Direct / Materialize")
+        if summary["executor_reports"]:
+            lines.append("## Executor / Prepare-only")
             lines.append("")
-            for report in summary["direct_reports"]:
+            for report in summary["executor_reports"]:
                 lines.append(
                     f"- `{report['case_id']}`: `{'PASS' if report.get('ok') else 'FAIL'}` ({report.get('phase')})"
                 )

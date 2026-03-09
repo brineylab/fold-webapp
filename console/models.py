@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import models
-from simple_history.models import HistoricalRecords
 
 
 class UserQuota(models.Model):
+    class PriorityTier(models.TextChoices):
+        STANDARD = "standard", "Standard"
+        PRIORITY = "priority", "Priority"
+
     """
     Per-user quota and account settings.
     
@@ -30,6 +33,16 @@ class UserQuota(models.Model):
     jobs_per_day = models.PositiveIntegerField(
         default=10,
         help_text="Maximum number of jobs that can be submitted per day",
+    )
+    jobs_per_month = models.PositiveIntegerField(
+        default=300,
+        help_text="Maximum number of jobs that can be submitted per calendar month",
+    )
+    priority_tier = models.CharField(
+        max_length=20,
+        choices=PriorityTier.choices,
+        default=PriorityTier.STANDARD,
+        help_text="Scheduling priority tier used for queue ordering and reporting",
     )
     
     # Data retention (days, 0 = never delete)
@@ -63,15 +76,16 @@ class UserQuota(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    # Audit history tracking
-    history = HistoricalRecords()
-    
     class Meta:
         verbose_name = "User Quota"
         verbose_name_plural = "User Quotas"
     
     def __str__(self) -> str:
         return f"Quota for {self.user.username}"
+
+    @property
+    def max_running_jobs(self) -> int:
+        return self.max_concurrent_jobs
 
 
 class SiteSettings(models.Model):
@@ -97,9 +111,6 @@ class SiteSettings(models.Model):
         on_delete=models.SET_NULL,
         related_name="site_settings_updates",
     )
-    
-    # Audit history tracking
-    history = HistoricalRecords()
     
     class Meta:
         verbose_name = "Site Settings"
@@ -141,41 +152,9 @@ class RunnerConfig(models.Model):
         blank=True,
         help_text="Reason for disabling this runner (shown to users)",
     )
-
-    # SLURM resource configuration
-    partition = models.CharField(
-        max_length=50, blank=True,
-        help_text="SLURM partition (e.g., 'gpu', 'cpu'). Empty = cluster default.",
-    )
-    gpus = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of GPUs (--gres=gpu:N). 0 = no GPU request.",
-    )
-    cpus = models.PositiveIntegerField(
-        default=1,
-        help_text="CPUs per task (--cpus-per-task).",
-    )
-    mem_gb = models.PositiveIntegerField(
-        default=8,
-        help_text="Memory in GB (--mem).",
-    )
-    time_limit = models.CharField(
-        max_length=20, blank=True,
-        help_text="Time limit (--time, e.g., '02:00:00'). Empty = cluster default.",
-    )
-
-    # Container configuration
     image_uri = models.CharField(
         max_length=200, blank=True,
         help_text="Container image override. Empty = use runner's default.",
-    )
-    extra_env = models.JSONField(
-        default=dict, blank=True,
-        help_text="Additional environment variables as JSON object.",
-    )
-    extra_mounts = models.JSONField(
-        default=list, blank=True,
-        help_text='Additional bind mounts as JSON array of {"source": "...", "target": "..."} objects.',
     )
 
     updated_at = models.DateTimeField(auto_now=True)
@@ -187,9 +166,6 @@ class RunnerConfig(models.Model):
         related_name="runner_config_updates",
     )
     
-    # Audit history tracking
-    history = HistoricalRecords()
-    
     class Meta:
         verbose_name = "Runner Configuration"
         verbose_name_plural = "Runner Configurations"
@@ -198,21 +174,6 @@ class RunnerConfig(models.Model):
     def __str__(self) -> str:
         status = "enabled" if self.enabled else "disabled"
         return f"{self.runner_key} ({status})"
-    
-    def get_slurm_directives(self) -> str:
-        """Generate #SBATCH directive lines from resource config."""
-        lines = []
-        if self.partition:
-            lines.append(f"#SBATCH --partition={self.partition}")
-        if self.gpus:
-            lines.append(f"#SBATCH --gres=gpu:{self.gpus}")
-        if self.cpus > 1:
-            lines.append(f"#SBATCH --cpus-per-task={self.cpus}")
-        if self.mem_gb:
-            lines.append(f"#SBATCH --mem={self.mem_gb}G")
-        if self.time_limit:
-            lines.append(f"#SBATCH --time={self.time_limit}")
-        return "\n".join(lines)
 
     @classmethod
     def get_config(cls, runner_key: str) -> "RunnerConfig":
@@ -242,3 +203,65 @@ class RunnerConfig(models.Model):
         except cls.DoesNotExist:
             # If no config exists, runner is enabled by default
             return True
+
+
+class ActionLog(models.Model):
+    class Scope(models.TextChoices):
+        JOB = "job", "Job"
+        POLICY = "policy", "Policy"
+        SETTINGS = "settings", "Settings"
+        CLEANUP = "cleanup", "Cleanup"
+        API = "api", "API"
+
+    scope = models.CharField(max_length=20, choices=Scope.choices)
+    action = models.CharField(max_length=50)
+    source = models.CharField(max_length=20, blank=True, default="")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="action_logs_as_actor",
+    )
+    job = models.ForeignKey(
+        "jobs.Job",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="action_logs",
+    )
+    target_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="action_logs_as_target",
+    )
+    target_label = models.CharField(max_length=200, blank=True, default="")
+    runner_key = models.CharField(max_length=50, blank=True, default="")
+    message = models.TextField()
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        target = self.target_display or self.scope
+        return f"{self.scope}:{self.action} -> {target}"
+
+    @property
+    def actor_name(self) -> str:
+        if self.actor:
+            return self.actor.username
+        return "system"
+
+    @property
+    def target_display(self) -> str:
+        if self.job_id:
+            return str(self.job_id)
+        if self.target_user:
+            return self.target_user.username
+        if self.runner_key:
+            return self.runner_key
+        return self.target_label

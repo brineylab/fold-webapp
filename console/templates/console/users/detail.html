@@ -1,6 +1,6 @@
 {% extends "console/base.html" %}
 
-{% block title %}{{ user_obj.username }} - Users - Ops Console{% endblock %}
+{% block title %}{{ user_obj.username }} - User Policy - Ops Console{% endblock %}
 
 {% block console_content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -64,37 +64,26 @@
         </dl>
       </div>
       <div class="card-footer">
-        <!-- Account Actions -->
         <div class="btn-group-vertical w-100">
           {% if quota.is_disabled %}
           <form method="post" action="{% url 'console:user_enable' user_id=user_obj.id %}" class="d-inline">
             {% csrf_token %}
             <button type="submit" class="btn btn-success btn-sm w-100 mb-2">
-              Enable Account
+              Re-enable Submissions
             </button>
           </form>
           {% else %}
           <button type="button" class="btn btn-warning btn-sm w-100 mb-2" 
                   data-bs-toggle="modal" data-bs-target="#disableModal">
-            Disable Account
+            Disable New Job Submissions
           </button>
           {% endif %}
-          
-          <form method="post" action="{% url 'console:user_toggle_active' user_id=user_obj.id %}" class="d-inline">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-outline-{% if user_obj.is_active %}danger{% else %}success{% endif %} btn-sm w-100 mb-2"
-                    onclick="return confirm('{% if user_obj.is_active %}Deactivate{% else %}Activate{% endif %} this account?');">
-              {% if user_obj.is_active %}Deactivate{% else %}Activate{% endif %} (Django)
-            </button>
-          </form>
-          
-          <form method="post" action="{% url 'console:user_reset_password' user_id=user_obj.id %}" class="d-inline">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-outline-secondary btn-sm w-100"
-                    onclick="return confirm('Generate a new temporary password for this user?');">
-              Reset Password
-            </button>
-          </form>
+          <a href="{{ admin_change_url }}" class="btn btn-outline-secondary btn-sm w-100">
+            Open in Django Admin
+          </a>
+          <small class="text-muted mt-2">
+            Edit email, password, active state, and staff flags in Django admin.
+          </small>
         </div>
       </div>
     </div>
@@ -114,6 +103,9 @@
           
           <dt class="col-sm-6">Failed</dt>
           <dd class="col-sm-6 text-danger">{{ job_stats.failed }}</dd>
+
+          <dt class="col-sm-6">Cancelled</dt>
+          <dd class="col-sm-6 text-warning">{{ job_stats.cancelled }}</dd>
           
           <dt class="col-sm-6">Running</dt>
           <dd class="col-sm-6 text-info">{{ job_stats.running }}</dd>
@@ -132,6 +124,8 @@
         <strong>Quota Settings</strong>
         {% if quota_status.is_exempt %}
         <span class="badge bg-info">Exempt (Staff)</span>
+        {% else %}
+        <span class="badge bg-secondary text-uppercase">{{ quota_status.priority_tier }}</span>
         {% endif %}
       </div>
       <div class="card-body">
@@ -139,11 +133,20 @@
           {% csrf_token %}
           <div class="row g-3">
             <div class="col-md-6">
-              <label for="max_concurrent_jobs" class="form-label">Max Concurrent Jobs</label>
+              <label for="priority_tier" class="form-label">Priority Tier</label>
+              <select class="form-select" id="priority_tier" name="priority_tier">
+                {% for value, label in priority_tier_choices %}
+                <option value="{{ value }}" {% if quota.priority_tier == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <small class="text-muted">Used for queue ordering and usage snapshots.</small>
+            </div>
+            <div class="col-md-6">
+              <label for="max_concurrent_jobs" class="form-label">Max Running Jobs</label>
               <input type="number" class="form-control" id="max_concurrent_jobs" name="max_concurrent_jobs" 
                      value="{{ quota.max_concurrent_jobs }}" min="0">
               <small class="text-muted">
-                Current: {{ quota_status.concurrent_jobs.current }}/{{ quota_status.concurrent_jobs.max }}
+                Current: {{ quota_status.running_jobs.current }}/{{ quota_status.running_jobs.max }}
               </small>
             </div>
             <div class="col-md-6">
@@ -160,6 +163,14 @@
                      value="{{ quota.jobs_per_day }}" min="0">
               <small class="text-muted">
                 Today: {{ quota_status.daily_jobs.current }}/{{ quota_status.daily_jobs.max }}
+              </small>
+            </div>
+            <div class="col-md-6">
+              <label for="jobs_per_month" class="form-label">Jobs Per Month</label>
+              <input type="number" class="form-control" id="jobs_per_month" name="jobs_per_month" 
+                     value="{{ quota.jobs_per_month }}" min="0">
+              <small class="text-muted">
+                This month: {{ quota_status.monthly_jobs.current }}/{{ quota_status.monthly_jobs.max }}
               </small>
             </div>
             <div class="col-md-6">
@@ -325,7 +336,7 @@
       <form method="post" action="{% url 'console:user_disable' user_id=user_obj.id %}">
         {% csrf_token %}
         <div class="modal-header">
-          <h5 class="modal-title" id="disableModalLabel">Disable Account</h5>
+          <h5 class="modal-title" id="disableModalLabel">Disable New Job Submissions</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -338,11 +349,10 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-warning">Disable Account</button>
+          <button type="submit" class="btn btn-warning">Disable Submissions</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 {% endblock %}
-

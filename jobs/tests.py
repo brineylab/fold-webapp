@@ -1,6 +1,7 @@
 """Tests for jobs app (service-layer validation, workdir delegation, output presentation, input file upload)."""
 from __future__ import annotations
 
+import io
 import shutil
 import tempfile
 from pathlib import Path
@@ -9,10 +10,11 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
+from jobs.management.commands.run_job_worker import Command as RunJobWorkerCommand
+from jobs.management.commands.run_job_worker import run_worker_loop
 from jobs.models import Job
 from jobs.services import create_and_submit_job, _sanitize_payload_for_storage
 from model_types import get_model_type
@@ -52,8 +54,7 @@ class TestCreateAndSubmitJobValidation(TestCase):
         )
         self.model_type = get_model_type("boltz2")
 
-    @patch("jobs.services.slurm")
-    def test_rejects_no_sequences_and_no_files(self, mock_slurm):
+    def test_rejects_no_sequences_and_no_files(self):
         """Should reject when both sequences and files are empty."""
         with self.assertRaises(ValidationError) as ctx:
             create_and_submit_job(
@@ -67,8 +68,7 @@ class TestCreateAndSubmitJobValidation(TestCase):
             )
         self.assertIn("No input provided", str(ctx.exception))
 
-    @patch("jobs.services.slurm")
-    def test_rejects_no_sequences_and_no_input_payload(self, mock_slurm):
+    def test_rejects_no_sequences_and_no_input_payload(self):
         """Should reject when sequences is empty and input_payload is None."""
         with self.assertRaises(ValidationError):
             create_and_submit_job(
@@ -81,10 +81,8 @@ class TestCreateAndSubmitJobValidation(TestCase):
                 input_payload=None,
             )
 
-    @patch("jobs.services.slurm")
-    def test_accepts_sequences_without_files(self, mock_slurm):
+    def test_accepts_sequences_without_files(self):
         """Should accept when sequences is provided even without files."""
-        mock_slurm.submit.return_value = "FAKE-123"
         job = create_and_submit_job(
             owner=self.user,
             model_type=self.model_type,
@@ -96,10 +94,8 @@ class TestCreateAndSubmitJobValidation(TestCase):
         )
         self.assertEqual(job.sequences, ">s\nMKTAYI")
 
-    @patch("jobs.services.slurm")
-    def test_accepts_files_without_sequences(self, mock_slurm):
+    def test_accepts_files_without_sequences(self):
         """Should accept when files are provided without sequences."""
-        mock_slurm.submit.return_value = "FAKE-123"
         job = create_and_submit_job(
             owner=self.user,
             model_type=_StubModelType(),
@@ -116,95 +112,7 @@ class TestCreateAndSubmitJobValidation(TestCase):
         self.assertEqual(job.sequences, "")
 
 
-class TestPollJobsCommand(TestCase):
-    """Status reconciliation for jobs no longer visible to SLURM."""
-
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username="polluser", password="testpass"
-        )
-        self.tmpdir = Path(tempfile.mkdtemp())
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir, ignore_errors=True)
-
-    @patch("jobs.management.commands.poll_jobs.slurm.job_missing", return_value=True)
-    @patch("jobs.management.commands.poll_jobs.slurm.check_status", return_value="UNKNOWN")
-    def test_marks_missing_job_failed_without_waiting_an_hour(
-        self, mock_check_status, mock_job_missing
-    ):
-        job = Job.objects.create(
-            owner=self.user,
-            runner="ligandmpnn",
-            model_key="protein_mpnn",
-            status=Job.Status.PENDING,
-            slurm_job_id="3",
-            submitted_at=timezone.now(),
-        )
-
-        with override_settings(JOB_BASE_DIR=self.tmpdir):
-            call_command("poll_jobs")
-
-        job.refresh_from_db()
-        self.assertEqual(job.status, Job.Status.FAILED)
-        self.assertIsNotNone(job.completed_at)
-        self.assertIn("disappeared from SLURM", job.error_message)
-
-    @patch("jobs.management.commands.poll_jobs.slurm.job_missing", return_value=True)
-    @patch("jobs.management.commands.poll_jobs.slurm.check_status", return_value="UNKNOWN")
-    def test_marks_missing_job_completed_when_outputs_exist(
-        self, mock_check_status, mock_job_missing
-    ):
-        with override_settings(JOB_BASE_DIR=self.tmpdir):
-            job = Job.objects.create(
-                owner=self.user,
-                runner="ligandmpnn",
-                model_key="protein_mpnn",
-                status=Job.Status.RUNNING,
-                slurm_job_id="4",
-                submitted_at=timezone.now(),
-            )
-            outdir = job.workdir / "output"
-            outdir.mkdir(parents=True, exist_ok=True)
-            (outdir / "results.zip").write_bytes(b"zip")
-
-            call_command("poll_jobs")
-
-        job.refresh_from_db()
-        self.assertEqual(job.status, Job.Status.COMPLETED)
-        self.assertIsNotNone(job.completed_at)
-
-    @patch(
-        "jobs.management.commands.poll_jobs.slurm.get_failure_message",
-        return_value="SLURM reported FAILED (reason=NonZeroExitCode, exit_code=1:0)",
-    )
-    @patch("jobs.management.commands.poll_jobs.slurm.check_status", return_value="FAILED")
-    def test_persists_failure_reason_on_direct_failed_transition(
-        self, mock_check_status, mock_failure_message
-    ):
-        job = Job.objects.create(
-            owner=self.user,
-            runner="ligandmpnn",
-            model_key="protein_mpnn",
-            status=Job.Status.PENDING,
-            slurm_job_id="4",
-            submitted_at=timezone.now(),
-        )
-
-        with override_settings(JOB_BASE_DIR=self.tmpdir):
-            call_command("poll_jobs")
-
-        job.refresh_from_db()
-        self.assertEqual(job.status, Job.Status.FAILED)
-        self.assertIsNotNone(job.completed_at)
-        self.assertEqual(
-            job.error_message,
-            "SLURM reported FAILED (reason=NonZeroExitCode, exit_code=1:0)",
-        )
-        mock_failure_message.assert_called_once_with("4")
-
-    @patch("jobs.services.slurm")
-    def test_rejects_oversized_sequences(self, mock_slurm):
+    def test_rejects_oversized_sequences(self):
         """Should reject sequences exceeding MAX_SEQUENCE_CHARS."""
         with self.assertRaises(ValidationError) as ctx:
             create_and_submit_job(
@@ -217,10 +125,8 @@ class TestPollJobsCommand(TestCase):
             )
         self.assertIn("too large", str(ctx.exception))
 
-    @patch("jobs.services.slurm")
-    def test_sequences_defaults_to_empty(self, mock_slurm):
+    def test_sequences_defaults_to_empty(self):
         """sequences parameter should default to empty string."""
-        mock_slurm.submit.return_value = "FAKE-123"
         job = create_and_submit_job(
             owner=self.user,
             model_type=_StubModelType(),
@@ -410,11 +316,8 @@ class TestServiceCallsPrepareWorkdir(TestCase):
             username="testuser2", password="testpass"
         )
 
-    @patch("jobs.services.slurm")
-    def test_calls_prepare_workdir(self, mock_slurm):
+    def test_calls_prepare_workdir(self):
         """The service should call model_type.prepare_workdir, not do its own layout."""
-        mock_slurm.submit.return_value = "FAKE-456"
-
         class SpyModelType(_StubModelType):
             prepare_called = False
             prepare_payload = None
@@ -438,10 +341,8 @@ class TestServiceCallsPrepareWorkdir(TestCase):
         self.assertTrue(SpyModelType.prepare_called)
         self.assertEqual(SpyModelType.prepare_payload, payload)
 
-    @patch("jobs.services.slurm")
-    def test_stored_payload_has_filenames_not_bytes(self, mock_slurm):
+    def test_stored_payload_has_filenames_not_bytes(self):
         """input_payload stored in DB should have filename list, not binary content."""
-        mock_slurm.submit.return_value = "FAKE-789"
         job = create_and_submit_job(
             owner=self.user,
             model_type=_StubModelType(),
@@ -582,13 +483,13 @@ class TestJobDetailOutputContext(TestCase):
         outdir = self.tmpdir / str(job.id) / "output"
         outdir.mkdir(parents=True)
         (outdir / "model.pdb").write_text("ATOM 1")
-        (outdir / "slurm-999.out").write_text("log output")
+        (outdir / "stdout.log").write_text("log output")
         with override_settings(JOB_BASE_DIR=self.tmpdir):
             response = self.client.get(f"/jobs/{job.id}/")
         primary_names = [f["name"] for f in response.context["primary_files"]]
         aux_names = [f["name"] for f in response.context["aux_files"]]
         self.assertIn("model.pdb", primary_names)
-        self.assertIn("slurm-999.out", aux_names)
+        self.assertIn("stdout.log", aux_names)
 
     def test_detail_view_unknown_model_key_falls_back(self):
         """Jobs with unrecognized model_key should fall back to default model type."""
@@ -651,11 +552,11 @@ class TestJobDetailTemplateRendering(TestCase):
         job = self._create_job()
         outdir = self.tmpdir / str(job.id) / "output"
         outdir.mkdir(parents=True)
-        (outdir / "slurm-123.out").write_text("log")
+        (outdir / "stdout.log").write_text("log")
         with override_settings(JOB_BASE_DIR=self.tmpdir):
             response = self.client.get(f"/jobs/{job.id}/")
         self.assertContains(response, "Logs &amp; Auxiliary")
-        self.assertContains(response, "slurm-123.out")
+        self.assertContains(response, "stdout.log")
 
     def test_no_files_message(self):
         """When no output files exist, show the 'no files' message."""
@@ -714,9 +615,7 @@ class TestInputFileSubmission(TestCase):
         )
         self.client.login(username="fileuser", password="testpass")
 
-    @patch("jobs.services.slurm")
-    def test_input_file_creates_job(self, mock_slurm):
-        mock_slurm.submit.return_value = "FAKE-FILE"
+    def test_input_file_creates_job(self):
         yaml_content = b"version: 2\nsequences:\n  - protein:\n      id: A\n"
         input_file = SimpleUploadedFile(
             "complex.yaml", yaml_content, content_type="application/x-yaml"
@@ -732,9 +631,7 @@ class TestInputFileSubmission(TestCase):
         # input_payload should record the filename
         self.assertIn("complex.yaml", job.input_payload.get("files", []))
 
-    @patch("jobs.services.slurm")
-    def test_sequences_submission_still_works(self, mock_slurm):
-        mock_slurm.submit.return_value = "FAKE-SEQ"
+    def test_sequences_submission_still_works(self):
         response = self.client.post(
             "/jobs/new/?model=boltz2",
             {"model": "boltz2", "sequences": ">s\nMKTAYI"},
@@ -752,10 +649,8 @@ class TestInputFileSubmission(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["form"].errors)
 
-    @patch("jobs.services.slurm")
-    def test_input_file_written_to_workdir(self, mock_slurm):
+    def test_input_file_written_to_workdir(self):
         """The uploaded file should be written verbatim to the job workdir."""
-        mock_slurm.submit.return_value = "FAKE-WD"
         yaml_content = b"version: 2\ndata: test\n"
         input_file = SimpleUploadedFile(
             "input.yaml", yaml_content, content_type="application/x-yaml"
@@ -993,3 +888,44 @@ class TestDownloadFileSubdirectory(TestCase):
         with override_settings(JOB_BASE_DIR=self.tmpdir):
             response = self.client.get(f"/jobs/{job.id}/download/nofile.txt")
         self.assertEqual(response.status_code, 404)
+
+
+class _StopAfterWait:
+    def __init__(self):
+        self.wait_calls = 0
+        self.interval = None
+
+    def is_set(self):
+        return False
+
+    def wait(self, interval):
+        self.wait_calls += 1
+        self.interval = interval
+        return True
+
+
+class TestRunJobWorkerCommand(SimpleTestCase):
+    @patch("jobs.management.commands.run_job_worker.run_worker_iteration")
+    def test_worker_loop_runs_single_iteration_then_waits(self, mock_iteration):
+        stop_event = _StopAfterWait()
+
+        run_worker_loop(
+            interval=7,
+            stop_event=stop_event,
+            once=False,
+            stdout=io.StringIO(),
+            stderr=io.StringIO(),
+        )
+
+        mock_iteration.assert_called_once()
+        self.assertEqual(stop_event.wait_calls, 1)
+        self.assertEqual(stop_event.interval, 7)
+
+    @patch("jobs.management.commands.run_job_worker._install_signal_handlers")
+    @patch("jobs.management.commands.run_job_worker.run_worker_iteration")
+    def test_handle_once_runs_single_iteration(self, mock_iteration, mock_install):
+        command = RunJobWorkerCommand()
+        command.handle(interval=10, once=True)
+
+        mock_install.assert_called_once()
+        mock_iteration.assert_called_once()

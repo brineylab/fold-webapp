@@ -39,7 +39,11 @@ class Command(BaseCommand):
             self.stdout.write(f"Using override retention period: {override_days} days")
             self.stdout.write("")
 
-        result = cleanup_jobs(override_days=override_days, dry_run=dry_run)
+        result = cleanup_jobs(
+            override_days=override_days,
+            dry_run=dry_run,
+            source="command",
+        )
 
         if verbose and result["jobs"]:
             self.stdout.write("Jobs eligible for cleanup:")
@@ -75,4 +79,3 @@ class Command(BaseCommand):
         else:
             self.stdout.write("")
             self.stdout.write(self.style.SUCCESS("Cleanup complete"))
-

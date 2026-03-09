@@ -13,7 +13,7 @@ class BoltzGenRunner(Runner):
     name = "BoltzGen"
 
     def build_script(self, job, config=None) -> str:
-        workdir = Path(job.host_workdir)
+        workdir = Path(job.workdir)
         outdir = workdir / "output"
 
         image = (
@@ -23,8 +23,6 @@ class BoltzGenRunner(Runner):
         )
 
         cache_dir = settings.BOLTZGEN_CACHE_DIR
-
-        slurm_directives = config.get_slurm_directives() if config else ""
 
         params = job.params or {}
         protocol = params.get("protocol", "protein-anything")
@@ -57,21 +55,11 @@ class BoltzGenRunner(Runner):
             f"-v {workdir}:/work",
             f"-v {cache_dir}:/cache",
         ]
-        if config:
-            for k, v in (config.extra_env or {}).items():
-                docker_args.append(f"-e {k}={v}")
-            for mount in config.extra_mounts or []:
-                docker_args.append(f"-v {mount['source']}:{mount['target']}")
         docker_args.append(image)
         docker_args.append(cmd_str)
         docker_cmd = " \\\n  ".join(docker_args)
 
         return f"""#!/bin/bash
-#SBATCH --job-name=boltzgen-{job.id}
-#SBATCH --output={outdir}/slurm-%j.out
-#SBATCH --error={outdir}/slurm-%j.err
-{slurm_directives}
-
 set -euo pipefail
 umask 000
 
@@ -83,6 +71,6 @@ echo "======================"
 
 {docker_cmd}
 
-# Ensure output stays writable by the webapp and host user
+# Ensure output stays writable for follow-up inspection and downloads.
 chmod -R a+rwX {outdir} 2>/dev/null || true
 """

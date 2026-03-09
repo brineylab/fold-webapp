@@ -1,158 +1,168 @@
 {% extends "console/base.html" %}
 
-{% block title %}Audit Log - Ops Console{% endblock %}
+{% block title %}Operations Log - Ops Console{% endblock %}
 
 {% block console_content %}
-<h1 class="mb-4">Audit Log</h1>
+<h1 class="mb-4">Operations Log</h1>
 
-{% if not history_available %}
-<div class="alert alert-warning">
-  <strong>History Not Available</strong>
-  <p class="mb-0">{{ message|default:"django-simple-history is not configured for the Job model." }}</p>
-</div>
-{% else %}
-
-<!-- Filters -->
 <div class="card mb-4">
   <div class="card-body">
     <form method="get" class="row g-3">
-      <div class="col-md-3">
-        <label for="job" class="form-label">Job ID</label>
-        <input type="text" class="form-control" id="job" name="job" value="{{ job_filter }}" 
-               placeholder="Search by job ID&#x2026;">
+      <div class="col-md-4">
+        <label for="job" class="form-label">Job UUID</label>
+        <input type="text" class="form-control" id="job" name="job" value="{{ job_filter }}"
+               placeholder="Filter a single job timeline">
       </div>
-      <div class="col-md-3">
-        <label for="user" class="form-label">User</label>
-        <input type="text" class="form-control" id="user" name="user" value="{{ user_filter }}" 
-               placeholder="Search by username&#x2026;">
+      <div class="col-md-4">
+        <label for="user" class="form-label">Actor or Target User</label>
+        <input type="text" class="form-control" id="user" name="user" value="{{ user_filter }}"
+               placeholder="Filter by username">
       </div>
-      <div class="col-md-3">
-        <label for="action" class="form-label">Action</label>
-        <select class="form-select" id="action" name="action">
-          <option value="">All Actions</option>
-          <option value="+" {% if action_filter == "+" %}selected{% endif %}>Created (+)</option>
-          <option value="~" {% if action_filter == "~" %}selected{% endif %}>Changed (~)</option>
-          <option value="-" {% if action_filter == "-" %}selected{% endif %}>Deleted (-)</option>
+      <div class="col-md-2">
+        <label for="scope" class="form-label">Scope</label>
+        <select class="form-select" id="scope" name="scope">
+          <option value="">All scopes</option>
+          {% for value, label in scope_choices %}
+          <option value="{{ value }}" {% if scope_filter == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         </select>
       </div>
-      <div class="col-md-3 d-flex align-items-end">
+      <div class="col-md-2 d-flex align-items-end">
         <button type="submit" class="btn btn-primary w-100">Filter</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- History Records -->
-<div class="card">
+{% if job_filter_error %}
+<div class="alert alert-warning">{{ job_filter_error }}</div>
+{% endif %}
+
+{% if job_filter and not job_context and not job_filter_error %}
+<div class="alert alert-secondary">
+  No job matched <code>{{ job_filter }}</code>.
+</div>
+{% endif %}
+
+{% if job_context %}
+<div class="card mb-4">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <strong>History Records</strong>
-    <span class="badge bg-secondary">{{ history_records|length }} shown (max 200)</span>
+    <strong>Job Timeline</strong>
+    <a href="{% url 'console:job_detail' job_id=job_context.id %}" class="btn btn-outline-secondary btn-sm">
+      Open Job
+    </a>
   </div>
-  <div class="card-body p-0">
-    {% if history_records %}
+  <div class="card-body">
+    <div class="row mb-3">
+      <div class="col-md-4">
+        <div class="text-muted small">Job</div>
+        <code>{{ job_context.id }}</code>
+      </div>
+      <div class="col-md-2">
+        <div class="text-muted small">Owner</div>
+        <div>{{ job_context.owner.username }}</div>
+      </div>
+      <div class="col-md-2">
+        <div class="text-muted small">Runner</div>
+        <div><span class="badge bg-secondary">{{ job_context.runner }}</span></div>
+      </div>
+      <div class="col-md-2">
+        <div class="text-muted small">Status</div>
+        <div><span class="fw-semibold status-{{ job_context.status }}">{{ job_context.status }}</span></div>
+      </div>
+      <div class="col-md-2">
+        <div class="text-muted small">Attempts</div>
+        <div>{{ job_context.attempt_count }}</div>
+      </div>
+    </div>
+
     <div class="table-responsive">
-      <table class="table table-hover mb-0">
+      <table class="table table-sm align-middle mb-0">
         <thead class="table-light">
           <tr>
-            <th>Timestamp</th>
-            <th>Job ID</th>
-            <th>Action</th>
-            <th>User</th>
+            <th>Attempt</th>
             <th>Status</th>
-            <th>Details</th>
+            <th>Runtime ID</th>
+            <th>GPU</th>
+            <th>Started</th>
+            <th>Finished</th>
+            <th>Exit</th>
           </tr>
         </thead>
         <tbody>
-          {% for record in history_records %}
+          {% for attempt in job_attempts %}
           <tr>
-            <td class="text-muted">{{ record.history_date|date:"Y-m-d H:i:s" }}</td>
+            <td>#{{ attempt.attempt_number }}</td>
+            <td><span class="fw-semibold status-{{ attempt.status }}">{{ attempt.status }}</span></td>
+            <td><code>{{ attempt.scheduler_job_id|default:attempt.container_id|default:"-" }}</code></td>
+            <td><code>{{ attempt.gpu_index|default:"-" }}</code></td>
+            <td class="text-muted">{{ attempt.started_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
+            <td class="text-muted">{{ attempt.finished_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
+            <td>{{ attempt.exit_code|default:"-" }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-3">No attempts recorded.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <strong>Action Records</strong>
+    <span class="badge bg-secondary">{{ action_logs|length }} shown (max 200)</span>
+  </div>
+  <div class="card-body p-0">
+    {% if action_logs %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Timestamp</th>
+            <th>Scope</th>
+            <th>Action</th>
+            <th>Actor</th>
+            <th>Target</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in action_logs %}
+          <tr>
+            <td class="text-muted">{{ record.created_at|date:"Y-m-d H:i:s" }}</td>
+            <td><span class="badge bg-secondary">{{ record.get_scope_display }}</span></td>
+            <td><code>{{ record.action }}</code></td>
+            <td>{{ record.actor_name }}</td>
             <td>
-              <a href="{% url 'console:job_detail' job_id=record.id %}">
-                <code>{{ record.id|truncatechars:13 }}</code>
+              {% if record.job %}
+              <a href="{% url 'console:job_detail' job_id=record.job.id %}">
+                <code>{{ record.job.id|truncatechars:13 }}</code>
               </a>
-            </td>
-            <td>
-              {% if record.history_type == "+" %}
-              <span class="badge bg-success">Created</span>
-              {% elif record.history_type == "~" %}
-              <span class="badge bg-info">Changed</span>
-              {% elif record.history_type == "-" %}
-              <span class="badge bg-danger">Deleted</span>
+              {% elif record.target_user %}
+              {{ record.target_user.username }}
+              {% elif record.runner_key %}
+              <code>{{ record.runner_key }}</code>
+              {% elif record.target_label %}
+              {{ record.target_label }}
               {% else %}
-              <span class="badge bg-secondary">{{ record.history_type }}</span>
+              <span class="text-muted">-</span>
               {% endif %}
             </td>
             <td>
-              {% if record.history_user %}
-              {{ record.history_user.username }}
-              {% else %}
-              <span class="text-muted">System</span>
+              <div>{{ record.message }}</div>
+              {% if record.source %}
+              <small class="text-muted d-block">Source: {{ record.source }}</small>
               {% endif %}
-            </td>
-            <td>
-              <span class="status-{{ record.status }}">{{ record.status }}</span>
-            </td>
-            <td>
-              {% if record.history_type == "~" %}
-              <button type="button" class="btn btn-outline-secondary btn-sm" 
-                      data-bs-toggle="modal" 
-                      data-bs-target="#changeModal{{ forloop.counter }}">
-                View Changes
-              </button>
-              
-              <!-- Modal for viewing changes -->
-              <div class="modal fade" id="changeModal{{ forloop.counter }}" tabindex="-1">
-                <div class="modal-dialog modal-lg">
-                  <div class="modal-content">
-                    <div class="modal-header">
-                      <h5 class="modal-title">Changes to Job {{ record.id|truncatechars:13 }}</h5>
-                      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                      <p class="text-muted">
-                        Changed at {{ record.history_date|date:"Y-m-d H:i:s" }}
-                        {% if record.history_user %}by {{ record.history_user.username }}{% endif %}
-                      </p>
-                      <table class="table table-sm">
-                        <thead>
-                          <tr>
-                            <th>Field</th>
-                            <th>Value at this point</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td>Status</td>
-                            <td><span class="status-{{ record.status }}">{{ record.status }}</span></td>
-                          </tr>
-                          <tr>
-                            <td>Hidden from owner</td>
-                            <td>{{ record.hidden_from_owner|yesno:"Yes,No" }}</td>
-                          </tr>
-                          {% if record.error_message %}
-                          <tr>
-                            <td>Error message</td>
-                            <td>{{ record.error_message }}</td>
-                          </tr>
-                          {% endif %}
-                          <tr>
-                            <td>SLURM Job ID</td>
-                            <td>{{ record.slurm_job_id|default:"-" }}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                      <p class="text-muted small mb-0">
-                        <em>Note: This shows the state at this point in time. 
-                        Use the "diff" feature in django-simple-history admin for field-by-field comparison.</em>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {% elif record.history_type == "+" %}
-              <span class="text-muted small">Job created</span>
-              {% elif record.history_type == "-" %}
-              <span class="text-muted small">Job deleted</span>
+              {% if record.metadata %}
+              <details class="mt-1">
+                <summary class="small text-muted">Details</summary>
+                <pre class="bg-body-secondary p-2 rounded mt-2 mb-0"><code>{{ record.metadata|pprint }}</code></pre>
+              </details>
               {% endif %}
             </td>
           </tr>
@@ -162,12 +172,9 @@
     </div>
     {% else %}
     <div class="p-4 text-center text-muted">
-      No history records found matching your criteria.
+      No action records matched your filters.
     </div>
     {% endif %}
   </div>
 </div>
-
-{% endif %}
 {% endblock %}
-

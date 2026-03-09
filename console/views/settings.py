@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import json
-
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from console.decorators import console_required
 from console.models import RunnerConfig, SiteSettings
+from console.services.audit import log_action
 from runners import all_runners
 
 
@@ -25,8 +24,6 @@ def settings_page(request):
             "config": config,
             "name": runner.name,
             "key": runner.key,
-            "extra_env_json": json.dumps(config.extra_env, indent=2) if config.extra_env else "",
-            "extra_mounts_json": json.dumps(config.extra_mounts, indent=2) if config.extra_mounts else "",
         })
     
     return render(request, "console/settings.html", {
@@ -40,6 +37,8 @@ def settings_page(request):
 def toggle_maintenance(request):
     """Toggle maintenance mode on/off."""
     site_settings = SiteSettings.get_settings()
+    previous_state = site_settings.maintenance_mode
+    previous_message = site_settings.maintenance_message
     
     # Toggle the mode
     new_state = not site_settings.maintenance_mode
@@ -52,6 +51,22 @@ def toggle_maintenance(request):
         site_settings.maintenance_message = message
     
     site_settings.save()
+    log_action(
+        scope="settings",
+        action="maintenance_enabled" if new_state else "maintenance_disabled",
+        actor=request.user,
+        source="console",
+        target_label="site",
+        message=(
+            f"Maintenance mode {'enabled' if new_state else 'disabled'}."
+        ),
+        metadata={
+            "previous_state": previous_state,
+            "current_state": new_state,
+            "previous_message": previous_message,
+            "current_message": site_settings.maintenance_message,
+        },
+    )
     
     if new_state:
         messages.warning(request, "Maintenance mode is now ENABLED. New job submissions are blocked.")
@@ -66,12 +81,25 @@ def toggle_maintenance(request):
 def update_maintenance_message(request):
     """Update the maintenance message without toggling mode."""
     site_settings = SiteSettings.get_settings()
+    previous_message = site_settings.maintenance_message
     
     message = request.POST.get("maintenance_message", "").strip()
     if message:
         site_settings.maintenance_message = message
         site_settings.updated_by = request.user
         site_settings.save()
+        log_action(
+            scope="settings",
+            action="maintenance_message_updated",
+            actor=request.user,
+            source="console",
+            target_label="site",
+            message="Updated the maintenance message.",
+            metadata={
+                "previous_message": previous_message,
+                "current_message": site_settings.maintenance_message,
+            },
+        )
         messages.success(request, "Maintenance message updated.")
     else:
         messages.error(request, "Maintenance message cannot be empty.")
@@ -84,6 +112,8 @@ def update_maintenance_message(request):
 def toggle_runner(request, runner_key: str):
     """Toggle a specific runner on/off."""
     config = get_object_or_404(RunnerConfig, runner_key=runner_key)
+    previous_state = config.enabled
+    previous_reason = config.disabled_reason
     
     # Toggle enabled state
     new_state = not config.enabled
@@ -98,6 +128,20 @@ def toggle_runner(request, runner_key: str):
         config.disabled_reason = ""
     
     config.save()
+    log_action(
+        scope="settings",
+        action="runner_enabled" if new_state else "runner_disabled",
+        actor=request.user,
+        source="console",
+        runner_key=runner_key,
+        message=f"{runner_key} {'enabled' if new_state else 'disabled'}.",
+        metadata={
+            "previous_state": previous_state,
+            "current_state": new_state,
+            "previous_reason": previous_reason,
+            "current_reason": config.disabled_reason,
+        },
+    )
     
     # Get runner name for the message
     runner_name = runner_key
@@ -119,11 +163,21 @@ def toggle_runner(request, runner_key: str):
 def update_runner_reason(request, runner_key: str):
     """Update the disabled reason for a runner."""
     config = get_object_or_404(RunnerConfig, runner_key=runner_key)
+    previous_reason = config.disabled_reason
 
     reason = request.POST.get("disabled_reason", "").strip()
     config.disabled_reason = reason
     config.updated_by = request.user
     config.save()
+    log_action(
+        scope="settings",
+        action="runner_reason_updated",
+        actor=request.user,
+        source="console",
+        runner_key=runner_key,
+        message=f"Updated disabled reason for {runner_key}.",
+        metadata={"previous_reason": previous_reason, "current_reason": reason},
+    )
 
     messages.success(request, f"Updated reason for {runner_key}.")
 
@@ -133,8 +187,9 @@ def update_runner_reason(request, runner_key: str):
 @console_required
 @require_POST
 def update_runner_config(request, runner_key: str):
-    """Update SLURM resource and container settings for a runner."""
+    """Update the minimal runtime configuration for a runner."""
     config = get_object_or_404(RunnerConfig, runner_key=runner_key)
+    previous_image_uri = config.image_uri
 
     # Get runner name for messages
     runner_name = runner_key
@@ -143,63 +198,22 @@ def update_runner_config(request, runner_key: str):
             runner_name = runner.name
             break
 
-    # SLURM resource fields
-    config.partition = request.POST.get("partition", "").strip()
-    config.time_limit = request.POST.get("time_limit", "").strip()
-
-    # Numeric fields
-    errors = []
-    for field, label in [("gpus", "GPUs"), ("cpus", "CPUs"), ("mem_gb", "Memory (GB)")]:
-        raw = request.POST.get(field, "").strip()
-        if raw == "":
-            setattr(config, field, 0 if field == "gpus" else 1 if field == "cpus" else 8)
-        else:
-            try:
-                val = int(raw)
-                if val < 0:
-                    raise ValueError
-                setattr(config, field, val)
-            except (ValueError, TypeError):
-                errors.append(f"{label} must be a non-negative integer.")
-
-    # Container fields
     config.image_uri = request.POST.get("image_uri", "").strip()
-
-    # JSON fields
-    extra_env_raw = request.POST.get("extra_env", "").strip()
-    if extra_env_raw:
-        try:
-            parsed = json.loads(extra_env_raw)
-            if not isinstance(parsed, dict):
-                errors.append("Extra env must be a JSON object (e.g. {}).")
-            else:
-                config.extra_env = parsed
-        except json.JSONDecodeError:
-            errors.append("Extra env contains invalid JSON.")
-    else:
-        config.extra_env = {}
-
-    extra_mounts_raw = request.POST.get("extra_mounts", "").strip()
-    if extra_mounts_raw:
-        try:
-            parsed = json.loads(extra_mounts_raw)
-            if not isinstance(parsed, list):
-                errors.append("Extra mounts must be a JSON array (e.g. []).")
-            else:
-                config.extra_mounts = parsed
-        except json.JSONDecodeError:
-            errors.append("Extra mounts contains invalid JSON.")
-    else:
-        config.extra_mounts = []
-
-    if errors:
-        for err in errors:
-            messages.error(request, err)
-        return redirect("console:settings")
 
     config.updated_by = request.user
     config.save()
+    log_action(
+        scope="settings",
+        action="runner_config_updated",
+        actor=request.user,
+        source="console",
+        runner_key=runner_key,
+        message=f"Updated runtime configuration for {runner_name}.",
+        metadata={
+            "previous_image_uri": previous_image_uri,
+            "current_image_uri": config.image_uri,
+        },
+    )
 
     messages.success(request, f"Configuration updated for {runner_name}.")
     return redirect("console:settings")
-

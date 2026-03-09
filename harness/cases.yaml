@@ -126,7 +126,7 @@ cases:
   - id: extended-boltz2-yaml-upload
     tier: extended
     model_key: boltz2
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:
@@ -150,7 +150,7 @@ cases:
   - id: extended-chai1-restraints
     tier: extended
     model_key: chai1
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:
@@ -166,7 +166,7 @@ cases:
   - id: extended-protein-mpnn-options
     tier: extended
     model_key: protein_mpnn
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:
@@ -184,7 +184,7 @@ cases:
   - id: extended-ligand-mpnn-options
     tier: extended
     model_key: ligand_mpnn
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:
@@ -202,7 +202,7 @@ cases:
   - id: extended-bindcraft-custom-config
     tier: extended
     model_key: bindcraft
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:
@@ -221,7 +221,7 @@ cases:
   - id: extended-rfdiffusion3-protein-binder
     tier: extended
     model_key: rfdiffusion3
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:
@@ -296,7 +296,7 @@ cases:
   - id: extended-rfdiffusion3-motif
     tier: extended
     model_key: rfdiffusion3
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:
@@ -314,7 +314,7 @@ cases:
   - id: extended-rfdiffusion3-partial
     tier: extended
     model_key: rfdiffusion3
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:
@@ -331,7 +331,7 @@ cases:
   - id: extended-rfdiffusion3-symmetric
     tier: extended
     model_key: rfdiffusion3
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:
@@ -347,7 +347,7 @@ cases:
   - id: extended-rfdiffusion3-json-upload
     tier: extended
     model_key: rfdiffusion3
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:
@@ -375,7 +375,7 @@ cases:
   - id: extended-boltzgen-peptide
     tier: extended
     model_key: boltzgen
-    transport: materialize_only
+    transport: prepare_only
     timeout_sec: 300
     requires: []
     fields:

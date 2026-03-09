@@ -54,9 +54,46 @@
           </div>
         </div>
         <div class="row mb-3">
-          <div class="col-sm-3"><strong>SLURM Job ID</strong></div>
-          <div class="col-sm-9"><code>{{ job.slurm_job_id|default:"-" }}</code></div>
+          <div class="col-sm-3"><strong>Execution Backend</strong></div>
+          <div class="col-sm-9"><code>{{ job.runtime_backend }}</code></div>
         </div>
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Runtime ID</strong></div>
+          <div class="col-sm-9"><code>{{ job.runtime_identifier|default:"-" }}</code></div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Current Attempt</strong></div>
+          <div class="col-sm-9">
+            {% if job.current_attempt %}
+            #{{ job.current_attempt.attempt_number }} ({{ job.current_attempt.status }})
+            {% else %}
+            <span class="text-muted">-</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>GPU Slot</strong></div>
+          <div class="col-sm-9"><code>{{ job.runtime_gpu_index|default:"-" }}</code></div>
+        </div>
+        {% if job.runtime_container_id %}
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Container ID</strong></div>
+          <div class="col-sm-9"><code>{{ job.runtime_container_id }}</code></div>
+        </div>
+        {% endif %}
+        {% if job.current_attempt.stdout_path or job.current_attempt.stderr_path %}
+        <div class="row mb-3">
+          <div class="col-sm-3"><strong>Attempt Logs</strong></div>
+          <div class="col-sm-9">
+            {% if job.current_attempt.stdout_path %}
+            <div><code class="text-break">{{ job.current_attempt.stdout_path }}</code></div>
+            {% endif %}
+            {% if job.current_attempt.stderr_path %}
+            <div><code class="text-break">{{ job.current_attempt.stderr_path }}</code></div>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
         {% if job.error_message %}
         <div class="row mb-3">
           <div class="col-sm-3"><strong>Error</strong></div>
@@ -86,6 +123,68 @@
           <div class="col-sm-3"><strong>Completed</strong></div>
           <div class="col-sm-9">{{ job.completed_at|date:"Y-m-d H:i:s"|default:"-" }}</div>
         </div>
+        <hr>
+        <div class="row mb-2">
+          <div class="col-sm-3"><strong>Wait Seconds</strong></div>
+          <div class="col-sm-9">{{ job.wait_seconds|default:"-" }}</div>
+        </div>
+        <div class="row mb-2">
+          <div class="col-sm-3"><strong>Run Seconds</strong></div>
+          <div class="col-sm-9">{{ job.run_seconds|default:"-" }}</div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3"><strong>GPU Seconds</strong></div>
+          <div class="col-sm-9">{{ job.gpu_seconds|default:"-" }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Attempt Timeline</strong>
+        <span class="badge bg-secondary">{{ attempts|length }} attempt{{ attempts|length|pluralize }}</span>
+      </div>
+      <div class="card-body p-0">
+        {% if attempts %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Attempt</th>
+                <th>Status</th>
+                <th>Runtime ID</th>
+                <th>GPU</th>
+                <th>Started</th>
+                <th>Finished</th>
+                <th>Exit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for attempt in attempts %}
+              <tr>
+                <td>#{{ attempt.attempt_number }}</td>
+                <td><span class="fw-semibold status-{{ attempt.status }}">{{ attempt.status }}</span></td>
+                <td><code>{{ attempt.scheduler_job_id|default:attempt.container_id|default:"-" }}</code></td>
+                <td><code>{{ attempt.gpu_index|default:"-" }}</code></td>
+                <td class="text-muted">{{ attempt.started_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                <td class="text-muted">{{ attempt.finished_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
+                <td>{{ attempt.exit_code|default:"-" }}</td>
+              </tr>
+              {% if attempt.failure_summary %}
+              <tr class="table-light">
+                <td></td>
+                <td colspan="6">
+                  <small class="text-danger">{{ attempt.failure_summary }}</small>
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-center text-muted">No attempts recorded.</div>
+        {% endif %}
       </div>
     </div>
 
@@ -165,6 +264,38 @@
       </div>
     </div>
 
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Recent Actions</strong>
+        <a href="{% url 'console:audit_log' %}?job={{ job.id }}" class="btn btn-outline-secondary btn-sm">
+          Full Log
+        </a>
+      </div>
+      <div class="card-body">
+        {% if action_logs %}
+        <ul class="list-group list-group-flush">
+          {% for record in action_logs %}
+          <li class="list-group-item px-0">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <code>{{ record.action }}</code>
+                <div>{{ record.message }}</div>
+                <small class="text-muted">
+                  {{ record.actor_name }}
+                  {% if record.source %}&bull; {{ record.source }}{% endif %}
+                </small>
+              </div>
+              <small class="text-muted">{{ record.created_at|date:"Y-m-d H:i" }}</small>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0">No action records for this job.</p>
+        {% endif %}
+      </div>
+    </div>
+
     <!-- Quick Links -->
     <div class="card">
       <div class="card-header">
@@ -175,11 +306,10 @@
           Edit in Django Admin
         </a>
         <a href="{% url 'console:audit_log' %}?job={{ job.id }}" class="list-group-item list-group-item-action">
-          View Audit History
+          View Operations Log
         </a>
       </div>
     </div>
   </div>
 </div>
 {% endblock %}
-
