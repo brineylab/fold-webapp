@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import fnmatch
 import shutil
 import uuid
 from dataclasses import asdict, dataclass
@@ -24,6 +23,12 @@ from jobs.harness.storage import (
     reports_dir_local,
     write_json,
 )
+from jobs.harness.validation import (
+    ArtifactCheck,
+    ensure_artifact_check,
+    evaluate_artifact_checks,
+    validate_artifact_path,
+)
 from model_types import get_model_type
 from runners import get_runner
 
@@ -40,6 +45,7 @@ class PreparedCase:
     metadata_path: str
     stdout_path: str
     stderr_path: str
+    artifact_checks: list[dict[str, Any]]
     expected_outputs: list[str | list[str]]
     timeout_sec: int
     requires: list[str]
@@ -112,38 +118,13 @@ def prepare_executor_case(run_id: str, case_id: str) -> PreparedCase:
         metadata_path=str(prepared_case_metadata_path(run_id, case.id)),
         stdout_path=str(workdir / "stdout.log"),
         stderr_path=str(workdir / "stderr.log"),
+        artifact_checks=[check.as_dict() for check in case.artifact_checks],
         expected_outputs=case.expected_outputs,
         timeout_sec=case.timeout_sec,
         requires=case.requires,
     )
     write_json(prepared_case_metadata_path(run_id, case.id), asdict(metadata))
     return metadata
-
-
-def _iter_expected_matches(
-    file_names: list[str],
-    expected_outputs: list[str | list[str]],
-) -> tuple[list[dict[str, Any]], list[str]]:
-    matches: list[dict[str, Any]] = []
-    errors: list[str] = []
-
-    for index, requirement in enumerate(expected_outputs, start=1):
-        patterns = requirement if isinstance(requirement, list) else [requirement]
-        expanded_patterns = set(patterns)
-        expanded_patterns.update(
-            pattern[3:] for pattern in patterns if pattern.startswith("**/")
-        )
-        matched = [
-            name
-            for name in file_names
-            if any(fnmatch.fnmatch(name, pattern) for pattern in expanded_patterns)
-        ]
-        if not matched:
-            errors.append(
-                f"Missing expected output requirement {index}: {', '.join(patterns)}"
-            )
-        matches.append({"patterns": patterns, "matched": matched})
-    return matches, errors
 
 
 def _scan_text_log(path: Path) -> list[str]:
@@ -182,25 +163,43 @@ def verify_prepared_case(
         report["errors"].append(f"Executor run exited with code {exit_code}")
 
     if output_dir.exists():
-        file_names = [
-            str(path.relative_to(output_dir))
+        output_files = [
+            {
+                "name": str(path.relative_to(output_dir)),
+                "size": path.stat().st_size,
+                "path": path,
+            }
             for path in sorted(output_dir.rglob("*"))
             if path.is_file()
         ]
     else:
-        file_names = []
+        output_files = []
 
-    report["output_files"] = file_names
+    report["output_files"] = [item["name"] for item in output_files]
+    report["output_file_details"] = [
+        {"name": item["name"], "size_bytes": int(item["size"])}
+        for item in output_files
+    ]
 
     if not prepare_only:
-        matches, match_errors = _iter_expected_matches(
-            file_names,
-            metadata.get("expected_outputs", []),
+        artifact_reports, artifact_errors = evaluate_artifact_checks(
+            output_files,
+            _artifact_checks_from_metadata(metadata),
+            _validate_executor_candidate,
         )
-        report["matched_outputs"] = matches
-        report["errors"].extend(match_errors)
+        report["artifact_reports"] = artifact_reports
+        report["matched_outputs"] = [
+            {
+                "patterns": item["patterns"],
+                "matched": [match["name"] for match in item["matched"]],
+            }
+            for item in artifact_reports
+        ]
+        report["errors"].extend(artifact_errors)
         report["errors"].extend(_scan_text_log(Path(metadata["stdout_path"])))
         report["errors"].extend(_scan_text_log(Path(metadata["stderr_path"])))
+    else:
+        report["artifact_reports"] = []
 
     report["ok"] = not report["errors"]
     write_json(_executor_report_path(run_id, case_id), report)
@@ -212,3 +211,21 @@ def executor_reports_for_run(run_id: str) -> list[dict[str, Any]]:
     if not reports_root.exists():
         return []
     return [read_json(path) for path in sorted(reports_root.glob("*.json"))]
+
+
+def _artifact_checks_from_metadata(metadata: dict[str, Any]) -> list[ArtifactCheck]:
+    raw_checks = metadata.get("artifact_checks")
+    if raw_checks:
+        return [ensure_artifact_check(item) for item in raw_checks]
+
+    return [
+        ArtifactCheck(patterns=patterns if isinstance(patterns, list) else [patterns])
+        for patterns in metadata.get("expected_outputs", [])
+    ]
+
+
+def _validate_executor_candidate(
+    candidate: dict[str, Any],
+    check: ArtifactCheck,
+) -> list[str]:
+    return validate_artifact_path(Path(candidate["path"]), check)

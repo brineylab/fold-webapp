@@ -4,7 +4,7 @@ from pathlib import Path
 
 from django.conf import settings
 
-from runners import Runner, register
+from runners import Runner, optional_cuda_visible_devices_env_setup, register
 
 
 @register
@@ -44,7 +44,7 @@ class BoltzRunner(Runner):
         docker_args = [
             "docker run --rm --gpus all",
             "-e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}",
-            "-e CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}",
+            "${cuda_visible_devices_flag}",
             "-e BOLTZ_CACHE=/cache",
             "-e BOLTZ_MSA_USERNAME",
             "-e BOLTZ_MSA_PASSWORD",
@@ -65,6 +65,8 @@ mkdir -p {outdir} {cache_dir}
 echo "=== GPU diagnostic ==="
 nvidia-smi || echo "WARNING: nvidia-smi not available on this node"
 echo "======================"
+
+{optional_cuda_visible_devices_env_setup()}
 
 {docker_cmd}
 

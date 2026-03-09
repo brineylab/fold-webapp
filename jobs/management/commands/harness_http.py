@@ -12,12 +12,14 @@ from console.models import RunnerConfig, SiteSettings
 from console.services.quota import get_user_quota
 from jobs.harness import (
     api_payload_for_case,
+    evaluate_artifact_checks,
     get_case,
     read_json,
     reports_dir_local,
     run_root_local,
     select_cases,
     upload_files_for_case,
+    validate_artifact_bytes,
     write_json,
 )
 from model_types import get_submittable_model_types
@@ -370,28 +372,54 @@ class Command(BaseCommand):
             )
             return
 
-        output_files = [item["name"] for item in job_data.get("output_files", [])]
-        matched_outputs, output_errors = self._match_expected_outputs(output_files, case.expected_outputs)
-        case_report["matched_outputs"] = matched_outputs
-        case_report["output_files"] = output_files
-        case_report["errors"].extend(output_errors)
+        output_items = [
+            {
+                "name": item["name"],
+                "size": int(item.get("size", 0)),
+            }
+            for item in job_data.get("output_files", [])
+        ]
+        case_report["output_files"] = [item["name"] for item in output_items]
+        case_report["output_file_details"] = [
+            {"name": item["name"], "size_bytes": int(item["size"])}
+            for item in output_items
+        ]
 
-        downloaded = self._download_primary_output(
+        artifact_reports, artifact_errors = self._evaluate_remote_artifacts(
             requests,
             base_url,
             admin_meta["api_key"],
             job_id,
-            output_files,
+            output_items,
+            case.artifact_checks,
         )
-        case_report["downloaded_file"] = downloaded
-        if not downloaded:
-            case_report["errors"].append("Could not download a primary output file")
+        case_report["artifact_reports"] = artifact_reports
+        case_report["matched_outputs"] = [
+            {
+                "patterns": report["patterns"],
+                "matched": [match["name"] for match in report["matched"]],
+            }
+            for report in artifact_reports
+        ]
+        case_report["validated_downloads"] = [
+            report["validated_file"]
+            for report in artifact_reports
+            if report.get("validated_file")
+        ]
+        case_report["downloaded_file"] = (
+            case_report["validated_downloads"][0]
+            if case_report["validated_downloads"]
+            else None
+        )
+        case_report["errors"].extend(artifact_errors)
 
         detail_page = session.get(urljoin(base_url, f"jobs/{job_id}/"), timeout=30)
         case_report["detail_page_ok"] = detail_page.status_code == 200
         if detail_page.status_code != 200:
             case_report["errors"].append(f"Detail page returned {detail_page.status_code}")
-        elif output_files and not any(filename in detail_page.text for filename in output_files):
+        elif case_report["output_files"] and not any(
+            filename in detail_page.text for filename in case_report["output_files"]
+        ):
             case_report["errors"].append("Detail page did not render output filenames")
 
         log_errors = self._check_output_logs(
@@ -399,7 +427,7 @@ class Command(BaseCommand):
             base_url,
             admin_meta["api_key"],
             job_id,
-            output_files,
+            case_report["output_files"],
         )
         case_report["errors"].extend(log_errors)
 
@@ -486,24 +514,27 @@ class Command(BaseCommand):
             time.sleep(5)
         return {"job": {"status": "TIMEOUT", "error_message": "Harness poll timeout"}}
 
-    def _download_primary_output(
+    def _evaluate_remote_artifacts(
         self,
         requests,
         base_url: str,
         api_key: str,
         job_id: str,
-        output_files: list[str],
-    ) -> str | None:
-        for filename in output_files:
-            response = self._api_get(
+        output_files: list[dict[str, Any]],
+        artifact_checks,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        return evaluate_artifact_checks(
+            output_files,
+            artifact_checks,
+            lambda candidate, check: self._validate_remote_candidate(
                 requests,
                 base_url,
-                f"api/v1/jobs/{job_id}/download/{quote(filename, safe='/')}",
                 api_key,
-            )
-            if response.status_code == 200 and response.content:
-                return filename
-        return None
+                job_id,
+                candidate,
+                check,
+            ),
+        )
 
     def _check_output_logs(
         self,
@@ -553,14 +584,31 @@ class Command(BaseCommand):
         match = re.search(r"/jobs/([0-9a-f-]+)/", location)
         return match.group(1) if match else ""
 
-    def _match_expected_outputs(
+    def _validate_remote_candidate(
         self,
-        output_files: list[str],
-        expected_outputs: list[str | list[str]],
-    ) -> tuple[list[dict[str, Any]], list[str]]:
-        from jobs.harness import _iter_expected_matches
-
-        return _iter_expected_matches(output_files, expected_outputs)
+        requests,
+        base_url: str,
+        api_key: str,
+        job_id: str,
+        candidate: dict[str, Any],
+        check,
+    ) -> list[str]:
+        response = self._api_get(
+            requests,
+            base_url,
+            f"api/v1/jobs/{job_id}/download/{quote(candidate['name'], safe='/')}",
+            api_key,
+        )
+        if response.status_code != 200:
+            return [f"Could not download {candidate['name']}: HTTP {response.status_code}"]
+        if not response.content:
+            return [f"Downloaded file {candidate['name']} is empty"]
+        return validate_artifact_bytes(
+            candidate["name"],
+            response.content,
+            validator=check.validator,
+            required_members=check.required_members,
+        )
 
     def _record_check(self, report: dict[str, Any], name: str, ok: bool, details: dict[str, Any]) -> None:
         report["checks"].append({"name": name, "ok": ok, "details": details})

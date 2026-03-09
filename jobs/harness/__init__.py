@@ -25,6 +25,13 @@ from jobs.harness.storage import (
     run_root_local,
     write_json,
 )
+from jobs.harness.validation import (
+    ArtifactCheck,
+    evaluate_artifact_checks,
+    iter_expected_matches,
+    validate_artifact_bytes,
+    validate_artifact_path,
+)
 
 # Backward-compatible aliases for older harness scripts and imports.
 MaterializedCase = PreparedCase
@@ -39,12 +46,15 @@ __all__ = [
     "MaterializedCase",
     "PreparedCase",
     "api_payload_for_case",
+    "ArtifactCheck",
     "direct_case_root_local",
     "direct_reports_for_run",
+    "evaluate_artifact_checks",
     "executor_case_root_local",
     "executor_reports_for_run",
     "get_case",
     "harness_root_local",
+    "iter_expected_matches",
     "load_cases",
     "materialize_case",
     "materialized_metadata_path",
@@ -59,7 +69,12 @@ __all__ = [
     "submission_data_from_fields",
     "summarize_run",
     "upload_files_for_case",
+    "validate_artifact_bytes",
+    "validate_artifact_path",
     "verify_materialized_case",
     "verify_prepared_case",
     "write_json",
 ]
+
+# Backward-compatible alias for older imports.
+_iter_expected_matches = iter_expected_matches

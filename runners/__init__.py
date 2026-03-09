@@ -43,3 +43,9 @@ def get_runner(key: str) -> Runner:
 def all_runners() -> list[Runner]:
     return list(_RUNNERS.values())
 
+
+def optional_cuda_visible_devices_env_setup() -> str:
+    return """cuda_visible_devices_flag=""
+if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then
+  cuda_visible_devices_flag="-e CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}"
+fi"""

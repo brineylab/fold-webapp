@@ -4,7 +4,7 @@ from pathlib import Path
 
 from django.conf import settings
 
-from runners import Runner, register
+from runners import Runner, optional_cuda_visible_devices_env_setup, register
 
 
 @register
@@ -54,7 +54,7 @@ class LigandMPNNRunner(Runner):
         docker_args = [
             "docker run --rm --gpus all",
             "-e NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}",
-            "-e CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}",
+            "${cuda_visible_devices_flag}",
             f"-v {workdir}:/work",
         ]
         docker_args.extend([
@@ -76,12 +76,25 @@ echo "=== GPU diagnostic ==="
 nvidia-smi || echo "WARNING: nvidia-smi not available on this node"
 echo "======================"
 
+{optional_cuda_visible_devices_env_setup()}
+
 {docker_cmd}
 
 # Ensure output stays writable for follow-up inspection and downloads.
 chmod -R a+rwX {outdir} 2>/dev/null || true
 
-# Package results into a single zip.
-cd {outdir}
-zip -r results.zip . -x 'results.zip'
+# Package results into a single archive without requiring host zip(1).
+python3 - <<'PY'
+from pathlib import Path
+import zipfile
+
+outdir = Path({str(outdir)!r})
+archive_path = outdir / "results.zip"
+
+with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    for path in sorted(outdir.rglob("*")):
+        if not path.is_file() or path == archive_path:
+            continue
+        archive.write(path, arcname=path.relative_to(outdir))
+PY
 """

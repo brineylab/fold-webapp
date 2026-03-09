@@ -43,8 +43,16 @@ class Command(BaseCommand):
             lines.append("## Executor / Prepare-only")
             lines.append("")
             for report in summary["executor_reports"]:
+                validated_files = [
+                    item.get("validated_file")
+                    for item in report.get("artifact_reports", [])
+                    if item.get("validated_file")
+                ]
+                validated_suffix = ""
+                if validated_files:
+                    validated_suffix = f" -> {', '.join(validated_files)}"
                 lines.append(
-                    f"- `{report['case_id']}`: `{'PASS' if report.get('ok') else 'FAIL'}` ({report.get('phase')})"
+                    f"- `{report['case_id']}`: `{'PASS' if report.get('ok') else 'FAIL'}` ({report.get('phase')}){validated_suffix}"
                 )
             lines.append("")
 

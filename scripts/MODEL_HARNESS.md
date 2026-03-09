@@ -5,7 +5,8 @@
 ## What It Covers
 
 - Live login, model selection, submit, detail, and API checks against the running deployment
-- One executor validation run for each submittable web model
+- One realistic smoke executor validation run for each submittable model
+- Model-aware artifact validation of downloaded results, not just filename checks
 - Extended prepare-only coverage for alternate form and workdir branches in `harness/cases.yaml`
 
 ## Reports

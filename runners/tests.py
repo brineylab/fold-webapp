@@ -94,6 +94,14 @@ class TestLigandMPNNRunnerBuildScript(TestCase):
             ligand_script,
         )
 
+    def test_packages_results_with_python_zipfile(self):
+        script = self.runner.build_script(
+            _FakeJob(params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"})
+        )
+
+        self.assertIn("python3 - <<'PY'", script)
+        self.assertNotIn("zip -r results.zip", script)
+
 
 class TestRunnerShellScripts(TestCase):
     def test_stub_runners_accept_config(self):
@@ -120,6 +128,31 @@ class TestRunnerShellScripts(TestCase):
         for runner_key, job in cases.items():
             script = get_runner(runner_key).build_script(job)
             self.assertIn("umask 000", script, runner_key)
+
+    def test_gpu_runners_do_not_export_blank_cuda_visible_devices(self):
+        cases = {
+            "bindcraft": _FakeJob(),
+            "boltz-2": _FakeJob(),
+            "boltzgen": _FakeJob(),
+            "chai-1": _FakeJob(),
+            "ligandmpnn": _FakeJob(
+                params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"}
+            ),
+            "rfdiffusion3": _FakeJob(),
+        }
+        for runner_key, job in cases.items():
+            script = get_runner(runner_key).build_script(job)
+            self.assertIn("cuda_visible_devices_flag", script, runner_key)
+            self.assertNotIn(
+                "-e CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}",
+                script,
+                runner_key,
+            )
+
+    def test_boltzgen_uses_entrypoint_subcommand(self):
+        script = get_runner("boltzgen").build_script(_FakeJob())
+        self.assertIn("run /work/input/design.yaml", script)
+        self.assertNotIn("boltzgen run /work/input/design.yaml", script)
 
 
 class TestBindCraftRunnerBuildScript(TestCase):

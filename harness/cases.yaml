@@ -8,14 +8,17 @@ cases:
     fields:
       name: Harness Boltz-2 Smoke
       sequences:
-        fixture_text: common/sequences/de-novo-monomer_1LQ7.fasta
+        fixture_text: boltz2/de-novo-monomer_1LQ7.fasta
+      use_msa_server: true
       output_format: pdb
       recycling_steps: 1
       sampling_steps: 1
       diffusion_samples: 1
     files: {}
-    expected_outputs:
-      - ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+    artifact_checks:
+      - patterns: ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+        validator: structure_file
+        min_size_bytes: 64
 
   - id: smoke-chai1
     tier: smoke
@@ -26,12 +29,14 @@ cases:
     fields:
       name: Harness Chai-1 Smoke
       sequences:
-        fixture_text: common/sequences/de-novo-monomer_1LQ7.fasta
+        fixture_text: chai1/de-novo-monomer_1LQ7.fasta
       num_diffn_samples: 1
       seed: 7
     files: {}
-    expected_outputs:
-      - ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+    artifact_checks:
+      - patterns: ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+        validator: structure_file
+        min_size_bytes: 64
 
   - id: smoke-protein-mpnn
     tier: smoke
@@ -47,8 +52,12 @@ cases:
       seed: 7
     files:
       pdb_file: common/structures/1LQ7.pdb
-    expected_outputs:
-      - results.zip
+    artifact_checks:
+      - patterns: [results.zip]
+        validator: zip_members
+        min_size_bytes: 128
+        required_members:
+          - ["seqs/*.fa", "seqs/*.fasta", "*.fa", "*.fasta"]
 
   - id: smoke-ligand-mpnn
     tier: smoke
@@ -64,8 +73,12 @@ cases:
       seed: 7
     files:
       pdb_file: common/structures/CXCR4_with-ligand_8ZPN.pdb
-    expected_outputs:
-      - results.zip
+    artifact_checks:
+      - patterns: [results.zip]
+        validator: zip_members
+        min_size_bytes: 128
+        required_members:
+          - ["seqs/*.fa", "seqs/*.fasta", "*.fa", "*.fasta"]
 
   - id: smoke-bindcraft
     tier: smoke
@@ -81,8 +94,20 @@ cases:
       number_of_final_designs: 1
     files:
       pdb_file: common/structures/1LQ7.pdb
-    expected_outputs:
-      - ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+    artifact_checks:
+      - patterns: ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+        validator: structure_file
+        min_size_bytes: 64
+      - patterns:
+          [
+            "**/scores.csv",
+            "**/*score*.csv",
+            "**/*metric*.json",
+            "**/*summary*.txt",
+            "**/*summary*.json",
+          ]
+        validator: text_nonempty
+        min_size_bytes: 8
 
   - id: smoke-rfdiffusion3
     tier: smoke
@@ -100,8 +125,10 @@ cases:
       length_min: 40
       length_max: 50
     files: {}
-    expected_outputs:
-      - ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+    artifact_checks:
+      - patterns: ["**/*.pdb", "**/*.cif", "**/*.mmcif", "**/*.pdb.gz", "**/*.cif.gz", "**/*.mmcif.gz"]
+        validator: structure_file
+        min_size_bytes: 64
 
   - id: smoke-boltzgen
     tier: smoke
@@ -120,9 +147,11 @@ cases:
       alpha: 0.001
     files:
       target_file: common/structures/1LQ7.pdb
-    expected_outputs:
-      - ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
-      
+    artifact_checks:
+      - patterns: ["**/*.pdb", "**/*.cif", "**/*.mmcif"]
+        validator: structure_file
+        min_size_bytes: 64
+
   - id: extended-boltz2-yaml-upload
     tier: extended
     model_key: boltz2
@@ -134,7 +163,7 @@ cases:
     files:
       input_file: boltz2/sevil-dimer_6LF2.yaml
     expected_outputs: []
-    
+
   - id: extended-boltz2-glycan
     tier: extended
     model_key: boltz2
@@ -156,7 +185,7 @@ cases:
     fields:
       name: Harness Chai-1 Restraints
       sequences:
-        fixture_text: common/sequences/IL4RA_with-MAN3-glycans.fasta
+        fixture_text: chai1/IL4RA_with-MAN3-glycans.fasta
       num_diffn_samples: 1
       seed: 13
     files:
@@ -196,7 +225,7 @@ cases:
       fixed_residues: "1 2"
       seed: 11
     files:
-      pdb_file: common/structures/1LQ7.pdb
+      pdb_file: common/structures/ligand_complex.pdb
     expected_outputs: []
 
   - id: extended-bindcraft-custom-config
@@ -255,7 +284,7 @@ cases:
   #   files:
   #     sm_target_pdb: common/structures/ligand_complex.pdb
   #   expected_outputs: []
-# 
+  #
   # - id: extended-rfdiffusion3-nucleic-acid
   #   tier: extended
   #   model_key: rfdiffusion3
@@ -273,7 +302,7 @@ cases:
   #   files:
   #     na_target_pdb: common/structures/backbone_a.pdb
   #   expected_outputs: []
-# 
+  #
   # - id: extended-rfdiffusion3-enzyme
   #   tier: extended
   #   model_key: rfdiffusion3

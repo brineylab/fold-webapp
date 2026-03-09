@@ -21,35 +21,19 @@ RUN wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Mi
     && mamba clean -afy \
     && conda config --remove channels defaults 2>/dev/null || true
 
+SHELL ["/bin/bash", "-lc"]
+
 # Clone BindCraft
 RUN git clone https://github.com/martinpacesa/BindCraft.git /app/bindcraft
 
-# Create conda environment from BindCraft's environment file
-# Note: PyRosetta requires academic license access via conda channel.
-# Adjust the channel URL below if needed for your license.
+# Install BindCraft using the repository's own install script.
+# Note: PyRosetta requires access to the GrayLab channel described by BindCraft.
 RUN cd /app/bindcraft \
-    && sed -i '/^\s*-\s*defaults\s*$/d' environment.yml \
-    && mamba env create -f environment.yml -n bindcraft \
+    && bash ./install_bindcraft.sh --cuda '12.8' --pkg_manager 'mamba' \
     && mamba clean -afy
 
-# Override PyTorch in conda env with cu128 pip wheels
-RUN conda run -n bindcraft pip install --no-cache-dir \
-    --index-url https://download.pytorch.org/whl/cu128 \
-    --extra-index-url https://pypi.org/simple/ \
-    --force-reinstall \
-    torch torchvision torchaudio
-
-# Install ColabDesign (af2 binder hallucination backbone)
-RUN conda run -n bindcraft pip install --no-cache-dir \
-    git+https://github.com/sokrypton/ColabDesign.git
-
-# Download AlphaFold2 weights
-RUN conda run -n bindcraft python /app/bindcraft/functions/download_af2_weights.py \
-    --weights_dir /app/params
-
 # Make conda env the default
-ENV CONDA_DEFAULT_ENV=bindcraft
-RUN echo "conda activate bindcraft" >> ~/.bashrc
-SHELL ["conda", "run", "-n", "bindcraft", "/bin/bash", "-c"]
+ENV CONDA_DEFAULT_ENV=BindCraft
+RUN echo "conda activate BindCraft" >> ~/.bashrc
 
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "bindcraft"]
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "BindCraft"]

@@ -13,7 +13,7 @@ class Chai1SubmitForm(forms.Form):
             attrs={
                 "class": "form-control",
                 "rows": 12,
-                "placeholder": ">protein_A\nMKTAYI...\n>protein_B\nMAGFL...\n",
+                "placeholder": ">protein|A\nMKTAYI...\n>protein|B\nMAGFL...\n",
                 "autocomplete": "off",
                 "spellcheck": "false",
             }
