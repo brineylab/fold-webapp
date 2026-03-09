@@ -63,7 +63,7 @@ cases:
       num_sequences: 1
       seed: 7
     files:
-      pdb_file: common/structures/1LQ7.pdb
+      pdb_file: common/structures/CXCR4_with-ligand_8ZPN.pdb
     expected_outputs:
       - results.zip
 
