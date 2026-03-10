@@ -282,6 +282,10 @@
     overflow: hidden;
   }
 
+  .ui-card-plain {
+    @apply bg-transparent;
+  }
+
   .ui-card-header {
     @apply border-b border-border px-4 py-3 font-semibold;
   }
