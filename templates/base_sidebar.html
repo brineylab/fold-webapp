@@ -35,6 +35,41 @@
         if (m) m.content = r === 'dark' ? '#09090b' : '#ffffff';
       })();
     </script>
+    <script>
+      (function() {
+        var doc = document.documentElement;
+        var desktop = window.matchMedia('(min-width: 1024px)').matches;
+        var sidebarState = localStorage.getItem('fold-webapp-sidebar') || 'expanded';
+        var groupStates = {};
+
+        try {
+          groupStates = JSON.parse(localStorage.getItem('fold-webapp-sidebar-groups') || '{}');
+        } catch (err) {
+          groupStates = {};
+        }
+
+        if (desktop && sidebarState === 'collapsed') {
+          doc.setAttribute('data-sidebar-collapsed', 'true');
+        }
+
+        var css = '';
+        Object.keys(groupStates).forEach(function(groupName) {
+          if (!groupStates[groupName]) {
+            return;
+          }
+
+          css += 'html [data-sidebar-collapsible][data-sidebar-group="' + groupName + '"] .ui-sidebar-group-content{grid-template-rows:0fr;}';
+          css += 'html [data-sidebar-collapsible][data-sidebar-group="' + groupName + '"] .chevron{transform:rotate(-90deg);}';
+        });
+
+        if (css) {
+          var style = document.createElement('style');
+          style.id = 'sidebar-preload-state';
+          style.textContent = css;
+          document.head.appendChild(style);
+        }
+      })();
+    </script>
   </head>
   <body class="bg-background text-foreground text-sm">
     <a href="#main-content"

@@ -170,6 +170,11 @@
   // ---- DOM-ready setup --------------------------------------------------
 
   document.addEventListener("DOMContentLoaded", function () {
+    document.documentElement.setAttribute("data-sidebar-ready", "true");
+    var preloadSidebarState = document.getElementById("sidebar-preload-state");
+    if (preloadSidebarState) {
+      preloadSidebarState.remove();
+    }
     var sidebar = document.querySelector("[data-sidebar]");
     var backdrop = document.querySelector("[data-sidebar-backdrop]");
     var lastSidebarToggle = null;
