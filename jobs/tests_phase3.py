@@ -6,6 +6,7 @@ from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
+from django.urls import reverse
 from django.utils import timezone
 
 from jobs.models import Job, JobAttempt
@@ -70,3 +71,58 @@ class Phase3RuntimeMetadataTests(TestCase):
         self.assertContains(response, "local:5150")
         self.assertContains(response, "Backend")
         self.assertContains(response, "local")
+
+
+class Phase3SidebarMigrationTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="sidebar-user", password="testpass")
+        self.client.force_login(self.user)
+
+    def test_job_list_uses_sidebar_layout_and_active_jobs_nav(self):
+        response = self.client.get(reverse("job_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "base_sidebar.html")
+        self.assertContains(response, 'data-sidebar', html=False)
+        self.assertContains(
+            response,
+            'href="/" class="ui-sidebar-item ui-sidebar-item-active"',
+            html=False,
+        )
+
+    def test_model_selection_uses_sidebar_layout_and_active_new_job_nav(self):
+        response = self.client.get(reverse("job_submit"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "jobs/select_model.html")
+        self.assertTemplateUsed(response, "base_sidebar.html")
+        self.assertContains(
+            response,
+            'href="/jobs/new/" class="ui-sidebar-item ui-sidebar-item-active"',
+            html=False,
+        )
+
+    def test_selected_model_marks_matching_sidebar_shortcut_active(self):
+        response = self.client.get(f'{reverse("job_submit")}?model=boltz2')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "jobs/submit_boltz2.html")
+        self.assertContains(
+            response,
+            'href="/jobs/new/?model=boltz2"',
+            html=False,
+        )
+        self.assertContains(
+            response,
+            'ui-sidebar-item ui-sidebar-subitem ui-sidebar-item-active',
+            html=False,
+        )
+
+
+class Phase3LoginLayoutTests(TestCase):
+    def test_login_page_uses_public_layout_without_sidebar(self):
+        response = self.client.get(reverse("login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "base_public.html")
+        self.assertNotContains(response, 'data-sidebar', html=False)

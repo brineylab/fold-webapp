@@ -1,6 +1,7 @@
 {% extends "jobs/base.html" %}
 
 {% block title %}{{ page_title }}{% endblock %}
+{% block topbar_title %}New Job{% endblock %}
 
 {% block content %}
   <h1 class="mb-6">{{ page_title }}</h1>
@@ -63,6 +64,21 @@
 (function() {
   var form = document.querySelector('form');
   var dirty = false;
+  form.querySelectorAll('[data-toggle-disabled-target]').forEach(function(toggle) {
+    var target = form.querySelector(toggle.getAttribute('data-toggle-disabled-target'));
+    if (!target) {
+      return;
+    }
+
+    function syncDisabledState() {
+      target.disabled = !toggle.checked;
+      target.setAttribute('aria-disabled', target.disabled ? 'true' : 'false');
+    }
+
+    toggle.addEventListener('change', syncDisabledState);
+    syncDisabledState();
+  });
+
   form.addEventListener('input', function() { dirty = true; });
   form.addEventListener('submit', function() {
     dirty = false;
