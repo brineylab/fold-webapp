@@ -23,7 +23,7 @@
 
   function applyTheme(theme) {
     var resolved = theme === "auto" ? getSystemTheme() : theme;
-    document.documentElement.setAttribute("data-bs-theme", resolved);
+    document.documentElement.setAttribute("data-theme", resolved);
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.content = resolved === "dark" ? "#09090b" : "#ffffff";
   }

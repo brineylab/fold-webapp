@@ -20,7 +20,7 @@ module.exports = {
     "ui-spinner",
     "ui-spinner-sm",
   ],
-  darkMode: ["selector", '[data-bs-theme="dark"]'],
+  darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {
@@ -76,10 +76,6 @@ module.exports = {
       },
     },
   },
-  corePlugins: {
-    // Disable Tailwind's base reset during Bootstrap coexistence.
-    // Re-enable after Bootstrap is fully removed (Phase 9).
-    preflight: false,
-  },
+  corePlugins: {},
   plugins: [],
 };

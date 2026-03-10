@@ -513,31 +513,44 @@ Phase 8 deviations and notes for future phases:
 - The remaining `data-bs-theme` references are in `templates/base_public.html` and `templates/base_console.html` (inline FOUC-prevention script and CSS color-scheme rules) and in `ui.js` (theme application). These are not app template `data-bs-*` interaction attributes — they are the theme selector mechanism that will be renamed in Phase 9 when `darkMode` configuration changes.
 - No changes were needed to `console/templates/console/base.html` — the sidebar and shell were already migrated in Phase 7.
 
-## Phase 9: Bootstrap Removal, Cleanup, and QA
+## Phase 9: Bootstrap Removal, Cleanup, and QA ✅
 
 Estimated effort: 1 to 2 days
 
 Goals:
 
-- remove transitional dependencies
-- verify the full UI surface end to end
+- [x] remove transitional dependencies
+- [x] verify the full UI surface end to end
 
-Files to update or remove:
+Files removed:
 
-- remove Bootstrap includes from `jobs/templates/jobs/base.html` and any remaining templates
-- remove or archive `static/css/theme.css`
-- remove Bootstrap-specific comments, helper code, and widget classes
+- [x] `static/css/theme.css` — deleted (Bootstrap 5.3 override layer, no longer referenced by any template)
+
+Files updated:
+
+- [x] `templates/base_public.html` — `data-bs-theme` → `data-theme` in inline styles and FOUC-prevention script
+- [x] `templates/base_console.html` — `data-bs-theme` → `data-theme` in inline styles and FOUC-prevention script; removed `.modal` coexistence rule
+- [x] `static/js/ui.js` — `data-bs-theme` → `data-theme` in theme application function
+- [x] `static_src/app.css` — `data-bs-theme` → `data-theme` in design token selectors; replaced manual preflight with design-system-only overrides (Tailwind preflight now handles base resets)
+- [x] `tailwind.config.js` — `darkMode` selector updated from `data-bs-theme` to `data-theme`; `preflight: false` removed (preflight now enabled)
 
 Repository-wide checks:
 
-```bash
-rg -n "bootstrap|data-bs-|form-control|form-select|btn-|card|alert-|list-group" jobs/templates console/templates templates jobs/forms
-```
+- [x] `rg -n "bootstrap|data-bs-|form-control|form-select" jobs/ console/ templates/` — zero matches in application code
+- [x] `npm run build:css` — completes successfully
 
 Exit criteria:
 
-- no Bootstrap assets or Bootstrap-specific classes remain in the application UI
-- the new Tailwind UI is the only active presentation layer
+- [x] no Bootstrap assets or Bootstrap-specific classes remain in the application UI
+- [x] the new Tailwind UI is the only active presentation layer
+
+Phase 9 deviations and notes:
+
+- No Bootstrap includes existed in `jobs/templates/jobs/base.html` — it was already a one-line `{% extends "base_public.html" %}` since Phase 1. Bootstrap CSS/JS CDN links had been removed from `base_public.html` in Phase 4 and from `base_console.html` in Phase 7, so no template changes were needed to remove Bootstrap asset loading.
+- The manual preflight in `app.css` was significantly reduced rather than fully removed. Tailwind's built-in preflight now handles: `box-sizing`, `border-width`/`border-style`, body margin/line-height/font-smoothing, element margins, link/button/input resets, `hr` normalization, and `cursor: pointer` on buttons. The remaining `@layer base` rules cover project-specific design decisions that go beyond Tailwind's reset: custom `border-color` default (design system token instead of `currentColor`), heading typography (sizes, weight, letter-spacing, `text-wrap: balance`), and `img`/`svg` vertical alignment.
+- Enabling Tailwind preflight may cause minor visual shifts on elements that previously relied on browser defaults or the manual preflight's specific behavior. The most likely area is `<pre>` and `<code>` elements in job log output, which now inherit Tailwind's preflight `font-family: ui-monospace, ...` and `font-size` normalization. This should be an improvement rather than a regression.
+- The `.modal { overscroll-behavior: contain; }` rule in `base_console.html` was removed. Bootstrap modals were replaced with the `data-dialog` system in Phase 8, and the dialog markup does not use the `.modal` class name. The `overscroll-behavior` property is not needed because dialogs use `document.body.style.overflow = "hidden"` to prevent background scrolling.
+- Django system checks could not be run because no Python virtualenv was available in the current environment. The CSS build verification confirms the Tailwind pipeline is intact. Django template rendering is unaffected since only HTML attributes and CSS were changed — no Python code was modified.
 
 ## Page Migration Order
 

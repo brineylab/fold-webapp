@@ -14,17 +14,14 @@
     <link href="{% static 'css/app.css' %}" rel="stylesheet">
     <style>
       /* Color scheme for native controls */
-      html[data-bs-theme="dark"] { color-scheme: dark; }
-      html[data-bs-theme="light"] { color-scheme: light; }
+      html[data-theme="dark"] { color-scheme: dark; }
+      html[data-theme="light"] { color-scheme: light; }
 
       /* Scroll margin for anchor navigation */
       [id] { scroll-margin-top: 4rem; }
 
       /* Prevent double-tap zoom delay on mobile */
       a, button, [role="button"], input, select, textarea { touch-action: manipulation; }
-
-      /* Contain scroll within modals */
-      .modal { overscroll-behavior: contain; }
 
       /* Reduced motion preference */
       @media (prefers-reduced-motion: reduce) {
@@ -43,7 +40,7 @@
         var r = t === 'auto'
           ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
           : t;
-        document.documentElement.setAttribute('data-bs-theme', r);
+        document.documentElement.setAttribute('data-theme', r);
         var m = document.querySelector('meta[name="theme-color"]');
         if (m) m.content = r === 'dark' ? '#09090b' : '#ffffff';
       })();
