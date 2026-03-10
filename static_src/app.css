@@ -308,12 +308,16 @@
     position: fixed;
     inset: 0 auto 0 0;
     z-index: 40;
-    display: none;
+    display: flex;
     width: var(--sidebar-width);
     flex-direction: column;
     border-right: 1px solid hsl(var(--ui-border));
     background-color: hsl(var(--ui-card));
     color: hsl(var(--ui-card-foreground));
+    transform: translateX(-100%);
+    transition:
+      width 200ms ease,
+      transform 200ms ease;
   }
 
   .ui-sidebar-header {
@@ -345,6 +349,7 @@
 
   .ui-sidebar-main {
     min-height: 100vh;
+    transition: margin-left 200ms ease;
   }
 
   .ui-sidebar-group + .ui-sidebar-group {
@@ -356,21 +361,35 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    width: 100%;
     padding: 0 0.625rem 0.5rem;
     font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: hsl(var(--ui-muted-foreground));
+    text-align: left;
   }
 
   .ui-sidebar-group-content {
+    display: grid;
+    grid-template-rows: 1fr;
+    overflow: hidden;
+    transition: grid-template-rows 200ms ease;
+  }
+
+  .ui-sidebar-group-content > * {
+    min-height: 0;
+  }
+
+  .ui-sidebar-group-content-inner {
     display: flex;
     flex-direction: column;
     gap: 0.125rem;
   }
 
   .ui-sidebar-item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.625rem;
@@ -398,6 +417,25 @@
     color: inherit;
   }
 
+  .ui-sidebar-item::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 0.625rem);
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    opacity: 0;
+    white-space: nowrap;
+    border-radius: calc(var(--ui-radius) - 2px);
+    background-color: hsl(var(--ui-foreground));
+    color: hsl(var(--ui-background));
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1;
+    box-shadow: 0 8px 24px hsl(var(--ui-foreground) / 0.18);
+    transition: opacity 150ms ease;
+  }
+
   .ui-sidebar-subgroup-label {
     padding: 0.5rem 0.625rem 0.25rem 2.25rem;
     font-size: 0.75rem;
@@ -422,6 +460,71 @@
     margin-top: 0.125rem;
     font-size: 0.75rem;
     color: hsl(var(--ui-muted-foreground));
+  }
+
+  .ui-sidebar-group .chevron {
+    transition: transform 200ms ease;
+  }
+
+  .ui-sidebar-group.collapsed .chevron {
+    transform: rotate(-90deg);
+  }
+
+  .ui-sidebar-group.collapsed .ui-sidebar-group-content {
+    grid-template-rows: 0fr;
+  }
+
+  .ui-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .ui-sidebar-collapsed {
+    width: var(--sidebar-width-icon);
+  }
+
+  .ui-sidebar-collapsed .ui-sidebar-header {
+    justify-content: center;
+    padding-inline: 0.375rem;
+  }
+
+  .ui-sidebar-collapsed .ui-sidebar-header > a,
+  .ui-sidebar-collapsed .ui-sidebar-group-label > span,
+  .ui-sidebar-collapsed .ui-sidebar-item > span,
+  .ui-sidebar-collapsed .ui-sidebar-user {
+    display: none;
+  }
+
+  .ui-sidebar-collapsed .ui-sidebar-group-content {
+    grid-template-rows: 0fr;
+  }
+
+  .ui-sidebar-collapsed .ui-sidebar-group {
+    margin-top: 0;
+  }
+
+  .ui-sidebar-collapsed .ui-sidebar-group + .ui-sidebar-group {
+    margin-top: 0.5rem;
+  }
+
+  .ui-sidebar-collapsed .ui-sidebar-group-label {
+    justify-content: center;
+    padding-inline: 0.375rem;
+    padding-bottom: 0;
+  }
+
+  .ui-sidebar-collapsed .ui-sidebar-content,
+  .ui-sidebar-collapsed .ui-sidebar-footer {
+    padding-inline: 0.375rem;
+  }
+
+  .ui-sidebar-collapsed .ui-sidebar-item {
+    justify-content: center;
+    padding-inline: 0.5rem;
+  }
+
+  .ui-sidebar-collapsed .ui-sidebar-item:hover::after,
+  .ui-sidebar-collapsed .ui-sidebar-item:focus-visible::after {
+    opacity: 1;
   }
 
   .ui-sidebar-mobile-toggle {
@@ -608,13 +711,18 @@
     transition: width 0.3s ease;
   }
 
-  @screen lg {
+  @media (min-width: 1024px) {
     .ui-sidebar {
-      display: flex;
+      transform: translateX(0);
     }
 
     .ui-sidebar-main {
       margin-left: var(--sidebar-width);
+    }
+
+    .ui-sidebar-collapsed + .ui-sidebar-main,
+    body[data-sidebar-collapsed="true"] .ui-sidebar-main {
+      margin-left: var(--sidebar-width-icon);
     }
 
     .ui-sidebar-desktop-toggle {
@@ -630,6 +738,24 @@
     .ui-sidebar-desktop-toggle:hover {
       background-color: hsl(var(--ui-accent));
       color: hsl(var(--ui-accent-foreground));
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .ui-sidebar-main {
+      margin-left: 0;
+    }
+  }
+
+  @media print {
+    .ui-sidebar,
+    #sidebar-backdrop,
+    header {
+      display: none !important;
+    }
+
+    .ui-sidebar-main {
+      margin-left: 0 !important;
     }
   }
 }

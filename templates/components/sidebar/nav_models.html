@@ -1,21 +1,24 @@
-<div class="ui-sidebar-group" data-sidebar-collapsible>
-  <div class="ui-sidebar-group-label">
+<div class="ui-sidebar-group" data-sidebar-collapsible data-sidebar-group="models">
+  <button type="button" class="ui-sidebar-group-label w-full" data-sidebar-collapsible-trigger aria-expanded="true">
     <span>Models</span>
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+    <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
       <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
     </svg>
-  </div>
+  </button>
   <div class="ui-sidebar-group-content" data-sidebar-collapsible-content>
+    <div class="ui-sidebar-group-content-inner">
     {% for category, models in sidebar_model_categories %}
       <div class="ui-sidebar-subgroup-label">{{ category }}</div>
       {% for model in models %}
         <a href="{% url 'job_submit' %}?model={{ model.key }}"
-           class="ui-sidebar-item ui-sidebar-subitem {% if request.resolver_match.namespace != 'console' and request.resolver_match.url_name == 'job_submit' and request.GET.model == model.key %}ui-sidebar-item-active{% endif %}">
+           class="ui-sidebar-item ui-sidebar-subitem {% if request.resolver_match.namespace != 'console' and request.resolver_match.url_name == 'job_submit' and request.GET.model == model.key %}ui-sidebar-item-active{% endif %}"
+           data-tooltip="{{ model.name }}">
           <span>{{ model.name }}</span>
         </a>
       {% endfor %}
     {% empty %}
       <div class="ui-sidebar-subgroup-label">No models available</div>
     {% endfor %}
+    </div>
   </div>
 </div>

@@ -6,12 +6,12 @@
 </div>
 
 <div class="flex flex-col gap-1">
-  <a href="{% url 'account' %}" class="ui-sidebar-item {% if request.resolver_match.namespace != 'console' and request.resolver_match.url_name == 'account' %}ui-sidebar-item-active{% endif %}">
+  <a href="{% url 'account' %}" class="ui-sidebar-item {% if request.resolver_match.namespace != 'console' and request.resolver_match.url_name == 'account' %}ui-sidebar-item-active{% endif %}" data-tooltip="Account">
     <span>Account</span>
   </a>
 
   <div class="relative" data-dropdown>
-    <button type="button" class="ui-sidebar-item w-full justify-between" data-dropdown-trigger aria-expanded="false">
+    <button type="button" class="ui-sidebar-item w-full justify-between" data-dropdown-trigger aria-expanded="false" data-tooltip="Theme">
       <span>Theme</span>
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
         <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
@@ -32,7 +32,7 @@
 
   <form action="{% url 'logout' %}" method="post">
     {% csrf_token %}
-    <button type="submit" class="ui-sidebar-item w-full">
+    <button type="submit" class="ui-sidebar-item w-full" data-tooltip="Logout">
       <span>Logout</span>
     </button>
   </form>

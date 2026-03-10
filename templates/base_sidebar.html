@@ -43,10 +43,10 @@
     </a>
 
     {% if user.is_authenticated %}
-    <aside class="ui-sidebar" id="app-sidebar" data-sidebar>
+    <aside class="ui-sidebar" id="app-sidebar" data-sidebar role="complementary" aria-label="Main navigation">
       <div class="ui-sidebar-header">
         <a href="{% url 'job_list' %}" class="text-base font-semibold tracking-tight">fold@Scripps</a>
-        <button type="button" class="ui-sidebar-desktop-toggle" aria-label="Collapse sidebar" data-sidebar-toggle>
+        <button type="button" class="ui-sidebar-desktop-toggle" aria-label="Collapse sidebar" aria-controls="app-sidebar" aria-expanded="true" data-sidebar-toggle>
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
             <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"/>
           </svg>
@@ -73,7 +73,7 @@
     <div class="ui-sidebar-main" id="main-wrapper">
       {% if user.is_authenticated %}
       <header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-background px-4 sm:px-6 lg:hidden">
-        <button type="button" class="ui-sidebar-mobile-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
+        <button type="button" class="ui-sidebar-mobile-toggle" data-sidebar-toggle aria-label="Toggle sidebar" aria-controls="app-sidebar" aria-expanded="false">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
             <path fill-rule="evenodd" d="M2 3.75A.75.75 0 0 1 2.75 3h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 3.75M2 8a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 8m0 4.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75"/>
           </svg>
