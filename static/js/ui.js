@@ -1,8 +1,8 @@
 /**
  * ui.js — shared UI interaction layer
  *
- * Covers: theme persistence, dropdown menus, alert dismissal.
- * All pages use the data-dropdown-* pattern (no Bootstrap JS dependency).
+ * Covers: theme persistence, dropdown menus, alert dismissal, dialogs.
+ * All pages use data-* attribute patterns (no Bootstrap JS dependency).
  */
 (function () {
   "use strict";
@@ -52,6 +52,36 @@
     });
   }
 
+  // ---- Dialog management ------------------------------------------------
+
+  function openDialog(id) {
+    var dialog = document.querySelector('[data-dialog="' + id + '"]');
+    if (!dialog) return;
+    dialog._returnFocus = document.activeElement;
+    dialog.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(function () {
+      var focusable = dialog.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length) focusable[0].focus();
+    });
+  }
+
+  function closeDialog(dialog) {
+    if (!dialog) return;
+    dialog.classList.add("hidden");
+    document.body.style.overflow = "";
+    if (dialog._returnFocus) {
+      dialog._returnFocus.focus();
+      dialog._returnFocus = null;
+    }
+  }
+
+  function getOpenDialog() {
+    return document.querySelector('[data-dialog]:not(.hidden)');
+  }
+
   // ---- DOM-ready setup --------------------------------------------------
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -81,16 +111,64 @@
       });
     });
 
-    // Close dropdowns on outside click
+    // Close dropdowns on outside click (skip if inside a dialog)
     document.addEventListener("click", function (e) {
-      if (!e.target.closest("[data-dropdown]")) {
+      if (!e.target.closest("[data-dropdown]") && !e.target.closest("[data-dialog]")) {
         closeAllDropdowns();
       }
     });
 
-    // Close dropdowns on Escape
+    // Keyboard handling: Escape closes dialogs/dropdowns, Tab traps focus in dialogs
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") closeAllDropdowns();
+      if (e.key === "Escape") {
+        var dialog = getOpenDialog();
+        if (dialog) {
+          closeDialog(dialog);
+          return;
+        }
+        closeAllDropdowns();
+      }
+
+      if (e.key === "Tab") {
+        var dialog = getOpenDialog();
+        if (!dialog) return;
+        var focusable = dialog.querySelectorAll(
+          'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable.length) return;
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    });
+
+    // Dialog open, close, and backdrop click
+    document.addEventListener("click", function (e) {
+      var openTrigger = e.target.closest("[data-dialog-open]");
+      if (openTrigger) {
+        e.preventDefault();
+        openDialog(openTrigger.getAttribute("data-dialog-open"));
+        return;
+      }
+      var closeBtn = e.target.closest("[data-dialog-close]");
+      if (closeBtn) {
+        e.preventDefault();
+        closeDialog(closeBtn.closest("[data-dialog]"));
+        return;
+      }
+      if (e.target.hasAttribute("data-dialog-backdrop")) {
+        closeDialog(e.target.closest("[data-dialog]"));
+      }
     });
 
     // --- Alert dismissal ---

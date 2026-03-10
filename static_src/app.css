@@ -184,9 +184,22 @@
            hover:bg-destructive/10;
   }
 
+  .ui-btn-success {
+    @apply bg-success text-success-foreground hover:bg-success/90;
+  }
+
+  .ui-btn-warning {
+    @apply bg-warning text-warning-foreground hover:bg-warning/90;
+  }
+
   .ui-btn-outline-warning {
     @apply border border-warning/50 bg-transparent text-foreground
            hover:bg-warning/10;
+  }
+
+  .ui-btn-outline-success {
+    @apply border border-success/50 bg-transparent text-foreground
+           hover:bg-success/10;
   }
 
   .ui-btn-ghost {

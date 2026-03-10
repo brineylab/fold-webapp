@@ -469,32 +469,49 @@ Phase 7 deviations and notes for future phases:
 - Unmigrated console pages (`settings.html`, `users/detail.html`, `jobs/detail.html`) will appear unstyled since Bootstrap is no longer loaded in the console shell. This is expected and matches the Phase 4 pattern — these pages will be migrated in Phase 8.
 - No changes were needed to `tailwind.config.js` — all required colors, component variants, and safelist entries already existed from Phases 1–2.
 
-## Phase 8: Console Detail Pages and Modal Work
+## Phase 8: Console Detail Pages and Modal Work ✅
 
 Estimated effort: 2 to 3 days
 
 Goals:
 
-- finish the modal-heavy and detail-heavy console screens
-- replace all remaining Bootstrap-driven interactions
+- [x] finish the modal-heavy and detail-heavy console screens
+- [x] replace all remaining Bootstrap-driven interactions
 
-Files to update:
+Files updated:
 
-- `console/templates/console/settings.html`
-- `console/templates/console/users/detail.html`
-- `console/templates/console/jobs/detail.html`
-- `static/js/ui.js`
+- [x] `console/templates/console/settings.html` — converted to Tailwind design system
+- [x] `console/templates/console/users/detail.html` — converted to Tailwind design system
+- [x] `console/templates/console/jobs/detail.html` — converted to Tailwind design system
+- [x] `static/js/ui.js` — added centralized dialog management with focus trap
+- [x] `static_src/app.css` — added `ui-btn-success`, `ui-btn-warning`, and `ui-btn-outline-success` button variants
+- [x] `tailwind.config.js` — updated safelist with new button variants
 
 Implementation notes:
 
-- Centralize dialog behavior in the shared JS layer
-- Avoid page-specific modal implementations unless the content truly differs
-- Review keyboard behavior, focus management, and escape-to-close behavior carefully
+- [x] Centralize dialog behavior in the shared JS layer
+- [x] Avoid page-specific modal implementations unless the content truly differs
+- [x] Review keyboard behavior, focus management, and escape-to-close behavior carefully
 
 Exit criteria:
 
-- all `data-bs-*` attributes are gone from app templates
-- console dialogs and menus are accessible and consistent
+- [x] all `data-bs-*` attributes are gone from app templates (only `data-bs-theme` remains in base templates for Phase 9)
+- [x] console dialogs and menus are accessible and consistent
+
+Phase 8 deviations and notes for future phases:
+
+- Bootstrap modals (`modal fade`, `data-bs-toggle="modal"`, `data-bs-target`, `data-bs-dismiss="modal"`) were replaced with a custom dialog system in `ui.js`. Dialogs use `data-dialog="id"` on the wrapper, `data-dialog-open="id"` on trigger buttons, `data-dialog-close` on close/cancel buttons, and `data-dialog-backdrop` on the backdrop overlay. This is the same declarative attribute pattern used for dropdowns (`data-dropdown`).
+- The dialog system includes: Escape key closes the topmost dialog, backdrop click closes the dialog, focus is trapped within the dialog while open, and focus is restored to the trigger element when the dialog closes. These accessibility behaviors match the WAI-ARIA dialog pattern.
+- Dialog markup uses `ui-card` with `ui-card-header`/`ui-card-body`/`ui-card-footer` for the dialog panel, keeping visual consistency with the rest of the design system. The backdrop combines the overlay (`bg-black/50`) with the centering container (`flex items-center justify-center`) in a single element so that clicks anywhere outside the dialog panel trigger close.
+- Forms inside dialogs place the `<form>` element around `ui-card-body` and `ui-card-footer` only, keeping the header (with its close button) outside the form. The cancel button uses `type="button"` with `data-dialog-close` so it closes the dialog without submitting the form.
+- Three new button variants were added to `app.css`: `ui-btn-success` (solid green), `ui-btn-warning` (solid amber), and `ui-btn-outline-success` (outlined green). These were needed for enable/disable/maintenance actions on the settings and user detail pages.
+- The user detail page breadcrumb was simplified from Bootstrap's `ol.breadcrumb > li.breadcrumb-item` pattern to a flat `<nav>` with text links and `/` separators, styled with `text-sm text-muted-foreground`.
+- Bootstrap definition list grids (`dl.row > dt.col-sm-4 > dd.col-sm-8`) were replaced with CSS Grid (`grid grid-cols-[auto_1fr] gap-x-4 gap-y-2`). On the job detail page, `grid-cols-[10rem_1fr]` provides a fixed-width label column for the info rows.
+- Bootstrap's `row`/`col-lg-4`/`col-lg-8` layout on the user detail page was replaced with `grid grid-cols-1 lg:grid-cols-3 gap-6` with `lg:col-span-2` on the wider column. The job detail page uses the same 1/3 + 2/3 grid layout.
+- Bootstrap's `list-group list-group-flush` pattern (used for recent actions and quick links on the job detail page) was replaced with `divide-y divide-border` on a wrapper div, matching the pattern established in Phase 7.
+- The `status-{{ job.status }}` and `status-{{ attempt.status }}` patterns were updated to `ui-status-{{ job.status|lower }}` and `ui-status-{{ attempt.status|lower }}`, matching the Phase 5/7 convention.
+- The remaining `data-bs-theme` references are in `templates/base_public.html` and `templates/base_console.html` (inline FOUC-prevention script and CSS color-scheme rules) and in `ui.js` (theme application). These are not app template `data-bs-*` interaction attributes — they are the theme selector mechanism that will be renamed in Phase 9 when `darkMode` configuration changes.
+- No changes were needed to `console/templates/console/base.html` — the sidebar and shell were already migrated in Phase 7.
 
 ## Phase 9: Bootstrap Removal, Cleanup, and QA
 

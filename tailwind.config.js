@@ -8,7 +8,7 @@ module.exports = {
   // Safelist dynamic component variants used in template partials
   // (e.g. ui-alert-{{ variant }}) that Tailwind's content scanner can't detect.
   safelist: [
-    { pattern: /^ui-btn-(primary|secondary|danger|outline|outline-danger|outline-warning|ghost)$/ },
+    { pattern: /^ui-btn-(primary|secondary|danger|success|warning|outline|outline-danger|outline-warning|outline-success|ghost)$/ },
     { pattern: /^ui-alert-(info|warning|danger|success)$/ },
     { pattern: /^ui-badge-(secondary|success|warning|danger|info)$/ },
     { pattern: /^ui-status-(pending|running|completed|failed|cancelled)$/ },
