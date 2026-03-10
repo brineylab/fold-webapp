@@ -3,57 +3,48 @@
 {% block title %}Jobs - Ops Console{% endblock %}
 
 {% block console_content %}
-<style>
-  /* Subtle background for hidden job rows - adapts to light/dark mode */
-  .row-hidden {
-    background-color: rgba(var(--bs-secondary-rgb), 0.08) !important;
-  }
-  .row-hidden:hover {
-    background-color: rgba(var(--bs-secondary-rgb), 0.15) !important;
-  }
-</style>
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h1 class="mb-0">Jobs</h1>
-  <span class="badge bg-secondary fs-6">{{ jobs|length }} shown</span>
+<div class="flex justify-between items-center mb-6">
+  <h1>Jobs</h1>
+  <span class="ui-badge ui-badge-secondary text-base px-3 py-1">{{ jobs|length }} shown</span>
 </div>
 
 <!-- Search and Filters -->
-<div class="card mb-4">
-  <div class="card-body">
-    <form method="get" class="row g-3">
-      <div class="col-md-4">
-        <label for="search" class="form-label">Search</label>
-        <input type="text" class="form-control" id="search" name="search" value="{{ search }}" 
+<div class="ui-card mb-4">
+  <div class="ui-card-body">
+    <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+      <div class="lg:col-span-2">
+        <label for="search" class="ui-label">Search</label>
+        <input type="text" class="ui-input" id="search" name="search" value="{{ search }}"
                placeholder="Job ID, name, owner, runtime ID&#x2026;">
       </div>
-      <div class="col-md-2">
-        <label for="status" class="form-label">Status</label>
-        <select class="form-select" id="status" name="status">
+      <div>
+        <label for="status" class="ui-label">Status</label>
+        <select class="ui-select" id="status" name="status">
           <option value="">All</option>
           {% for value, label in statuses %}
           <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2">
-        <label for="runner" class="form-label">Runner</label>
-        <select class="form-select" id="runner" name="runner">
+      <div>
+        <label for="runner" class="ui-label">Runner</label>
+        <select class="ui-select" id="runner" name="runner">
           <option value="">All</option>
           {% for r in runners %}
           <option value="{{ r }}" {% if runner == r %}selected{% endif %}>{{ r }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2">
-        <label for="hidden" class="form-label">Hidden</label>
-        <select class="form-select" id="hidden" name="hidden">
+      <div>
+        <label for="hidden" class="ui-label">Hidden</label>
+        <select class="ui-select" id="hidden" name="hidden">
           <option value="">All</option>
           <option value="no" {% if hidden == "no" %}selected{% endif %}>Visible</option>
           <option value="yes" {% if hidden == "yes" %}selected{% endif %}>Hidden</option>
         </select>
       </div>
-      <div class="col-md-2 d-flex align-items-end">
-        <button type="submit" class="btn btn-primary w-100">Filter</button>
+      <div class="flex items-end">
+        <button type="submit" class="ui-btn ui-btn-primary w-full">Filter</button>
       </div>
     </form>
   </div>
@@ -62,17 +53,17 @@
 <!-- Bulk Actions Form -->
 <form method="post" action="{% url 'console:job_bulk_action' %}" id="bulk-form">
   {% csrf_token %}
-  
+
   <!-- Bulk Action Bar -->
-  <div class="card mb-3" id="bulk-action-bar" style="display: none;">
-    <div class="card-body py-2 d-flex justify-content-between align-items-center">
+  <div class="ui-card mb-3" id="bulk-action-bar" style="display: none;">
+    <div class="ui-card-body py-2 flex justify-between items-center">
       <span><span id="selected-count">0</span> job(s) selected</span>
-      <div class="btn-group">
-        <button type="submit" name="action" value="cancel" class="btn btn-outline-danger btn-sm"
+      <div class="flex gap-2">
+        <button type="submit" name="action" value="cancel" class="ui-btn ui-btn-outline-danger ui-btn-sm"
                 onclick="return confirm('Cancel selected jobs?');">
           Cancel Selected
         </button>
-        <button type="submit" name="action" value="hide" class="btn btn-outline-warning btn-sm"
+        <button type="submit" name="action" value="hide" class="ui-btn ui-btn-outline-warning ui-btn-sm"
                 onclick="return confirm('Hide selected jobs from their owners?');">
           Hide from Owners
         </button>
@@ -81,89 +72,87 @@
   </div>
 
   <!-- Jobs Table -->
-  <div class="card">
-    <div class="card-body p-0">
-      {% if jobs %}
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead class="table-light">
-            <tr>
-              <th style="width: 40px;">
-                <input type="checkbox" class="form-check-input" id="select-all">
-              </th>
-              <th>Job ID</th>
-              <th>Name</th>
-              <th>Owner</th>
-              <th>Runner</th>
-              <th>Status</th>
-              <th>Runtime ID</th>
-              <th>Created</th>
-              <th>Hidden</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for job in jobs %}
-            <tr class="{% if job.hidden_from_owner %}row-hidden{% endif %}">
-              <td>
-                <input type="checkbox" class="form-check-input job-checkbox" name="job_ids" value="{{ job.id }}">
-              </td>
-              <td>
-                <a href="{% url 'console:job_detail' job_id=job.id %}">
-                  <code>{{ job.id|truncatechars:13 }}</code>
-                </a>
-              </td>
-              <td>{{ job.name|default:"-" }}</td>
-              <td>{{ job.owner.username }}</td>
-              <td><span class="badge bg-secondary">{{ job.runner }}</span></td>
-              <td><span class="fw-semibold status-{{ job.status }}">{{ job.status }}</span></td>
-              <td><code class="text-muted">{{ job.runtime_identifier|default:"-" }}</code></td>
-              <td class="text-muted">{{ job.created_at|date:"Y-m-d H:i" }}</td>
-              <td>
-                {% if job.hidden_from_owner %}
-                <span class="badge bg-warning">Hidden</span>
-                {% else %}
-                <span class="text-muted">-</span>
-                {% endif %}
-              </td>
-              <td>
-                <a href="{% url 'console:job_detail' job_id=job.id %}" class="btn btn-outline-secondary btn-sm">
-                  View
-                </a>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <div class="p-4 text-center text-muted">
-        No jobs found matching your criteria.
-      </div>
-      {% endif %}
+  <div class="ui-card">
+    {% if jobs %}
+    <div class="ui-table-wrap">
+      <table class="ui-table">
+        <thead>
+          <tr>
+            <th style="width: 40px;">
+              <input type="checkbox" class="ui-checkbox" id="select-all">
+            </th>
+            <th>Job ID</th>
+            <th>Name</th>
+            <th>Owner</th>
+            <th>Runner</th>
+            <th>Status</th>
+            <th>Runtime ID</th>
+            <th>Created</th>
+            <th>Hidden</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in jobs %}
+          <tr class="{% if job.hidden_from_owner %}bg-muted/30{% endif %}">
+            <td>
+              <input type="checkbox" class="ui-checkbox job-checkbox" name="job_ids" value="{{ job.id }}">
+            </td>
+            <td>
+              <a href="{% url 'console:job_detail' job_id=job.id %}" class="hover:underline">
+                <code>{{ job.id|truncatechars:13 }}</code>
+              </a>
+            </td>
+            <td>{{ job.name|default:"-" }}</td>
+            <td>{{ job.owner.username }}</td>
+            <td><span class="ui-badge ui-badge-secondary">{{ job.runner }}</span></td>
+            <td><span class="font-semibold ui-status-{{ job.status|lower }}">{{ job.status }}</span></td>
+            <td><code class="text-muted-foreground">{{ job.runtime_identifier|default:"-" }}</code></td>
+            <td class="text-muted-foreground">{{ job.created_at|date:"Y-m-d H:i" }}</td>
+            <td>
+              {% if job.hidden_from_owner %}
+              <span class="ui-badge ui-badge-warning">Hidden</span>
+              {% else %}
+              <span class="text-muted-foreground">-</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{% url 'console:job_detail' job_id=job.id %}" class="ui-btn ui-btn-outline ui-btn-sm">
+                View
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+    {% else %}
+    <div class="ui-empty-state">
+      No jobs found matching your criteria.
+    </div>
+    {% endif %}
   </div>
 </form>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  const selectAll = document.getElementById('select-all');
-  const checkboxes = document.querySelectorAll('.job-checkbox');
-  const bulkActionBar = document.getElementById('bulk-action-bar');
-  const selectedCount = document.getElementById('selected-count');
-  
+  var selectAll = document.getElementById('select-all');
+  var checkboxes = document.querySelectorAll('.job-checkbox');
+  var bulkActionBar = document.getElementById('bulk-action-bar');
+  var selectedCount = document.getElementById('selected-count');
+
   function updateBulkActionBar() {
-    const checked = document.querySelectorAll('.job-checkbox:checked').length;
+    var checked = document.querySelectorAll('.job-checkbox:checked').length;
     selectedCount.textContent = checked;
     bulkActionBar.style.display = checked > 0 ? 'block' : 'none';
   }
-  
+
   selectAll.addEventListener('change', function() {
-    checkboxes.forEach(cb => cb.checked = this.checked);
+    checkboxes.forEach(function(cb) { cb.checked = selectAll.checked; });
     updateBulkActionBar();
   });
-  
-  checkboxes.forEach(cb => {
+
+  checkboxes.forEach(function(cb) {
     cb.addEventListener('change', updateBulkActionBar);
   });
 });

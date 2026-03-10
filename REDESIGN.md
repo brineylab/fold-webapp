@@ -418,35 +418,56 @@ Phase 6 deviations and notes for future phases:
 - No changes were needed to `app.css`, `ui.js`, form Python files, or `tailwind.config.js` — all required component and utility classes already existed from Phases 2–3.
 - The `protocol-group` and `mode-group` CSS classes used as JavaScript selectors in BoltzGen and RFdiffusion3 were preserved unchanged. These are not Bootstrap classes — they are custom identifiers for the show/hide logic.
 
-## Phase 7: Console Shell and Console Summary/List Pages
+## Phase 7: Console Shell and Console Summary/List Pages ✅
 
 Estimated effort: 2 to 3 days
 
 Goals:
 
-- apply the established design system to the console shell
-- migrate the mostly table- and card-based admin pages first
+- [x] apply the established design system to the console shell
+- [x] migrate the mostly table- and card-based admin pages first
 
-Files to update:
+Files updated:
 
-- `console/templates/console/base.html`
-- `console/templates/console/dashboard.html`
-- `console/templates/console/jobs/list.html`
-- `console/templates/console/users/list.html`
-- `console/templates/console/stats.html`
-- `console/templates/console/audit.html`
-- `console/templates/console/cleanup.html`
+- [x] `templates/base_console.html` — full Tailwind rebuild, Bootstrap CSS/JS removed
+- [x] `console/templates/console/base.html` — sidebar rebuilt in Tailwind with CSS Grid layout
+- [x] `console/templates/console/dashboard.html` — converted to Tailwind design system
+- [x] `console/templates/console/jobs/list.html` — converted to Tailwind design system
+- [x] `console/templates/console/users/list.html` — converted to Tailwind design system
+- [x] `console/templates/console/stats.html` — converted to Tailwind design system
+- [x] `console/templates/console/audit.html` — converted to Tailwind design system
+- [x] `console/templates/console/cleanup.html` — converted to Tailwind design system
+- [x] `static_src/app.css` — added `ui-progress` and `ui-progress-bar` component classes
+- [x] `static/js/ui.js` — removed Bootstrap submenu code (no longer needed)
 
 Implementation notes:
 
-- Rebuild the console sidebar and page framing in Tailwind
-- Reuse public card, badge, table, and filter patterns where appropriate
-- Keep the console visually related to the public app, but denser and more operational
+- [x] Rebuild the console sidebar and page framing in Tailwind
+- [x] Reuse public card, badge, table, and filter patterns where appropriate
+- [x] Keep the console visually related to the public app, but denser and more operational
 
 Exit criteria:
 
-- the console shell is independent and fully Tailwind-based
-- all console list and summary pages are migrated without Bootstrap
+- [x] the console shell is independent and fully Tailwind-based
+- [x] all console list and summary pages are migrated without Bootstrap
+
+Phase 7 deviations and notes for future phases:
+
+- `templates/base_console.html` was fully rebuilt to match the `base_public.html` pattern (same navbar, user menu dropdown using `data-dropdown` attributes, flash message pattern, skip link). Bootstrap CSS and JS CDN links were removed. The console top nav is now identical to the public nav.
+- The Bootstrap nested theme submenu (`themeSubmenuToggle`/`themeSubmenu` with `dropdown-submenu` class) was replaced with the same flat dropdown menu used on public pages. The corresponding Bootstrap submenu toggle code in `ui.js` was removed since it is no longer needed by any page.
+- The console sidebar uses `grid grid-cols-1 lg:grid-cols-[13rem_1fr] gap-6` for the sidebar+content layout instead of Bootstrap's `row`/`col-md-3`/`col-md-9` grid. On screens below `lg:` (1024px), the sidebar stacks above the content. The sidebar is sticky on desktop (`lg:sticky lg:top-20 lg:self-start`).
+- Sidebar navigation uses `ui-card` with nav links styled as `flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm` with `bg-accent font-medium text-accent-foreground` for the active state. The active state detection logic (`request.resolver_match.url_name`) was preserved unchanged.
+- The sidebar header uses `bg-warning/10 text-warning` instead of Bootstrap's `bg-warning-subtle` to maintain the distinctive amber console accent.
+- Job status colors use `ui-status-{{ job.status|lower }}` with the `|lower` filter, matching the Phase 5 pattern. All console pages now use this convention consistently.
+- Bootstrap's `list-group list-group-flush` pattern (used for recent failures on the dashboard) was replaced with `divide-y divide-border` on a wrapper div, which gives the same divider-separated list appearance.
+- Bootstrap progress bars (`progress`/`progress-bar`) were replaced with new `ui-progress`/`ui-progress-bar` component classes added to `app.css`. These use `rounded-full bg-secondary` for the track and accept color utility classes (`bg-success`, `bg-warning`, `bg-destructive`, `bg-info`, `bg-primary`) for the fill.
+- Bootstrap's `text-bg-warning`/`text-bg-danger`/`text-bg-success` pattern (used on cleanup summary cards) was replaced with `bg-warning text-warning-foreground`/`bg-destructive text-destructive-foreground`/`bg-success text-success-foreground`, using the design system's semantic color tokens.
+- The hidden-job row styling in the jobs list (previously a `<style>` block with `.row-hidden` class using `rgba(var(--bs-secondary-rgb))`) was replaced with the Tailwind utility class `bg-muted/30` applied directly to the `<tr>`.
+- Bootstrap's `display-4` text size (used in stats summary cards) was replaced with `text-4xl font-bold tracking-tight`.
+- Filter forms use CSS Grid (`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-{4,6} gap-3`) instead of Bootstrap's `row g-3`/`col-md-*` grid. The search field spans two columns on desktop using `lg:col-span-2`.
+- Form inputs in filter forms use `ui-input`, `ui-select`, and `ui-label` classes directly (not via `TailwindFormMixin`) since these are inline HTML form elements, not Django form objects.
+- Unmigrated console pages (`settings.html`, `users/detail.html`, `jobs/detail.html`) will appear unstyled since Bootstrap is no longer loaded in the console shell. This is expected and matches the Phase 4 pattern — these pages will be migrated in Phase 8.
+- No changes were needed to `tailwind.config.js` — all required colors, component variants, and safelist entries already existed from Phases 1–2.
 
 ## Phase 8: Console Detail Pages and Modal Work
 

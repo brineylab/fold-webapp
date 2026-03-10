@@ -2,8 +2,7 @@
  * ui.js — shared UI interaction layer
  *
  * Covers: theme persistence, dropdown menus, alert dismissal.
- * Works alongside Bootstrap JS on console pages (data-bs-* attributes)
- * and standalone on public pages (data-dropdown-* attributes).
+ * All pages use the data-dropdown-* pattern (no Bootstrap JS dependency).
  */
 (function () {
   "use strict";
@@ -40,7 +39,7 @@
       if (getSavedTheme() === "auto") applyTheme("auto");
     });
 
-  // ---- Dropdown management (public pages) ------------------------------
+  // ---- Dropdown management ------------------------------------------------
 
   function closeAllDropdowns() {
     document.querySelectorAll("[data-dropdown-menu]").forEach(function (menu) {
@@ -65,7 +64,7 @@
       });
     });
 
-    // --- Tailwind dropdown toggles (public pages) ---
+    // --- Tailwind dropdown toggles ---
     document.querySelectorAll("[data-dropdown-trigger]").forEach(function (trigger) {
       trigger.addEventListener("click", function (e) {
         e.stopPropagation();
@@ -94,7 +93,7 @@
       if (e.key === "Escape") closeAllDropdowns();
     });
 
-    // --- Alert dismissal (public pages) ---
+    // --- Alert dismissal ---
     document.addEventListener("click", function (e) {
       var btn = e.target.closest("[data-dismiss-alert]");
       if (btn) {
@@ -102,31 +101,6 @@
         if (alert) alert.remove();
       }
     });
-
-    // --- Bootstrap nested theme submenu (console pages) ---
-    var toggle = document.getElementById("themeSubmenuToggle");
-    var submenu = document.getElementById("themeSubmenu");
-
-    if (toggle && submenu) {
-      toggle.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        submenu.classList.toggle("show");
-      });
-
-      document.addEventListener("click", function (e) {
-        if (!toggle.contains(e.target) && !submenu.contains(e.target)) {
-          submenu.classList.remove("show");
-        }
-      });
-
-      var parentDropdown = toggle.closest(".dropdown");
-      if (parentDropdown) {
-        parentDropdown.addEventListener("hidden.bs.dropdown", function () {
-          submenu.classList.remove("show");
-        });
-      }
-    }
   });
 
   // ---- Public API -------------------------------------------------------

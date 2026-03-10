@@ -3,82 +3,82 @@
 {% block title %}Operations Log - Ops Console{% endblock %}
 
 {% block console_content %}
-<h1 class="mb-4">Operations Log</h1>
+<h1 class="mb-6">Operations Log</h1>
 
-<div class="card mb-4">
-  <div class="card-body">
-    <form method="get" class="row g-3">
-      <div class="col-md-4">
-        <label for="job" class="form-label">Job UUID</label>
-        <input type="text" class="form-control" id="job" name="job" value="{{ job_filter }}"
+<div class="ui-card mb-4">
+  <div class="ui-card-body">
+    <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div>
+        <label for="job" class="ui-label">Job UUID</label>
+        <input type="text" class="ui-input" id="job" name="job" value="{{ job_filter }}"
                placeholder="Filter a single job timeline">
       </div>
-      <div class="col-md-4">
-        <label for="user" class="form-label">Actor or Target User</label>
-        <input type="text" class="form-control" id="user" name="user" value="{{ user_filter }}"
+      <div>
+        <label for="user" class="ui-label">Actor or Target User</label>
+        <input type="text" class="ui-input" id="user" name="user" value="{{ user_filter }}"
                placeholder="Filter by username">
       </div>
-      <div class="col-md-2">
-        <label for="scope" class="form-label">Scope</label>
-        <select class="form-select" id="scope" name="scope">
+      <div>
+        <label for="scope" class="ui-label">Scope</label>
+        <select class="ui-select" id="scope" name="scope">
           <option value="">All scopes</option>
           {% for value, label in scope_choices %}
           <option value="{{ value }}" {% if scope_filter == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-2 d-flex align-items-end">
-        <button type="submit" class="btn btn-primary w-100">Filter</button>
+      <div class="flex items-end">
+        <button type="submit" class="ui-btn ui-btn-primary w-full">Filter</button>
       </div>
     </form>
   </div>
 </div>
 
 {% if job_filter_error %}
-<div class="alert alert-warning">{{ job_filter_error }}</div>
+<div class="ui-alert ui-alert-warning mb-4">{{ job_filter_error }}</div>
 {% endif %}
 
 {% if job_filter and not job_context and not job_filter_error %}
-<div class="alert alert-secondary">
+<div class="ui-alert ui-alert-info mb-4">
   No job matched <code>{{ job_filter }}</code>.
 </div>
 {% endif %}
 
 {% if job_context %}
-<div class="card mb-4">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <strong>Job Timeline</strong>
-    <a href="{% url 'console:job_detail' job_id=job_context.id %}" class="btn btn-outline-secondary btn-sm">
+<div class="ui-card mb-4">
+  <div class="ui-card-header flex justify-between items-center">
+    <span>Job Timeline</span>
+    <a href="{% url 'console:job_detail' job_id=job_context.id %}" class="ui-btn ui-btn-outline ui-btn-sm">
       Open Job
     </a>
   </div>
-  <div class="card-body">
-    <div class="row mb-3">
-      <div class="col-md-4">
-        <div class="text-muted small">Job</div>
+  <div class="ui-card-body">
+    <div class="flex flex-wrap gap-x-8 gap-y-3 mb-4">
+      <div>
+        <div class="text-xs text-muted-foreground">Job</div>
         <code>{{ job_context.id }}</code>
       </div>
-      <div class="col-md-2">
-        <div class="text-muted small">Owner</div>
+      <div>
+        <div class="text-xs text-muted-foreground">Owner</div>
         <div>{{ job_context.owner.username }}</div>
       </div>
-      <div class="col-md-2">
-        <div class="text-muted small">Runner</div>
-        <div><span class="badge bg-secondary">{{ job_context.runner }}</span></div>
+      <div>
+        <div class="text-xs text-muted-foreground">Runner</div>
+        <span class="ui-badge ui-badge-secondary">{{ job_context.runner }}</span>
       </div>
-      <div class="col-md-2">
-        <div class="text-muted small">Status</div>
-        <div><span class="fw-semibold status-{{ job_context.status }}">{{ job_context.status }}</span></div>
+      <div>
+        <div class="text-xs text-muted-foreground">Status</div>
+        <span class="font-semibold ui-status-{{ job_context.status|lower }}">{{ job_context.status }}</span>
       </div>
-      <div class="col-md-2">
-        <div class="text-muted small">Attempts</div>
+      <div>
+        <div class="text-xs text-muted-foreground">Attempts</div>
         <div>{{ job_context.attempt_count }}</div>
       </div>
     </div>
 
-    <div class="table-responsive">
-      <table class="table table-sm align-middle mb-0">
-        <thead class="table-light">
+    <div class="ui-table-wrap">
+      <table class="ui-table">
+        <thead>
           <tr>
             <th>Attempt</th>
             <th>Status</th>
@@ -93,16 +93,16 @@
           {% for attempt in job_attempts %}
           <tr>
             <td>#{{ attempt.attempt_number }}</td>
-            <td><span class="fw-semibold status-{{ attempt.status }}">{{ attempt.status }}</span></td>
+            <td><span class="font-semibold ui-status-{{ attempt.status|lower }}">{{ attempt.status }}</span></td>
             <td><code>{{ attempt.scheduler_job_id|default:attempt.container_id|default:"-" }}</code></td>
             <td><code>{{ attempt.gpu_index|default:"-" }}</code></td>
-            <td class="text-muted">{{ attempt.started_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
-            <td class="text-muted">{{ attempt.finished_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
+            <td class="text-muted-foreground">{{ attempt.started_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
+            <td class="text-muted-foreground">{{ attempt.finished_at|date:"Y-m-d H:i:s"|default:"-" }}</td>
             <td>{{ attempt.exit_code|default:"-" }}</td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="7" class="text-center text-muted py-3">No attempts recorded.</td>
+            <td colspan="7" class="text-center text-muted-foreground py-3">No attempts recorded.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -112,69 +112,67 @@
 </div>
 {% endif %}
 
-<div class="card">
-  <div class="card-header d-flex justify-content-between align-items-center">
-    <strong>Action Records</strong>
-    <span class="badge bg-secondary">{{ action_logs|length }} shown (max 200)</span>
+<div class="ui-card">
+  <div class="ui-card-header flex justify-between items-center">
+    <span>Action Records</span>
+    <span class="ui-badge ui-badge-secondary">{{ action_logs|length }} shown (max 200)</span>
   </div>
-  <div class="card-body p-0">
-    {% if action_logs %}
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="table-light">
-          <tr>
-            <th>Timestamp</th>
-            <th>Scope</th>
-            <th>Action</th>
-            <th>Actor</th>
-            <th>Target</th>
-            <th>Message</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for record in action_logs %}
-          <tr>
-            <td class="text-muted">{{ record.created_at|date:"Y-m-d H:i:s" }}</td>
-            <td><span class="badge bg-secondary">{{ record.get_scope_display }}</span></td>
-            <td><code>{{ record.action }}</code></td>
-            <td>{{ record.actor_name }}</td>
-            <td>
-              {% if record.job %}
-              <a href="{% url 'console:job_detail' job_id=record.job.id %}">
-                <code>{{ record.job.id|truncatechars:13 }}</code>
-              </a>
-              {% elif record.target_user %}
-              {{ record.target_user.username }}
-              {% elif record.runner_key %}
-              <code>{{ record.runner_key }}</code>
-              {% elif record.target_label %}
-              {{ record.target_label }}
-              {% else %}
-              <span class="text-muted">-</span>
-              {% endif %}
-            </td>
-            <td>
-              <div>{{ record.message }}</div>
-              {% if record.source %}
-              <small class="text-muted d-block">Source: {{ record.source }}</small>
-              {% endif %}
-              {% if record.metadata %}
-              <details class="mt-1">
-                <summary class="small text-muted">Details</summary>
-                <pre class="bg-body-secondary p-2 rounded mt-2 mb-0"><code>{{ record.metadata|pprint }}</code></pre>
-              </details>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <div class="p-4 text-center text-muted">
-      No action records matched your filters.
-    </div>
-    {% endif %}
+  {% if action_logs %}
+  <div class="ui-table-wrap">
+    <table class="ui-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Scope</th>
+          <th>Action</th>
+          <th>Actor</th>
+          <th>Target</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in action_logs %}
+        <tr>
+          <td class="text-muted-foreground">{{ record.created_at|date:"Y-m-d H:i:s" }}</td>
+          <td><span class="ui-badge ui-badge-secondary">{{ record.get_scope_display }}</span></td>
+          <td><code>{{ record.action }}</code></td>
+          <td>{{ record.actor_name }}</td>
+          <td>
+            {% if record.job %}
+            <a href="{% url 'console:job_detail' job_id=record.job.id %}" class="hover:underline">
+              <code>{{ record.job.id|truncatechars:13 }}</code>
+            </a>
+            {% elif record.target_user %}
+            {{ record.target_user.username }}
+            {% elif record.runner_key %}
+            <code>{{ record.runner_key }}</code>
+            {% elif record.target_label %}
+            {{ record.target_label }}
+            {% else %}
+            <span class="text-muted-foreground">-</span>
+            {% endif %}
+          </td>
+          <td>
+            <div>{{ record.message }}</div>
+            {% if record.source %}
+            <div class="text-xs text-muted-foreground mt-0.5">Source: {{ record.source }}</div>
+            {% endif %}
+            {% if record.metadata %}
+            <details class="mt-1">
+              <summary class="text-xs text-muted-foreground cursor-pointer">Details</summary>
+              <pre class="bg-muted p-2 rounded-md mt-2 text-xs"><code>{{ record.metadata|pprint }}</code></pre>
+            </details>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
+  {% else %}
+  <div class="ui-empty-state">
+    No action records matched your filters.
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

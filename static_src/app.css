@@ -421,4 +421,18 @@
   .ui-spinner-sm {
     @apply h-3 w-3;
   }
+
+  /* --------------------------------------------------------------
+     Progress bar
+     -------------------------------------------------------------- */
+
+  .ui-progress {
+    @apply w-full overflow-hidden rounded-full bg-secondary;
+    height: 1.25rem;
+  }
+
+  .ui-progress-bar {
+    @apply h-full rounded-full text-xs font-medium leading-5 text-center text-white;
+    transition: width 0.3s ease;
+  }
 }
