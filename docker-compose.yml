@@ -38,7 +38,6 @@ services:
     volumes:
       - ${DATA_DIR:-/tmp/fold-webapp-data}:${DATA_DIR:-/tmp/fold-webapp-data}
       - /var/run/docker.sock:/var/run/docker.sock
-      - static_files:/app/staticfiles
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -66,6 +65,3 @@ services:
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
-
-volumes:
-  static_files:
