@@ -300,32 +300,45 @@ Phase 3 deviations and notes for future phases:
 - The `name_field()` helper in `shared.py` no longer sets a CSS class — the mixin handles it when the form is instantiated.
 - No changes were needed to template partials or `app.css` — the `ui-input`, `ui-select`, and `ui-checkbox` classes from Phase 2 are already correct for all field types including file inputs.
 
-## Phase 4: Public Shell and Entry Points
+## Phase 4: Public Shell and Entry Points ✅
 
 Estimated effort: 1 to 2 days
 
 Goals:
 
-- replace the public shell fully
-- migrate the highest-visibility low-risk pages first
+- [x] replace the public shell fully
+- [x] migrate the highest-visibility low-risk pages first
 
-Files to update:
+Files updated:
 
-- `jobs/templates/jobs/base.html`
-- `templates/registration/login.html`
-- `jobs/templates/jobs/select_model.html`
+- [x] `templates/base_public.html` — full Tailwind rebuild, Bootstrap CSS/JS removed
+- [x] `templates/registration/login.html` — converted to Tailwind design system
+- [x] `jobs/templates/jobs/select_model.html` — converted to Tailwind design system
+- [x] `static/js/ui.js` — added dropdown toggle and alert dismissal behavior
+- [x] `static_src/app.css` — added minimal preflight / base reset in `@layer base`
+- [x] `bioportal/forms.py` — added `TailwindFormMixin` to `CustomLoginForm`
 
 Implementation notes:
 
-- Rebuild the top navigation, user menu, theme menu, flash messages, skip-link behavior, and main page container in Tailwind
-- Preserve all current auth and navigation behavior
-- Use this phase to lock the visual direction before applying it to the full app
+- [x] Rebuild the top navigation, user menu, theme menu, flash messages, skip-link behavior, and main page container in Tailwind
+- [x] Preserve all current auth and navigation behavior
+- [x] Use this phase to lock the visual direction before applying it to the full app
 
 Exit criteria:
 
-- login looks and behaves correctly
-- model selection looks production-ready
-- the public shell no longer loads Bootstrap assets
+- [x] login looks and behaves correctly
+- [x] model selection looks production-ready
+- [x] the public shell no longer loads Bootstrap assets
+
+Phase 4 deviations and notes for future phases:
+
+- `jobs/templates/jobs/base.html` was already reduced to `{% extends "base_public.html" %}` in Phase 1, so the shell rebuild happened in `templates/base_public.html` rather than the jobs base template.
+- A minimal preflight was added to `app.css`'s `@layer base` to replace browser defaults that Bootstrap was providing (`box-sizing`, `border-style: solid`, body/heading/link/form resets). These are in `@layer base` so Bootstrap's unlayered styles override them on console pages — no conflicts during coexistence.
+- The user menu was flattened from a nested submenu to a single-level dropdown with a "Theme" section header. The new dropdown uses `data-dropdown` / `data-dropdown-trigger` / `data-dropdown-menu` attributes and is driven by `ui.js`, not Bootstrap JS. The existing Bootstrap submenu code in `ui.js` is preserved for console pages.
+- `TailwindFormMixin` was added to `CustomLoginForm` in `bioportal/forms.py` so login fields get `ui-input` classes, paralleling the Phase 3 approach for job submission forms.
+- Flash messages now use `message.tags` to select the alert variant (`ui-alert-info`, `ui-alert-warning`, `ui-alert-success`, `ui-alert-danger`) instead of always using `alert-info`. Alert dismissal uses `data-dismiss-alert` handled by `ui.js`.
+- Unmigrated public pages (list, detail, account, all submit forms) will appear unstyled since Bootstrap assets are no longer loaded in the public shell. This is expected and will be resolved in Phases 5–6.
+- The `data-bs-theme` attribute is still used as the dark mode selector (per Phase 1 notes). This will be updated in Phase 9 after Bootstrap removal.
 
 ## Phase 5: Public Data Pages
 

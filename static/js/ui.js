@@ -1,8 +1,9 @@
 /**
  * ui.js — shared UI interaction layer
  *
- * Phase 1: theme persistence (moved from inline script)
- * Future: dropdowns, modals, disclosure toggles, submit busy states
+ * Covers: theme persistence, dropdown menus, alert dismissal.
+ * Works alongside Bootstrap JS on console pages (data-bs-* attributes)
+ * and standalone on public pages (data-dropdown-* attributes).
  */
 (function () {
   "use strict";
@@ -39,10 +40,23 @@
       if (getSavedTheme() === "auto") applyTheme("auto");
     });
 
+  // ---- Dropdown management (public pages) ------------------------------
+
+  function closeAllDropdowns() {
+    document.querySelectorAll("[data-dropdown-menu]").forEach(function (menu) {
+      menu.classList.add("hidden");
+      var wrapper = menu.closest("[data-dropdown]");
+      if (wrapper) {
+        var trigger = wrapper.querySelector("[data-dropdown-trigger]");
+        if (trigger) trigger.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
   // ---- DOM-ready setup --------------------------------------------------
 
   document.addEventListener("DOMContentLoaded", function () {
-    // Theme selection buttons ([data-theme-value])
+    // Theme selection buttons ([data-theme-value]) — shared across all pages
     document.querySelectorAll("[data-theme-value]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var theme = this.getAttribute("data-theme-value");
@@ -51,7 +65,45 @@
       });
     });
 
-    // Nested theme submenu toggle (Bootstrap dropdown period)
+    // --- Tailwind dropdown toggles (public pages) ---
+    document.querySelectorAll("[data-dropdown-trigger]").forEach(function (trigger) {
+      trigger.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var wrapper = this.closest("[data-dropdown]");
+        var menu = wrapper.querySelector("[data-dropdown-menu]");
+        var isOpen = !menu.classList.contains("hidden");
+
+        closeAllDropdowns();
+
+        if (!isOpen) {
+          menu.classList.remove("hidden");
+          this.setAttribute("aria-expanded", "true");
+        }
+      });
+    });
+
+    // Close dropdowns on outside click
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest("[data-dropdown]")) {
+        closeAllDropdowns();
+      }
+    });
+
+    // Close dropdowns on Escape
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeAllDropdowns();
+    });
+
+    // --- Alert dismissal (public pages) ---
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-dismiss-alert]");
+      if (btn) {
+        var alert = btn.closest("[role='alert']");
+        if (alert) alert.remove();
+      }
+    });
+
+    // --- Bootstrap nested theme submenu (console pages) ---
     var toggle = document.getElementById("themeSubmenuToggle");
     var submenu = document.getElementById("themeSubmenu");
 
@@ -77,7 +129,7 @@
     }
   });
 
-  // ---- Public API (available to other scripts) --------------------------
+  // ---- Public API -------------------------------------------------------
 
   window.UI = {
     applyTheme: applyTheme,

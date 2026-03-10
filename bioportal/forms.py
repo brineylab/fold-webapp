@@ -1,7 +1,9 @@
 from django.contrib.auth.forms import AuthenticationForm
 
+from jobs.forms.shared import TailwindFormMixin
 
-class CustomLoginForm(AuthenticationForm):
+
+class CustomLoginForm(TailwindFormMixin, AuthenticationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["username"].widget.attrs.update({
