@@ -5,20 +5,44 @@ from django import forms
 from console.models import RunnerConfig
 from runners import all_runners
 
-# Widget type → Tailwind CSS class
-_WIDGET_CSS = {
-    forms.TextInput: "ui-input",
-    forms.Textarea: "ui-input",
-    forms.NumberInput: "ui-input",
-    forms.EmailInput: "ui-input",
-    forms.URLInput: "ui-input",
-    forms.PasswordInput: "ui-input",
-    forms.ClearableFileInput: "ui-input",
-    forms.FileInput: "ui-input",
-    forms.Select: "ui-select",
-    forms.SelectMultiple: "ui-select",
-    forms.CheckboxInput: "ui-checkbox",
-}
+_EXCLUDED_WIDGETS = (forms.HiddenInput, forms.MultipleHiddenInput)
+
+# Widget family → Tailwind CSS class
+_WIDGET_CSS = (
+    (forms.CheckboxInput, "ui-checkbox"),
+    (forms.SelectMultiple, "ui-select"),
+    (forms.Select, "ui-select"),
+    (forms.ClearableFileInput, "ui-input ui-file-input"),
+    (forms.FileInput, "ui-input ui-file-input"),
+    (forms.Textarea, "ui-input"),
+    (forms.NumberInput, "ui-input"),
+    (forms.EmailInput, "ui-input"),
+    (forms.URLInput, "ui-input"),
+    (forms.PasswordInput, "ui-input"),
+    (forms.DateTimeInput, "ui-input"),
+    (forms.DateInput, "ui-input"),
+    (forms.TimeInput, "ui-input"),
+    (forms.TextInput, "ui-input"),
+)
+
+
+def _css_class_for_widget(widget: forms.Widget) -> str | None:
+    if isinstance(widget, _EXCLUDED_WIDGETS):
+        return None
+
+    for widget_cls, css_class in _WIDGET_CSS:
+        if isinstance(widget, widget_cls):
+            return css_class
+    return None
+
+
+def _merge_css_classes(existing: str | None, new: str) -> str:
+    tokens: list[str] = []
+    for source in (existing or "", new):
+        for token in source.split():
+            if token and token not in tokens:
+                tokens.append(token)
+    return " ".join(tokens)
 
 
 class TailwindFormMixin:
@@ -27,9 +51,12 @@ class TailwindFormMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
-            css_class = _WIDGET_CSS.get(type(field.widget))
+            css_class = _css_class_for_widget(field.widget)
             if css_class:
-                field.widget.attrs["class"] = css_class
+                field.widget.attrs["class"] = _merge_css_classes(
+                    field.widget.attrs.get("class"),
+                    css_class,
+                )
 
 
 def name_field() -> forms.CharField:

@@ -4,6 +4,8 @@ module.exports = {
     "./jobs/templates/**/*.html",
     "./console/templates/**/*.html",
     "./templates/**/*.html",
+    "./jobs/forms/**/*.py",
+    "./bioportal/**/*.py",
   ],
   // Safelist dynamic component variants used in template partials
   // (e.g. ui-alert-{{ variant }}) that Tailwind's content scanner can't detect.
@@ -16,6 +18,7 @@ module.exports = {
     "ui-select",
     "ui-checkbox",
     "ui-input",
+    "ui-file-input",
     "ui-text-muted",
     "ui-spinner",
     "ui-spinner-sm",

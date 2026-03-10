@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -15,6 +16,7 @@ from django.utils import timezone
 
 from jobs.management.commands.run_job_worker import Command as RunJobWorkerCommand
 from jobs.management.commands.run_job_worker import run_worker_loop
+from jobs.forms.shared import TailwindFormMixin
 from jobs.models import Job
 from jobs.services import create_and_submit_job, _sanitize_payload_for_storage
 from model_types import get_model_type
@@ -40,9 +42,81 @@ class _StubModelType(BaseModelType):
         return "boltz-2"
 
 
+class _StyledTextInput(forms.TextInput):
+    pass
+
+
+class _StyledFileInput(forms.ClearableFileInput):
+    pass
+
+
+class _TailwindMixinFixtureForm(TailwindFormMixin, forms.Form):
+    name = forms.CharField(
+        widget=_StyledTextInput(attrs={"class": "existing-text"})
+    )
+    upload = forms.FileField(
+        required=False,
+        widget=_StyledFileInput(attrs={"class": "existing-file"}),
+    )
+    remember = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "existing-check"}),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Defense-in-depth input checks
 # ---------------------------------------------------------------------------
+
+
+class TestTailwindFormMixin(SimpleTestCase):
+    def test_mixin_appends_classes_and_supports_widget_subclasses(self):
+        form = _TailwindMixinFixtureForm()
+
+        self.assertEqual(
+            form.fields["name"].widget.attrs["class"].split(),
+            ["existing-text", "ui-input"],
+        )
+        self.assertEqual(
+            form.fields["upload"].widget.attrs["class"].split(),
+            ["existing-file", "ui-input", "ui-file-input"],
+        )
+        self.assertEqual(
+            form.fields["remember"].widget.attrs["class"].split(),
+            ["existing-check", "ui-checkbox"],
+        )
+
+
+class StaticAssetPathRegressionTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="asset-user",
+            password="testpass",
+        )
+        self.staff_user = User.objects.create_user(
+            username="asset-staff",
+            password="testpass",
+            is_staff=True,
+            is_superuser=True,
+        )
+
+    def test_public_nested_route_uses_absolute_static_asset_paths(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get("/jobs/new/?model=boltz2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/static/css/app.css"')
+        self.assertContains(response, 'src="/static/js/ui.js"')
+
+    def test_console_nested_route_uses_absolute_static_asset_paths(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get("/console/jobs/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/static/css/app.css"')
+        self.assertContains(response, 'src="/static/js/ui.js"')
 
 
 class TestCreateAndSubmitJobValidation(TestCase):
