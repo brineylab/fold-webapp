@@ -138,8 +138,8 @@ h4 { font-size: 1rem; }
    Cards
    ---------------------------------------------------------------- */
 .card {
+  --bs-card-bg: var(--bs-secondary-bg);
   border: 1px solid var(--bs-border-color);
-  background-color: var(--bs-secondary-bg);
   box-shadow: none;
   border-radius: var(--bs-border-radius);
   overflow: hidden;
