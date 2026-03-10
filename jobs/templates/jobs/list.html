@@ -3,12 +3,12 @@
 {% block title %}Jobs{% endblock %}
 
 {% block content %}
-  <h1 class="mb-4">Jobs</h1>
-  <div class="card">
-    <div class="card-body">
+  <h1 class="mb-6">Jobs</h1>
+  <div class="ui-card">
+    <div class="ui-card-body">
       {% if jobs %}
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
+        <div class="ui-table-wrap">
+          <table class="ui-table">
             <thead>
               <tr>
                 <th>Name</th>
@@ -24,21 +24,24 @@
               {% for job in jobs %}
                 <tr>
                   <td>{{ job.name|default:"-" }}</td>
-                  <td class="text-muted">{{ job.created_at|date:"Y-m-d H:i" }}</td>
+                  <td class="text-muted-foreground">{{ job.created_at|date:"Y-m-d H:i" }}</td>
                   <td>{{ job.runner }}</td>
-                  <td><span class="fw-semibold status-{{ job.status }}">{{ job.status }}</span></td>
-                  <td class="text-muted">{{ job.owner.username }}</td>
-                  <td><a class="btn btn-outline-secondary btn-sm" href="{% url 'job_detail' job_id=job.id %}">View</a></td>
+                  <td><span class="font-semibold ui-status-{{ job.status|lower }}">{{ job.status }}</span></td>
+                  <td class="text-muted-foreground">{{ job.owner.username }}</td>
+                  <td>
+                    <a class="ui-btn ui-btn-outline ui-btn-sm" href="{% url 'job_detail' job_id=job.id %}">View</a>
+                  </td>
                   <td>
                     {% if job.status == "RUNNING" %}
-                      <form method="post" action="{% url 'job_cancel' job_id=job.id %}" style="display: inline;">
+                      <form method="post" action="{% url 'job_cancel' job_id=job.id %}" class="inline">
                         {% csrf_token %}
-                        <button class="btn btn-danger btn-sm" type="submit">Cancel</button>
+                        <button class="ui-btn ui-btn-danger ui-btn-sm" type="submit">Cancel</button>
                       </form>
                     {% elif job.status == "PENDING" or job.status == "COMPLETED" or job.status == "FAILED" or job.status == "CANCELLED" %}
-                      <form method="post" action="{% url 'job_delete' job_id=job.id %}" style="display: inline;">
+                      <form method="post" action="{% url 'job_delete' job_id=job.id %}" class="inline">
                         {% csrf_token %}
-                        <button class="btn btn-danger btn-sm" type="submit" onclick="return confirm('Are you sure you want to delete this job?');">Delete</button>
+                        <button class="ui-btn ui-btn-outline-danger ui-btn-sm" type="submit"
+                                onclick="return confirm('Are you sure you want to delete this job?');">Delete</button>
                       </form>
                     {% endif %}
                   </td>
@@ -48,8 +51,10 @@
           </table>
         </div>
       {% else %}
-        <p class="text-muted mb-3">No jobs yet.</p>
-        <a class="btn btn-primary" href="{% url 'job_submit' %}">Create your first job</a>
+        <div class="ui-empty-state">
+          <p class="mb-4">No jobs yet.</p>
+          <a class="ui-btn ui-btn-primary" href="{% url 'job_submit' %}">Create your first job</a>
+        </div>
       {% endif %}
     </div>
   </div>

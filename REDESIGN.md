@@ -340,30 +340,39 @@ Phase 4 deviations and notes for future phases:
 - Unmigrated public pages (list, detail, account, all submit forms) will appear unstyled since Bootstrap assets are no longer loaded in the public shell. This is expected and will be resolved in Phases 5–6.
 - The `data-bs-theme` attribute is still used as the dark mode selector (per Phase 1 notes). This will be updated in Phase 9 after Bootstrap removal.
 
-## Phase 5: Public Data Pages
+## Phase 5: Public Data Pages ✅
 
 Estimated effort: 1 to 2 days
 
 Goals:
 
-- migrate the common table/card/status patterns on user-facing pages
+- [x] migrate the common table/card/status patterns on user-facing pages
 
-Files to update:
+Files updated:
 
-- `jobs/templates/jobs/list.html`
-- `jobs/templates/jobs/detail.html`
-- `jobs/templates/jobs/account.html`
+- [x] `jobs/templates/jobs/list.html`
+- [x] `jobs/templates/jobs/detail.html`
+- [x] `jobs/templates/jobs/account.html`
 
 Implementation notes:
 
-- Standardize tables and action buttons before the form-heavy phases
-- Make status badges and empty states consistent with the new design system
-- Ensure mobile behavior is intentional, especially for tables and action rows
+- [x] Standardize tables and action buttons before the form-heavy phases
+- [x] Make status badges and empty states consistent with the new design system
+- [x] Ensure mobile behavior is intentional, especially for tables and action rows
 
 Exit criteria:
 
-- public list/detail/account pages are visually complete
-- card, table, badge, and empty-state patterns are stable enough for console reuse
+- [x] public list/detail/account pages are visually complete
+- [x] card, table, badge, and empty-state patterns are stable enough for console reuse
+
+Phase 5 deviations and notes for future phases:
+
+- Job status colors use `ui-status-{{ job.status|lower }}` instead of the old `status-{{ job.status }}` pattern. The old `status-*` classes lived in `theme.css` (which is no longer loaded on public pages); the new `ui-status-*` classes in `app.css` use lowercase names. The `|lower` template filter bridges the gap since `Job.Status` values are uppercase (PENDING, RUNNING, etc.). Console templates still using `status-{{ job.status }}` will need the same `|lower` + `ui-status-` change in Phase 7.
+- The detail page metadata grid uses `flex flex-wrap gap-x-8 gap-y-4` instead of Bootstrap's `row`/`col-auto` grid. This wraps naturally on mobile without needing breakpoint-specific column classes.
+- The account page uses `grid grid-cols-1 lg:grid-cols-3` for the two-column layout (1/3 + 2/3), replacing Bootstrap's `row`/`col-lg-4`/`col-lg-8` grid.
+- The account page's API key creation form uses a simple `flex gap-2` row instead of Bootstrap's `row g-2` / `col` / `col-auto` grid, which is simpler for a two-element inline form.
+- Delete buttons were changed from `ui-btn-danger` to `ui-btn-outline-danger` to visually distinguish destructive secondary actions from primary destructive actions (like Cancel on a running job). This is a deliberate design choice — the solid danger button is reserved for stopping active work.
+- No changes were needed to `app.css`, `ui.js`, or `tailwind.config.js` — all required component classes already existed from Phase 2.
 
 ## Phase 6: Public Submission Flows
 

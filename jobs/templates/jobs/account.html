@@ -3,51 +3,49 @@
 {% block title %}Account - BioPortal{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Account</h2>
+<h2 class="mb-6">Account</h2>
 
-<div class="row">
-  <!-- Account Info Card -->
-  <div class="col-lg-4 mb-4">
-    <div class="card">
-      <div class="card-header"><strong>Account Information</strong></div>
-      <div class="card-body">
-        <dl class="row mb-0">
-          <dt class="col-sm-5">Username</dt>
-          <dd class="col-sm-7">{{ user.username }}</dd>
-
-          <dt class="col-sm-5">Email</dt>
-          <dd class="col-sm-7">{{ user.email|default:"-" }}</dd>
-
-          <dt class="col-sm-5">Joined</dt>
-          <dd class="col-sm-7">{{ user.date_joined|date:"Y-m-d" }}</dd>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  {# ── Account info ──────────────────────────────────────────── #}
+  <div class="lg:col-span-1">
+    <div class="ui-card">
+      <div class="ui-card-header">Account Information</div>
+      <div class="ui-card-body">
+        <dl class="space-y-3 text-sm">
+          <div class="flex justify-between">
+            <dt class="font-medium">Username</dt>
+            <dd>{{ user.username }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="font-medium">Email</dt>
+            <dd>{{ user.email|default:"-" }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="font-medium">Joined</dt>
+            <dd class="text-muted-foreground">{{ user.date_joined|date:"Y-m-d" }}</dd>
+          </div>
         </dl>
       </div>
     </div>
   </div>
 
-  <!-- API Keys Card -->
-  <div class="col-lg-8 mb-4">
+  {# ── API keys ──────────────────────────────────────────────── #}
+  <div class="lg:col-span-2">
     {% if quota.api_enabled %}
-    <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>API Keys</strong>
-      </div>
-      <div class="card-body">
-        <!-- Create Key Form -->
-        <form method="post" action="{% url 'account_create_api_key' %}" class="row g-2 mb-3">
+    <div class="ui-card">
+      <div class="ui-card-header">API Keys</div>
+      <div class="ui-card-body">
+        {# Create key form #}
+        <form method="post" action="{% url 'account_create_api_key' %}" class="flex gap-2 mb-4">
           {% csrf_token %}
-          <div class="col">
-            <input type="text" class="form-control" name="label" placeholder="Key label (optional)" maxlength="100">
-          </div>
-          <div class="col-auto">
-            <button type="submit" class="btn btn-primary">Create Key</button>
-          </div>
+          <input type="text" class="ui-input flex-1" name="label" placeholder="Key label (optional)" maxlength="100">
+          <button type="submit" class="ui-btn ui-btn-primary shrink-0">Create Key</button>
         </form>
 
         {% if api_keys %}
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
+        <div class="ui-table-wrap">
+          <table class="ui-table">
+            <thead>
               <tr>
                 <th>Label</th>
                 <th>Key</th>
@@ -61,21 +59,21 @@
               {% for key in api_keys %}
               <tr>
                 <td>{{ key.label|default:"-" }}</td>
-                <td><code>...{{ key.key|truncatechars:12 }}</code></td>
-                <td class="text-muted">{{ key.created_at|date:"Y-m-d H:i" }}</td>
-                <td class="text-muted">{{ key.last_used_at|date:"Y-m-d H:i"|default:"Never" }}</td>
+                <td><code class="text-xs bg-muted px-1.5 py-0.5 rounded">...{{ key.key|truncatechars:12 }}</code></td>
+                <td class="text-muted-foreground">{{ key.created_at|date:"Y-m-d H:i" }}</td>
+                <td class="text-muted-foreground">{{ key.last_used_at|date:"Y-m-d H:i"|default:"Never" }}</td>
                 <td>
                   {% if key.is_active %}
-                  <span class="badge bg-success">Active</span>
+                  <span class="ui-badge ui-badge-success">Active</span>
                   {% else %}
-                  <span class="badge bg-secondary">Revoked</span>
+                  <span class="ui-badge ui-badge-secondary">Revoked</span>
                   {% endif %}
                 </td>
                 <td>
                   {% if key.is_active %}
-                  <form method="post" action="{% url 'account_revoke_api_key' key_id=key.id %}" class="d-inline">
+                  <form method="post" action="{% url 'account_revoke_api_key' key_id=key.id %}" class="inline">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-danger btn-sm"
+                    <button type="submit" class="ui-btn ui-btn-outline-danger ui-btn-sm"
                             onclick="return confirm('Revoke this API key? This cannot be undone.');">
                       Revoke
                     </button>
@@ -88,15 +86,15 @@
           </table>
         </div>
         {% else %}
-        <p class="text-muted mb-0">No API keys yet. Create one above to start using the API.</p>
+        <p class="text-muted-foreground">No API keys yet. Create one above to start using the API.</p>
         {% endif %}
       </div>
     </div>
     {% else %}
-    <div class="card">
-      <div class="card-header"><strong>API Access</strong></div>
-      <div class="card-body">
-        <p class="text-muted mb-0">
+    <div class="ui-card">
+      <div class="ui-card-header">API Access</div>
+      <div class="ui-card-body">
+        <p class="text-muted-foreground">
           API access is not enabled for your account. Contact an administrator to request access.
         </p>
       </div>
