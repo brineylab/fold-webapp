@@ -1,6 +1,9 @@
 *.pyc
 __pycache__/
 
+# Node / Tailwind
+node_modules/
+
 .env
 db.sqlite3
 

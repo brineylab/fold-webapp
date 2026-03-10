@@ -1,4 +1,18 @@
 # syntax=docker/dockerfile:1
+
+# --- Stage 1: build Tailwind CSS ---
+FROM node:20-slim AS css-build
+WORKDIR /build
+COPY package.json package-lock.json* ./
+RUN npm ci --ignore-scripts
+COPY tailwind.config.js .
+COPY static_src/ static_src/
+COPY jobs/templates/ jobs/templates/
+COPY console/templates/ console/templates/
+COPY templates/ templates/
+RUN npm run build:css
+
+# --- Stage 2: application image ---
 FROM docker:cli AS dockercli
 FROM python:3.11-slim
 
@@ -17,6 +31,9 @@ COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
 
 # Copy application code
 COPY . .
+
+# Copy built Tailwind CSS from stage 1
+COPY --from=css-build /build/static/css/app.css static/css/app.css
 
 # Collect static files
 RUN python manage.py collectstatic --noinput

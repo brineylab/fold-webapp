@@ -166,43 +166,53 @@ The current `static/css/theme.css` may be used as a reference for intent, but it
 
 ## Delivery Phases
 
-## Phase 1: Foundation and Shell Decoupling
+## Phase 1: Foundation and Shell Decoupling ✅
 
 Estimated effort: 1 to 2 days
 
 Goals:
 
-- establish Tailwind build support
-- create independent public and console base templates
-- preserve the existing app behavior while enabling phased migration
+- [x] establish Tailwind build support
+- [x] create independent public and console base templates
+- [x] preserve the existing app behavior while enabling phased migration
 
-Files to add:
+Files added:
 
-- `package.json`
-- `tailwind.config.js`
-- `static_src/app.css`
-- `static/js/ui.js`
-- `templates/base_public.html`
-- `templates/base_console.html`
+- [x] `package.json`
+- [x] `tailwind.config.js`
+- [x] `static_src/app.css`
+- [x] `static/js/ui.js`
+- [x] `templates/base_public.html`
+- [x] `templates/base_console.html`
 
-Files to update:
+Files updated:
 
-- `Dockerfile`
-- `jobs/templates/jobs/base.html`
-- `console/templates/console/base.html`
-- developer docs that describe local startup and deployment build steps
+- [x] `Dockerfile` — multi-stage build: Node stage builds CSS, Python stage copies the result
+- [x] `jobs/templates/jobs/base.html` — now extends `base_public.html`
+- [x] `console/templates/console/base.html` — now extends `base_console.html`
+- [x] `CLAUDE.md` — added `npm install`, `npm run build:css`, and `css` process
+- [x] `Procfile` — added `css: npm run watch:css`
+- [x] `.gitignore` — added `node_modules/`
 
 Implementation notes:
 
-- Keep Bootstrap available only where still needed during transition
-- Move theme persistence logic out of Bootstrap assumptions
-- Ensure the console can temporarily keep Bootstrap styling while public pages migrate first
+- [x] Keep Bootstrap available only where still needed during transition
+- [x] Move theme persistence logic out of Bootstrap assumptions
+- [x] Ensure the console can temporarily keep Bootstrap styling while public pages migrate first
 
 Exit criteria:
 
-- Tailwind CSS builds successfully locally
-- Docker build includes CSS generation before `collectstatic`
-- public pages and console pages no longer depend on each other for shell inheritance
+- [x] Tailwind CSS builds successfully locally
+- [x] Docker build includes CSS generation before `collectstatic`
+- [x] public pages and console pages no longer depend on each other for shell inheritance
+
+Phase 1 deviations and notes for future phases:
+
+- Tailwind `preflight` is disabled (`corePlugins.preflight: false` in `tailwind.config.js`) to avoid clashing with Bootstrap's base styles during the coexistence period. Re-enable in Phase 9 after Bootstrap is removed.
+- Tailwind `darkMode` is configured as `['selector', '[data-bs-theme="dark"]']` so that `dark:` variants work with the existing Bootstrap theme attribute. After Bootstrap removal, switch this to `['selector', '[data-theme="dark"]']` or `'class'` and update the HTML attribute accordingly.
+- The Dockerfile uses a multi-stage build (Node stage for CSS, then `COPY --from`) instead of installing Node in the final image. This keeps the production image lean but means template files are copied into the Node stage too — if new template directories are added, the Dockerfile CSS stage needs updating.
+- Both `base_public.html` and `base_console.html` include Tailwind CSS. This allows incremental Tailwind adoption in console templates without a later pipeline change.
+- A minimal FOUC-prevention inline script remains in both base templates; the full theme interaction logic lives in `static/js/ui.js`.
 
 ## Phase 2: Tailwind Design System and Shared Partials
 

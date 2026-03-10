@@ -6,6 +6,8 @@ This repository is a Django intranet app for submitting protein structure predic
 
 ```bash
 python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+npm install
+npm run build:css
 cp env.example .env
 python manage.py migrate
 python manage.py createsuperuser
@@ -16,6 +18,7 @@ Long-lived processes:
 
 - `web`: `python manage.py runserver`
 - `worker`: `python manage.py run_job_worker --interval 10`
+- `css`: `npm run watch:css` (Tailwind CSS watcher)
 
 ## Architecture
 
