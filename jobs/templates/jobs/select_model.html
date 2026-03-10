@@ -20,6 +20,7 @@
   <p class="text-muted mb-4">Select a model to begin a new job submission.</p>
 
   {% for category, models in model_categories %}
+  {% if not forloop.first %}<hr class="my-4">{% endif %}
   <h4 class="mb-3 mt-4">{{ category }}</h4>
   <div class="row g-4 mb-4">
     {% for model in models %}
