@@ -1,70 +1,70 @@
 {% extends "jobs/submit_base.html" %}
 
 {% block form_fields %}
-        <div class="mb-3">
-          <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+        <div class="ui-field-group">
+          <label for="{{ form.name.id_for_label }}" class="ui-label">Name</label>
           {{ form.name }}
-          {{ form.name.errors }}
+          {% for error in form.name.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <label for="{{ form.pdb_file.id_for_label }}" class="form-label">Target structure (PDB)</label>
+        <div class="ui-field-group">
+          <label for="{{ form.pdb_file.id_for_label }}" class="ui-label">Target structure (PDB)</label>
           {{ form.pdb_file }}
-          <div class="form-text">{{ form.pdb_file.help_text }}</div>
-          {{ form.pdb_file.errors }}
+          <p class="ui-help-text">{{ form.pdb_file.help_text }}</p>
+          {% for error in form.pdb_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.target_chain.id_for_label }}" class="form-label">Target chain</label>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="ui-field-group">
+            <label for="{{ form.target_chain.id_for_label }}" class="ui-label">Target chain</label>
             {{ form.target_chain }}
-            <div class="form-text">{{ form.target_chain.help_text }}</div>
-            {{ form.target_chain.errors }}
+            <p class="ui-help-text">{{ form.target_chain.help_text }}</p>
+            {% for error in form.target_chain.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
-          <div class="col-md-8 mb-3">
-            <label for="{{ form.hotspot_residues.id_for_label }}" class="form-label">Hotspot residues</label>
+          <div class="ui-field-group md:col-span-2">
+            <label for="{{ form.hotspot_residues.id_for_label }}" class="ui-label">Hotspot residues</label>
             {{ form.hotspot_residues }}
-            <div class="form-text">{{ form.hotspot_residues.help_text }}</div>
-            {{ form.hotspot_residues.errors }}
+            <p class="ui-help-text">{{ form.hotspot_residues.help_text }}</p>
+            {% for error in form.hotspot_residues.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
         </div>
 
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.length_min.id_for_label }}" class="form-label">Min binder length</label>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="ui-field-group">
+            <label for="{{ form.length_min.id_for_label }}" class="ui-label">Min binder length</label>
             {{ form.length_min }}
-            <div class="form-text">{{ form.length_min.help_text }}</div>
-            {{ form.length_min.errors }}
+            <p class="ui-help-text">{{ form.length_min.help_text }}</p>
+            {% for error in form.length_min.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.length_max.id_for_label }}" class="form-label">Max binder length</label>
+          <div class="ui-field-group">
+            <label for="{{ form.length_max.id_for_label }}" class="ui-label">Max binder length</label>
             {{ form.length_max }}
-            <div class="form-text">{{ form.length_max.help_text }}</div>
-            {{ form.length_max.errors }}
+            <p class="ui-help-text">{{ form.length_max.help_text }}</p>
+            {% for error in form.length_max.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.number_of_final_designs.id_for_label }}" class="form-label">Number of designs</label>
+          <div class="ui-field-group">
+            <label for="{{ form.number_of_final_designs.id_for_label }}" class="ui-label">Number of designs</label>
             {{ form.number_of_final_designs }}
-            <div class="form-text">{{ form.number_of_final_designs.help_text }}</div>
-            {{ form.number_of_final_designs.errors }}
+            <p class="ui-help-text">{{ form.number_of_final_designs.help_text }}</p>
+            {% for error in form.number_of_final_designs.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
         </div>
 
-        <hr class="my-4">
-        <h6 class="text-muted mb-3">Advanced Configuration (optional)</h6>
+        <hr class="my-6">
+        <h4 class="text-sm font-medium text-muted-foreground mb-4">Advanced Configuration (optional)</h4>
 
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="{{ form.filters_file.id_for_label }}" class="form-label">Custom filters</label>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="ui-field-group">
+            <label for="{{ form.filters_file.id_for_label }}" class="ui-label">Custom filters</label>
             {{ form.filters_file }}
-            <div class="form-text">{{ form.filters_file.help_text }}</div>
-            {{ form.filters_file.errors }}
+            <p class="ui-help-text">{{ form.filters_file.help_text }}</p>
+            {% for error in form.filters_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
-          <div class="col-md-6 mb-3">
-            <label for="{{ form.advanced_file.id_for_label }}" class="form-label">Custom advanced settings</label>
+          <div class="ui-field-group">
+            <label for="{{ form.advanced_file.id_for_label }}" class="ui-label">Custom advanced settings</label>
             {{ form.advanced_file }}
-            <div class="form-text">{{ form.advanced_file.help_text }}</div>
-            {{ form.advanced_file.errors }}
+            <p class="ui-help-text">{{ form.advanced_file.help_text }}</p>
+            {% for error in form.advanced_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
         </div>
 {% endblock %}

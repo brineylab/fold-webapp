@@ -374,40 +374,49 @@ Phase 5 deviations and notes for future phases:
 - Delete buttons were changed from `ui-btn-danger` to `ui-btn-outline-danger` to visually distinguish destructive secondary actions from primary destructive actions (like Cancel on a running job). This is a deliberate design choice — the solid danger button is reserved for stopping active work.
 - No changes were needed to `app.css`, `ui.js`, or `tailwind.config.js` — all required component classes already existed from Phase 2.
 
-## Phase 6: Public Submission Flows
+## Phase 6: Public Submission Flows ✅
 
 Estimated effort: 3 to 4 days
 
 Goals:
 
-- migrate the full submission experience
-- consolidate repeated field markup where possible
+- [x] migrate the full submission experience
+- [x] consolidate repeated field markup where possible
 
-Files to update first:
+Files updated:
 
-- `jobs/templates/jobs/submit_base.html`
-- `jobs/templates/jobs/submit_boltz2.html`
-- `jobs/templates/jobs/submit_chai1.html`
-- `jobs/templates/jobs/submit_protein_mpnn.html`
-- `jobs/templates/jobs/submit_ligand_mpnn.html`
-
-Files to update next:
-
-- `jobs/templates/jobs/submit_bindcraft.html`
-- `jobs/templates/jobs/submit_boltzgen.html`
-- `jobs/templates/jobs/submit_rfdiffusion3.html`
+- [x] `jobs/templates/jobs/submit_base.html`
+- [x] `jobs/templates/jobs/submit_boltz2.html`
+- [x] `jobs/templates/jobs/submit_chai1.html`
+- [x] `jobs/templates/jobs/submit_protein_mpnn.html`
+- [x] `jobs/templates/jobs/submit_ligand_mpnn.html`
+- [x] `jobs/templates/jobs/submit_bindcraft.html`
+- [x] `jobs/templates/jobs/submit_boltzgen.html`
+- [x] `jobs/templates/jobs/submit_rfdiffusion3.html`
 
 Implementation notes:
 
-- Migrate simple forms first to validate field styling
-- Convert the complex conditional forms only after the base field components are proven
-- Replace Bootstrap submit spinners with Tailwind-compatible busy states
-- Preserve all existing conditional logic and input validation behavior
+- [x] Migrate simple forms first to validate field styling
+- [x] Convert the complex conditional forms only after the base field components are proven
+- [x] Replace Bootstrap submit spinners with Tailwind-compatible busy states
+- [x] Preserve all existing conditional logic and input validation behavior
 
 Exit criteria:
 
-- all public submission flows are functional and visually consistent
-- no public page depends on Bootstrap CSS or Bootstrap JS
+- [x] all public submission flows are functional and visually consistent
+- [x] no public page depends on Bootstrap CSS or Bootstrap JS
+
+Phase 6 deviations and notes for future phases:
+
+- Field markup was consolidated using the design system classes (`ui-field-group`, `ui-label`, `ui-help-text`, `ui-error`) directly in each template rather than using `{% include %}` for the field/checkbox partials. The `{% include %}` approach was not used because many form fields have custom label text (e.g. "Use MSA server", "PDB file", "Number of designs") that differs from Django's auto-generated `field.label` (which would produce "Use msa server", "Pdb file", "Number of final designs"). Using inline markup preserves the existing labels without requiring `label=` overrides on every form field definition.
+- Error rendering was changed from `{{ form.field.errors }}` (which outputs Django's `<ul class="errorlist">`) to `{% for error in form.field.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}`. This produces individually styled error paragraphs consistent with the Phase 2 design system and the field partial pattern.
+- Non-field errors in `submit_base.html` now render inside a `ui-alert ui-alert-danger` wrapper instead of Django's default `<ul class="errorlist nonfield">`. This gives form-level validation errors more visual prominence.
+- Bootstrap's `row`/`col-md-*` grid was replaced with CSS Grid (`grid grid-cols-1 md:grid-cols-{2,3,4} gap-4`). The `col-md-4`+`col-md-8` split in BindCraft and RFdiffusion3 uses `md:col-span-2` on the wider column within a `grid-cols-3` container.
+- The submit button spinner was changed from Bootstrap's `spinner-border spinner-border-sm me-1` to `ui-spinner ui-spinner-sm mr-1`, using the Phase 2 CSS spinner component.
+- The button row at the bottom of `submit_base.html` was changed from inline elements to `flex items-center gap-3 pt-2` for consistent spacing.
+- Section dividers in complex forms (BindCraft, BoltzGen, RFdiffusion3) were changed from `<hr class="my-4"><h6 class="text-muted mb-3">` to `<hr class="my-6"><h4 class="text-sm font-medium text-muted-foreground mb-4">` for better visual hierarchy and spacing.
+- No changes were needed to `app.css`, `ui.js`, form Python files, or `tailwind.config.js` — all required component and utility classes already existed from Phases 2–3.
+- The `protocol-group` and `mode-group` CSS classes used as JavaScript selectors in BoltzGen and RFdiffusion3 were preserved unchanged. These are not Bootstrap classes — they are custom identifiers for the show/hide logic.
 
 ## Phase 7: Console Shell and Console Summary/List Pages
 

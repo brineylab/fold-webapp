@@ -1,86 +1,79 @@
 {% extends "jobs/submit_base.html" %}
 
 {% block form_fields %}
-        <div class="mb-3">
-          <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+        <div class="ui-field-group">
+          <label for="{{ form.name.id_for_label }}" class="ui-label">Name</label>
           {{ form.name }}
-          {{ form.name.errors }}
+          {% for error in form.name.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <label for="{{ form.sequences.id_for_label }}" class="form-label">Sequences</label>
+        <div class="ui-field-group">
+          <label for="{{ form.sequences.id_for_label }}" class="ui-label">Sequences</label>
           {{ form.sequences }}
-          <div class="form-text">{{ form.sequences.help_text }}</div>
-          {{ form.sequences.errors }}
+          <p class="ui-help-text">{{ form.sequences.help_text }}</p>
+          {% for error in form.sequences.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <label for="{{ form.input_file.id_for_label }}" class="form-label">Input file</label>
+        <div class="ui-field-group">
+          <label for="{{ form.input_file.id_for_label }}" class="ui-label">Input file</label>
           {{ form.input_file }}
-          <div class="form-text">{{ form.input_file.help_text }}</div>
-          {{ form.input_file.errors }}
+          <p class="ui-help-text">{{ form.input_file.help_text }}</p>
+          {% for error in form.input_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <div class="form-check">
+        <div class="ui-field-group">
+          <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
             {{ form.use_msa_server }}
-            <label class="form-check-label" for="{{ form.use_msa_server.id_for_label }}">
-              Use MSA server
-            </label>
-          </div>
-          <div class="form-text">{{ form.use_msa_server.help_text }}</div>
-          {{ form.use_msa_server.errors }}
+            Use MSA server
+          </label>
+          <p class="ui-help-text">{{ form.use_msa_server.help_text }}</p>
+          {% for error in form.use_msa_server.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <div class="form-check">
+        <div class="ui-field-group">
+          <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
             {{ form.use_potentials }}
-            <label class="form-check-label" for="{{ form.use_potentials.id_for_label }}">
-              Use inference-time potentials
-            </label>
-          </div>
-          <div class="form-text">{{ form.use_potentials.help_text }}</div>
-          {{ form.use_potentials.errors }}
+            Use inference-time potentials
+          </label>
+          <p class="ui-help-text">{{ form.use_potentials.help_text }}</p>
+          {% for error in form.use_potentials.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <div class="form-check">
+        <div class="ui-field-group">
+          <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
             {{ form.no_kernels }}
-            <label class="form-check-label" for="{{ form.no_kernels.id_for_label }}">
-              Disable optimized kernels
-            </label>
-          </div>
-          <div class="form-text">{{ form.no_kernels.help_text }}</div>
-          {{ form.no_kernels.errors }}
+            Disable optimized kernels
+          </label>
+          <p class="ui-help-text">{{ form.no_kernels.help_text }}</p>
+          {% for error in form.no_kernels.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <label for="{{ form.output_format.id_for_label }}" class="form-label">Output format</label>
+        <div class="ui-field-group">
+          <label for="{{ form.output_format.id_for_label }}" class="ui-label">Output format</label>
           {{ form.output_format }}
-          <div class="form-text">{{ form.output_format.help_text }}</div>
-          {{ form.output_format.errors }}
+          <p class="ui-help-text">{{ form.output_format.help_text }}</p>
+          {% for error in form.output_format.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.recycling_steps.id_for_label }}" class="form-label">Recycling steps</label>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="ui-field-group">
+            <label for="{{ form.recycling_steps.id_for_label }}" class="ui-label">Recycling steps</label>
             {{ form.recycling_steps }}
-            <div class="form-text">{{ form.recycling_steps.help_text }}</div>
-            {{ form.recycling_steps.errors }}
+            <p class="ui-help-text">{{ form.recycling_steps.help_text }}</p>
+            {% for error in form.recycling_steps.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.sampling_steps.id_for_label }}" class="form-label">Sampling steps</label>
+          <div class="ui-field-group">
+            <label for="{{ form.sampling_steps.id_for_label }}" class="ui-label">Sampling steps</label>
             {{ form.sampling_steps }}
-            <div class="form-text">{{ form.sampling_steps.help_text }}</div>
-            {{ form.sampling_steps.errors }}
+            <p class="ui-help-text">{{ form.sampling_steps.help_text }}</p>
+            {% for error in form.sampling_steps.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.diffusion_samples.id_for_label }}" class="form-label">Diffusion samples</label>
+          <div class="ui-field-group">
+            <label for="{{ form.diffusion_samples.id_for_label }}" class="ui-label">Diffusion samples</label>
             {{ form.diffusion_samples }}
-            <div class="form-text">{{ form.diffusion_samples.help_text }}</div>
-            {{ form.diffusion_samples.errors }}
+            <p class="ui-help-text">{{ form.diffusion_samples.help_text }}</p>
+            {% for error in form.diffusion_samples.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
         </div>
-
 
 {% endblock %}

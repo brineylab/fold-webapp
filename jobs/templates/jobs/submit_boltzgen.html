@@ -1,106 +1,106 @@
 {% extends "jobs/submit_base.html" %}
 
 {% block form_fields %}
-        <div class="mb-3">
-          <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+        <div class="ui-field-group">
+          <label for="{{ form.name.id_for_label }}" class="ui-label">Name</label>
           {{ form.name }}
-          {{ form.name.errors }}
+          {% for error in form.name.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <label for="{{ form.protocol.id_for_label }}" class="form-label">Protocol</label>
+        <div class="ui-field-group">
+          <label for="{{ form.protocol.id_for_label }}" class="ui-label">Protocol</label>
           {{ form.protocol }}
-          <div class="form-text">{{ form.protocol.help_text }}</div>
-          {{ form.protocol.errors }}
+          <p class="ui-help-text">{{ form.protocol.help_text }}</p>
+          {% for error in form.protocol.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
         <!-- Target structure fields (shown for all protocol modes) -->
         <div id="group-target" class="protocol-group">
-          <div class="mb-3">
-            <label for="{{ form.target_file.id_for_label }}" class="form-label">Target structure</label>
+          <div class="ui-field-group">
+            <label for="{{ form.target_file.id_for_label }}" class="ui-label">Target structure</label>
             {{ form.target_file }}
-            <div class="form-text">{{ form.target_file.help_text }}</div>
-            {{ form.target_file.errors }}
+            <p class="ui-help-text">{{ form.target_file.help_text }}</p>
+            {% for error in form.target_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
-          <div class="mb-3">
-            <label for="{{ form.target_chains.id_for_label }}" class="form-label">Target chains</label>
+          <div class="ui-field-group">
+            <label for="{{ form.target_chains.id_for_label }}" class="ui-label">Target chains</label>
             {{ form.target_chains }}
-            <div class="form-text">{{ form.target_chains.help_text }}</div>
-            {{ form.target_chains.errors }}
+            <p class="ui-help-text">{{ form.target_chains.help_text }}</p>
+            {% for error in form.target_chains.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
         </div>
 
         <!-- Protein binder length fields -->
         <div id="group-protein-length" class="protocol-group">
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label for="{{ form.binder_length_min.id_for_label }}" class="form-label">Min binder length</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="ui-field-group">
+              <label for="{{ form.binder_length_min.id_for_label }}" class="ui-label">Min binder length</label>
               {{ form.binder_length_min }}
-              <div class="form-text">{{ form.binder_length_min.help_text }}</div>
-              {{ form.binder_length_min.errors }}
+              <p class="ui-help-text">{{ form.binder_length_min.help_text }}</p>
+              {% for error in form.binder_length_min.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
             </div>
-            <div class="col-md-6 mb-3">
-              <label for="{{ form.binder_length_max.id_for_label }}" class="form-label">Max binder length</label>
+            <div class="ui-field-group">
+              <label for="{{ form.binder_length_max.id_for_label }}" class="ui-label">Max binder length</label>
               {{ form.binder_length_max }}
-              <div class="form-text">{{ form.binder_length_max.help_text }}</div>
-              {{ form.binder_length_max.errors }}
+              <p class="ui-help-text">{{ form.binder_length_max.help_text }}</p>
+              {% for error in form.binder_length_max.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
             </div>
           </div>
         </div>
 
         <!-- Peptide binder length fields -->
         <div id="group-peptide-length" class="protocol-group" style="display:none;">
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label for="{{ form.peptide_length_min.id_for_label }}" class="form-label">Min peptide length</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="ui-field-group">
+              <label for="{{ form.peptide_length_min.id_for_label }}" class="ui-label">Min peptide length</label>
               {{ form.peptide_length_min }}
-              <div class="form-text">{{ form.peptide_length_min.help_text }}</div>
-              {{ form.peptide_length_min.errors }}
+              <p class="ui-help-text">{{ form.peptide_length_min.help_text }}</p>
+              {% for error in form.peptide_length_min.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
             </div>
-            <div class="col-md-6 mb-3">
-              <label for="{{ form.peptide_length_max.id_for_label }}" class="form-label">Max peptide length</label>
+            <div class="ui-field-group">
+              <label for="{{ form.peptide_length_max.id_for_label }}" class="ui-label">Max peptide length</label>
               {{ form.peptide_length_max }}
-              <div class="form-text">{{ form.peptide_length_max.help_text }}</div>
-              {{ form.peptide_length_max.errors }}
+              <p class="ui-help-text">{{ form.peptide_length_max.help_text }}</p>
+              {% for error in form.peptide_length_max.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
             </div>
           </div>
         </div>
 
         <!-- Common parameters (shown for all protocol modes, hidden for yaml_upload) -->
         <div id="group-common" class="protocol-group">
-          <hr class="my-4">
-          <h6 class="text-muted mb-3">Generation Parameters</h6>
-          <div class="row">
-            <div class="col-md-4 mb-3">
-              <label for="{{ form.num_designs.id_for_label }}" class="form-label">Initial designs</label>
+          <hr class="my-6">
+          <h4 class="text-sm font-medium text-muted-foreground mb-4">Generation Parameters</h4>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="ui-field-group">
+              <label for="{{ form.num_designs.id_for_label }}" class="ui-label">Initial designs</label>
               {{ form.num_designs }}
-              <div class="form-text">{{ form.num_designs.help_text }}</div>
-              {{ form.num_designs.errors }}
+              <p class="ui-help-text">{{ form.num_designs.help_text }}</p>
+              {% for error in form.num_designs.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
             </div>
-            <div class="col-md-4 mb-3">
-              <label for="{{ form.budget.id_for_label }}" class="form-label">Budget (final designs)</label>
+            <div class="ui-field-group">
+              <label for="{{ form.budget.id_for_label }}" class="ui-label">Budget (final designs)</label>
               {{ form.budget }}
-              <div class="form-text">{{ form.budget.help_text }}</div>
-              {{ form.budget.errors }}
+              <p class="ui-help-text">{{ form.budget.help_text }}</p>
+              {% for error in form.budget.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
             </div>
-            <div class="col-md-4 mb-3">
-              <label for="{{ form.alpha.id_for_label }}" class="form-label">Alpha (diversity)</label>
+            <div class="ui-field-group">
+              <label for="{{ form.alpha.id_for_label }}" class="ui-label">Alpha (diversity)</label>
               {{ form.alpha }}
-              <div class="form-text">{{ form.alpha.help_text }}</div>
-              {{ form.alpha.errors }}
+              <p class="ui-help-text">{{ form.alpha.help_text }}</p>
+              {% for error in form.alpha.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
             </div>
           </div>
         </div>
 
         <!-- YAML upload field -->
         <div id="group-yaml" class="protocol-group" style="display:none;">
-          <hr class="my-4">
-          <h6 class="text-muted mb-3">YAML Specification</h6>
-          <div class="mb-3">
-            <label for="{{ form.yaml_file.id_for_label }}" class="form-label">Design YAML</label>
+          <hr class="my-6">
+          <h4 class="text-sm font-medium text-muted-foreground mb-4">YAML Specification</h4>
+          <div class="ui-field-group">
+            <label for="{{ form.yaml_file.id_for_label }}" class="ui-label">Design YAML</label>
             {{ form.yaml_file }}
-            <div class="form-text">{{ form.yaml_file.help_text }}</div>
-            {{ form.yaml_file.errors }}
+            <p class="ui-help-text">{{ form.yaml_file.help_text }}</p>
+            {% for error in form.yaml_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
         </div>
 

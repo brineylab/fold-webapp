@@ -1,57 +1,57 @@
 {% extends "jobs/submit_base.html" %}
 
 {% block form_fields %}
-        <div class="mb-3">
-          <label for="{{ form.name.id_for_label }}" class="form-label">Name</label>
+        <div class="ui-field-group">
+          <label for="{{ form.name.id_for_label }}" class="ui-label">Name</label>
           {{ form.name }}
-          {{ form.name.errors }}
+          {% for error in form.name.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <label for="{{ form.pdb_file.id_for_label }}" class="form-label">PDB file</label>
+        <div class="ui-field-group">
+          <label for="{{ form.pdb_file.id_for_label }}" class="ui-label">PDB file</label>
           {{ form.pdb_file }}
-          <div class="form-text">{{ form.pdb_file.help_text }}</div>
-          {{ form.pdb_file.errors }}
+          <p class="ui-help-text">{{ form.pdb_file.help_text }}</p>
+          {% for error in form.pdb_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <label for="{{ form.noise_level.id_for_label }}" class="form-label">Noise level</label>
+        <div class="ui-field-group">
+          <label for="{{ form.noise_level.id_for_label }}" class="ui-label">Noise level</label>
           {{ form.noise_level }}
-          {{ form.noise_level.errors }}
+          {% for error in form.noise_level.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.temperature.id_for_label }}" class="form-label">Temperature</label>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="ui-field-group">
+            <label for="{{ form.temperature.id_for_label }}" class="ui-label">Temperature</label>
             {{ form.temperature }}
-            <div class="form-text">{{ form.temperature.help_text }}</div>
-            {{ form.temperature.errors }}
+            <p class="ui-help-text">{{ form.temperature.help_text }}</p>
+            {% for error in form.temperature.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.num_sequences.id_for_label }}" class="form-label">Number of sequences</label>
+          <div class="ui-field-group">
+            <label for="{{ form.num_sequences.id_for_label }}" class="ui-label">Number of sequences</label>
             {{ form.num_sequences }}
-            <div class="form-text">{{ form.num_sequences.help_text }}</div>
-            {{ form.num_sequences.errors }}
+            <p class="ui-help-text">{{ form.num_sequences.help_text }}</p>
+            {% for error in form.num_sequences.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.seed.id_for_label }}" class="form-label">Seed</label>
+          <div class="ui-field-group">
+            <label for="{{ form.seed.id_for_label }}" class="ui-label">Seed</label>
             {{ form.seed }}
-            <div class="form-text">{{ form.seed.help_text }}</div>
-            {{ form.seed.errors }}
+            <p class="ui-help-text">{{ form.seed.help_text }}</p>
+            {% for error in form.seed.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
           </div>
         </div>
 
-        <div class="mb-3">
-          <label for="{{ form.chains_to_design.id_for_label }}" class="form-label">Chains to design</label>
+        <div class="ui-field-group">
+          <label for="{{ form.chains_to_design.id_for_label }}" class="ui-label">Chains to design</label>
           {{ form.chains_to_design }}
-          <div class="form-text">{{ form.chains_to_design.help_text }}</div>
-          {{ form.chains_to_design.errors }}
+          <p class="ui-help-text">{{ form.chains_to_design.help_text }}</p>
+          {% for error in form.chains_to_design.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="mb-3">
-          <label for="{{ form.fixed_residues.id_for_label }}" class="form-label">Fixed residues</label>
+        <div class="ui-field-group">
+          <label for="{{ form.fixed_residues.id_for_label }}" class="ui-label">Fixed residues</label>
           {{ form.fixed_residues }}
-          <div class="form-text">{{ form.fixed_residues.help_text }}</div>
-          {{ form.fixed_residues.errors }}
+          <p class="ui-help-text">{{ form.fixed_residues.help_text }}</p>
+          {% for error in form.fixed_residues.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 {% endblock %}
