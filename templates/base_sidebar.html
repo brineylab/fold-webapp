@@ -1,0 +1,111 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff">
+    <title>{% block title %}BioPortal{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{% static 'css/app.css' %}" rel="stylesheet">
+    <style>
+      html[data-theme="dark"] { color-scheme: dark; }
+      html[data-theme="light"] { color-scheme: light; }
+      [id] { scroll-margin-top: 4rem; }
+      a, button, [role="button"], input, select, textarea { touch-action: manipulation; }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+    <script>
+      (function() {
+        var t = localStorage.getItem('fold-webapp-theme') || 'auto';
+        var r = t === 'auto'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : t;
+        document.documentElement.setAttribute('data-theme', r);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.content = r === 'dark' ? '#09090b' : '#ffffff';
+      })();
+    </script>
+  </head>
+  <body class="bg-background text-foreground text-sm">
+    <a href="#main-content"
+       class="sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:text-sm">
+      Skip to content
+    </a>
+
+    {% if user.is_authenticated %}
+    <aside class="ui-sidebar" id="app-sidebar" data-sidebar>
+      <div class="ui-sidebar-header">
+        <a href="{% url 'job_list' %}" class="text-base font-semibold tracking-tight">fold@Scripps</a>
+        <button type="button" class="ui-sidebar-desktop-toggle" aria-label="Collapse sidebar" data-sidebar-toggle>
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+            <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="ui-sidebar-content">
+        {% block sidebar_nav %}
+          {% include "components/sidebar/nav_main.html" %}
+          {% include "components/sidebar/nav_models.html" %}
+          {% if user.is_staff %}
+            {% include "components/sidebar/nav_console.html" %}
+          {% endif %}
+        {% endblock %}
+      </div>
+
+      <div class="ui-sidebar-footer">
+        {% include "components/sidebar/footer.html" %}
+      </div>
+    </aside>
+    <div class="hidden fixed inset-0 z-30 bg-black/50" id="sidebar-backdrop" data-sidebar-backdrop></div>
+    {% endif %}
+
+    <div class="ui-sidebar-main" id="main-wrapper">
+      {% if user.is_authenticated %}
+      <header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-background px-4 sm:px-6 lg:hidden">
+        <button type="button" class="ui-sidebar-mobile-toggle" data-sidebar-toggle aria-label="Toggle sidebar">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+            <path fill-rule="evenodd" d="M2 3.75A.75.75 0 0 1 2.75 3h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 3.75M2 8a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 8m0 4.25a.75.75 0 0 1 .75-.75h10.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75"/>
+          </svg>
+        </button>
+        <span class="min-w-0 truncate text-sm font-medium">{% block topbar_title %}{% endblock %}</span>
+      </header>
+      {% endif %}
+
+      <div class="px-4 py-4 sm:px-6 lg:px-8" aria-live="polite">
+        {% if messages %}
+          {% for message in messages %}
+            <div class="ui-alert {% if 'error' in message.tags %}ui-alert-danger{% elif 'warning' in message.tags %}ui-alert-warning{% elif 'success' in message.tags %}ui-alert-success{% else %}ui-alert-info{% endif %} mb-4 flex items-center justify-between"
+                 role="alert">
+              <span>{{ message }}</span>
+              <button type="button"
+                      class="ml-4 shrink-0 text-muted-foreground hover:text-foreground"
+                      data-dismiss-alert aria-label="Dismiss">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                     viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                </svg>
+              </button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      <main class="px-4 pb-8 sm:px-6 lg:px-8" id="main-content">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+
+    <script src="{% static 'js/ui.js' %}"></script>
+  </body>
+</html>

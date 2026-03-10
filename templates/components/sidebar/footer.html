@@ -1,0 +1,39 @@
+<div class="ui-sidebar-user">
+  <div class="ui-sidebar-user-name">{{ user.username }}</div>
+  <div class="ui-sidebar-user-meta">
+    {% if user.is_staff %}Staff user{% else %}Authenticated user{% endif %}
+  </div>
+</div>
+
+<div class="flex flex-col gap-1">
+  <a href="{% url 'account' %}" class="ui-sidebar-item {% if request.resolver_match.namespace != 'console' and request.resolver_match.url_name == 'account' %}ui-sidebar-item-active{% endif %}">
+    <span>Account</span>
+  </a>
+
+  <div class="relative" data-dropdown>
+    <button type="button" class="ui-sidebar-item w-full justify-between" data-dropdown-trigger aria-expanded="false">
+      <span>Theme</span>
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708"/>
+      </svg>
+    </button>
+    <div class="hidden absolute bottom-full left-0 z-50 mb-2 w-full rounded-lg border border-border bg-background shadow-lg"
+         data-dropdown-menu>
+      <div class="p-1">
+        <button class="w-full rounded-md px-3 py-1.5 text-left text-sm hover:bg-accent"
+                data-theme-value="light">Light</button>
+        <button class="w-full rounded-md px-3 py-1.5 text-left text-sm hover:bg-accent"
+                data-theme-value="dark">Dark</button>
+        <button class="w-full rounded-md px-3 py-1.5 text-left text-sm hover:bg-accent"
+                data-theme-value="auto">System</button>
+      </div>
+    </div>
+  </div>
+
+  <form action="{% url 'logout' %}" method="post">
+    {% csrf_token %}
+    <button type="submit" class="ui-sidebar-item w-full">
+      <span>Logout</span>
+    </button>
+  </form>
+</div>
