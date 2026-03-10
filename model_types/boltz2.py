@@ -1,7 +1,13 @@
 from __future__ import annotations
 
+from django.core.exceptions import ValidationError
+
 from jobs.forms import Boltz2SubmitForm
 from model_types.base import BaseModelType, InputPayload
+from model_types.parsers import parse_fasta_batch
+
+
+_BOLTZ_FASTA_ENTITY_TYPES = {"protein", "dna", "rna", "ccd", "smiles"}
 
 
 class Boltz2ModelType(BaseModelType):
@@ -14,10 +20,42 @@ class Boltz2ModelType(BaseModelType):
     _runner_key = "boltz-2"
 
     def validate(self, cleaned_data: dict) -> None:
-        # Form enforces that either sequences or input_file is provided.
-        # Add domain-specific cross-field checks here as needed, e.g.
-        # multi-chain complex validation, ligand SMILES checks, etc.
-        pass
+        if cleaned_data.get("input_file"):
+            return
+
+        sequences = (cleaned_data.get("sequences") or "").strip()
+        if not sequences:
+            return
+
+        entries = parse_fasta_batch(sequences)
+        for entry in entries:
+            header = entry["header"]
+            parts = [part.strip() for part in header.split("|")]
+            if len(parts) < 2 or len(parts) > 3:
+                raise ValidationError(
+                    "Boltz-2 FASTA headers must look like '>A|protein' or "
+                    "'>A|protein|msa_id'."
+                )
+
+            chain_id, entity_type = parts[:2]
+            if not chain_id or not entity_type:
+                raise ValidationError(
+                    "Boltz-2 FASTA headers must include both a chain ID and "
+                    "an entity type."
+                )
+
+            entity_type = entity_type.lower()
+            if entity_type not in _BOLTZ_FASTA_ENTITY_TYPES:
+                valid = ", ".join(sorted(_BOLTZ_FASTA_ENTITY_TYPES))
+                raise ValidationError(
+                    f"Invalid Boltz-2 entity type {parts[1]!r}. "
+                    f"Use one of: {valid}."
+                )
+
+            if len(parts) == 3 and parts[2] and entity_type != "protein":
+                raise ValidationError(
+                    "Boltz-2 MSA IDs are only allowed for protein entries."
+                )
 
     def normalize_inputs(self, cleaned_data: dict) -> InputPayload:
         sequences = (cleaned_data.get("sequences") or "").strip()

@@ -281,7 +281,7 @@ curl -s -X POST $BASE/api/v1/jobs/ \
   -d '{
     "model": "boltz2",
     "name": "my complex",
-    "sequences": ">chain_A\nMKTAYIAKQRQISFVKSHFSRQLE\n>chain_B\nMAGFLKVVQLL",
+    "sequences": ">A|protein\nMKTAYIAKQRQISFVKSHFSRQLE\n>B|protein\nMAGFLKVVQLL",
     "output_format": "pdb"
   }' | python -m json.tool
 ```

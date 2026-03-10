@@ -508,6 +508,10 @@ class TestSubmitBaseTemplate(TestCase):
         response = self.client.get("/jobs/new/?model=boltz2")
         self.assertContains(response, 'name="model" value="boltz2"')
 
+    def test_submit_form_uses_plain_card_shell(self):
+        response = self.client.get("/jobs/new/?model=boltz2")
+        self.assertContains(response, 'class="ui-card ui-card-plain"')
+
 
 # ---------------------------------------------------------------------------
 # Output presentation (view + template integration)
@@ -721,11 +725,11 @@ class TestInputFileSubmission(TestCase):
     def test_sequences_submission_still_works(self):
         response = self.client.post(
             "/jobs/new/?model=boltz2",
-            {"model": "boltz2", "sequences": ">s\nMKTAYI"},
+            {"model": "boltz2", "sequences": ">A|protein\nMKTAYI"},
         )
         self.assertEqual(response.status_code, 302)
         job = Job.objects.get(owner=self.user)
-        self.assertEqual(job.sequences, ">s\nMKTAYI")
+        self.assertEqual(job.sequences, ">A|protein\nMKTAYI")
 
     def test_no_sequences_or_file_shows_error(self):
         """Submitting without sequences and without input file should fail."""
@@ -735,6 +739,15 @@ class TestInputFileSubmission(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["form"].errors)
+
+    def test_invalid_boltz_fasta_header_shows_error(self):
+        response = self.client.post(
+            "/jobs/new/?model=boltz2",
+            {"model": "boltz2", "sequences": ">seq1\nMKTAYI"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Boltz-2 FASTA headers must look like")
+        self.assertFalse(Job.objects.filter(owner=self.user).exists())
 
     def test_input_file_written_to_workdir(self):
         """The uploaded file should be written verbatim to the job workdir."""
@@ -774,6 +787,26 @@ class TestBoltz2TemplateInputFileField(TestCase):
     def test_config_file_field_absent(self):
         response = self.client.get("/jobs/new/?model=boltz2")
         self.assertNotContains(response, "config_file")
+
+    def test_sequences_field_uses_boltz_header_example(self):
+        response = self.client.get("/jobs/new/?model=boltz2")
+        field = response.context["form"].fields["sequences"]
+        self.assertEqual(
+            field.widget.attrs["placeholder"],
+            ">A|protein\nMKTAYI...\n>B|protein\nACDEFG...\n",
+        )
+        self.assertIn("`>name|entity`", field.help_text)
+        self.assertIn("`protein`, `dna`, `rna`, `ccd`, or `smiles`", field.help_text)
+        self.assertContains(response, "<code>&gt;name|entity</code>", html=True)
+        self.assertContains(response, "<br>", count=1)
+
+    def test_chai1_sequences_field_uses_entity_name_hint(self):
+        response = self.client.get("/jobs/new/?model=chai1")
+        field = response.context["form"].fields["sequences"]
+        self.assertIn("`>entity|name`", field.help_text)
+        self.assertIn("`protein`, `dna`, `rna`, `ccd`, or `smiles`", field.help_text)
+        self.assertContains(response, "<code>&gt;entity|name</code>", html=True)
+        self.assertContains(response, "<br>", count=1)
 
 
 # ---------------------------------------------------------------------------

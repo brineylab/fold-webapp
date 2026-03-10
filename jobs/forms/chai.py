@@ -18,8 +18,11 @@ class Chai1SubmitForm(TailwindFormMixin, forms.Form):
             }
         ),
         help_text=(
-            "Paste one or more FASTA-formatted sequences. "
-            "Multiple sequences will be modeled as a single multimeric complex."
+            "Enter one or more FASTA-formatted sequences. "
+            "Multiple sequences will be modeled as a single multimeric complex.\n"
+            "NOTE: Chai-1 requires that sequence headers be formatted as "
+            "`>entity|name`, where `entity` can be one of: `protein`, `dna`, "
+            "`rna`, `ccd`, or `smiles`."
         ),
     )
     fasta_file = forms.FileField(

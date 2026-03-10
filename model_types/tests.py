@@ -208,6 +208,37 @@ class TestValidationOwnership(TestCase):
         mt.validate({})
 
 
+class TestBoltz2SequenceValidation(TestCase):
+    def setUp(self):
+        self.mt = get_model_type("boltz2")
+
+    def test_accepts_boltz_headers(self):
+        self.mt.validate({"sequences": ">A|protein\nMKTAYI\n>B|protein\nACDEFG"})
+
+    def test_rejects_generic_fasta_headers(self):
+        with self.assertRaises(ValidationError) as ctx:
+            self.mt.validate({"sequences": ">seq1\nMKTAYI"})
+        self.assertIn(">A|protein", str(ctx.exception))
+
+    def test_rejects_unknown_entity_type(self):
+        with self.assertRaises(ValidationError) as ctx:
+            self.mt.validate({"sequences": ">A|ligand\nMKTAYI"})
+        self.assertIn("Use one of:", str(ctx.exception))
+
+    def test_rejects_non_protein_msa_id(self):
+        with self.assertRaises(ValidationError) as ctx:
+            self.mt.validate({"sequences": ">A|dna|msa1\nACTG"})
+        self.assertIn("MSA IDs are only allowed for protein", str(ctx.exception))
+
+    def test_uploaded_input_file_skips_sequence_header_validation(self):
+        self.mt.validate(
+            {
+                "sequences": ">seq1\nMKTAYI",
+                "input_file": object(),
+            }
+        )
+
+
 # ---------------------------------------------------------------------------
 # Registry sanity
 # ---------------------------------------------------------------------------

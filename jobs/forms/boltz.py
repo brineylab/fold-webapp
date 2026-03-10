@@ -12,14 +12,17 @@ class Boltz2SubmitForm(TailwindFormMixin, forms.Form):
         widget=forms.Textarea(
             attrs={
                 "rows": 12,
-                "placeholder": ">seq1\nMKTAYI...\n",
+                "placeholder": ">A|protein\nMKTAYI...\n>B|protein\nACDEFG...\n",
                 "autocomplete": "off",
                 "spellcheck": "false",
             }
         ),
         help_text=(
-            "Paste one or more FASTA-formatted sequences. "
-            "Multiple sequences will be modeled as a single multimeric complex."
+            "Enter one or more FASTA-formatted sequences. "
+            "Multiple sequences will be modeled as a single multimeric complex.\n"
+            "NOTE: Boltz-2 requires that sequence headers be formatted as "
+            "`>name|entity`, where `entity` can be one of: `protein`, `dna`, "
+            "`rna`, `ccd`, or `smiles`."
         ),
     )
     input_file = forms.FileField(
