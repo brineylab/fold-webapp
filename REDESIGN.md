@@ -262,34 +262,43 @@ Phase 2 deviations and notes for future phases:
 - Template partials for `card.html` and `table_wrapper.html` are limited in usefulness because Django `{% include %}` cannot wrap arbitrary block content. For complex cards and tables, use the `ui-card` / `ui-table` classes directly in templates. The partials serve as reference patterns.
 - `static/js/ui.js` was not modified in this phase — no new interaction primitives were needed for the component definitions. Future phases (particularly Phase 8 for modal behavior) will extend `ui.js`.
 
-## Phase 3: Form Styling Layer
+## Phase 3: Form Styling Layer ✅
 
 Estimated effort: 1 day
 
 Goals:
 
-- remove Bootstrap widget classes from Django forms
-- make all form fields render correctly under Tailwind
+- [x] remove Bootstrap widget classes from Django forms
+- [x] make all form fields render correctly under Tailwind
 
-Files to update:
+Files updated:
 
-- `jobs/forms/shared.py`
-- `jobs/forms/boltz.py`
-- `jobs/forms/chai.py`
-- `jobs/forms/bindcraft.py`
-- `jobs/forms/mpnn.py`
-- `jobs/forms/rfdiffusion.py`
+- [x] `jobs/forms/shared.py`
+- [x] `jobs/forms/boltz.py`
+- [x] `jobs/forms/chai.py`
+- [x] `jobs/forms/bindcraft.py`
+- [x] `jobs/forms/mpnn.py`
+- [x] `jobs/forms/rfdiffusion.py`
 
 Implementation notes:
 
-- Add helper functions that attach the correct classes by field type
-- Normalize file input styling early, since submission pages rely heavily on uploads
-- Include checkbox/radio styling, not only text inputs and selects
+- [x] Add helper functions that attach the correct classes by field type
+- [x] Normalize file input styling early, since submission pages rely heavily on uploads
+- [x] Include checkbox/radio styling, not only text inputs and selects
 
 Exit criteria:
 
-- no `form-control` or `form-select` classes remain in `jobs/forms/`
-- rendered forms look correct when placed in Tailwind templates
+- [x] no `form-control` or `form-select` classes remain in `jobs/forms/`
+- [x] rendered forms look correct when placed in Tailwind templates
+
+Phase 3 deviations and notes for future phases:
+
+- Instead of per-field helper functions, a `TailwindFormMixin` class was added to `jobs/forms/shared.py`. It iterates all fields in `__init__` and applies the correct Tailwind class (`ui-input`, `ui-select`, or `ui-checkbox`) based on widget type via a `_WIDGET_CSS` mapping. All form classes now inherit from `TailwindFormMixin` as a mixin (e.g. `class Boltz2SubmitForm(TailwindFormMixin, forms.Form)`).
+- This mixin approach means new forms automatically get correct styling without remembering to add classes to each widget. The class mapping lives in one place (`_WIDGET_CSS` dict in `shared.py`) and can be updated centrally if the design system class names change.
+- Widget attrs that are not related to styling (e.g. `accept`, `placeholder`, `autocomplete`, `spellcheck`, `step`, `rows`, `id`) were preserved. Only the Bootstrap `class` values (`form-control`, `form-select`, `form-check-input`) were removed.
+- Fields where the only widget attr was the Bootstrap class had their explicit widget removed entirely, relying on Django's default widget for the field type (which the mixin then styles). This reduces boilerplate.
+- The `name_field()` helper in `shared.py` no longer sets a CSS class — the mixin handles it when the form is instantiated.
+- No changes were needed to template partials or `app.css` — the `ui-input`, `ui-select`, and `ui-checkbox` classes from Phase 2 are already correct for all field types including file inputs.
 
 ## Phase 4: Public Shell and Entry Points
 

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from django import forms
 
-from jobs.forms.shared import name_field
+from jobs.forms.shared import TailwindFormMixin, name_field
 
 
-class RFdiffusion3SubmitForm(forms.Form):
+class RFdiffusion3SubmitForm(TailwindFormMixin, forms.Form):
     MODE_CHOICES = [
         ("unconditional", "Unconditional generation"),
         ("protein_binder", "Protein binder design"),
@@ -22,7 +22,7 @@ class RFdiffusion3SubmitForm(forms.Form):
     mode = forms.ChoiceField(
         choices=MODE_CHOICES,
         initial="unconditional",
-        widget=forms.Select(attrs={"class": "form-select", "id": "id_mode"}),
+        widget=forms.Select(attrs={"id": "id_mode"}),
         help_text="Select the RFdiffusion3 design mode.",
     )
     num_designs = forms.IntegerField(
@@ -30,7 +30,6 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=1,
         max_value=1000,
         initial=8,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Number of designs per batch.",
     )
     n_batches = forms.IntegerField(
@@ -38,7 +37,6 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=1,
         max_value=100,
         initial=1,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Number of batches.",
     )
     timesteps = forms.IntegerField(
@@ -46,7 +44,6 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=1,
         max_value=1000,
         initial=200,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Diffusion timesteps (default: 200).",
     )
     step_scale = forms.FloatField(
@@ -54,7 +51,7 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=0.1,
         max_value=10.0,
         initial=1.5,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.1"}),
+        widget=forms.NumberInput(attrs={"step": "0.1"}),
         help_text="Step size scaling (default: 1.5).",
     )
 
@@ -63,7 +60,6 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=10,
         max_value=1000,
         initial=50,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Minimum protein length.",
     )
     length_max = forms.IntegerField(
@@ -71,21 +67,19 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=10,
         max_value=1000,
         initial=200,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Maximum protein length.",
     )
 
     target_pdb = forms.FileField(
         required=False,
         widget=forms.ClearableFileInput(
-            attrs={"class": "form-control", "accept": ".pdb,.cif"}
+            attrs={"accept": ".pdb,.cif"}
         ),
         help_text="Upload the target protein structure (PDB or CIF).",
     )
     target_chain = forms.CharField(
         required=False,
         initial="A",
-        widget=forms.TextInput(attrs={"class": "form-control"}),
         help_text="Chain ID of the target protein.",
     )
     binder_length_min = forms.IntegerField(
@@ -93,7 +87,6 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=10,
         max_value=500,
         initial=40,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Minimum binder length.",
     )
     binder_length_max = forms.IntegerField(
@@ -101,40 +94,32 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=10,
         max_value=500,
         initial=120,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Maximum binder length.",
     )
     hotspot_residues = forms.CharField(
         required=False,
         widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "placeholder": "e.g. E64,E88",
-            }
+            attrs={"placeholder": "e.g. E64,E88"}
         ),
         help_text="Target hotspot residues. Leave blank for no hotspot bias.",
     )
     is_non_loopy = forms.BooleanField(
         required=False,
         initial=True,
-        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
         help_text="Generate non-loopy (structured) binders.",
     )
 
     sm_target_pdb = forms.FileField(
         required=False,
         widget=forms.ClearableFileInput(
-            attrs={"class": "form-control", "accept": ".pdb,.cif"}
+            attrs={"accept": ".pdb,.cif"}
         ),
         help_text="Upload the target structure with ligand (PDB or CIF).",
     )
     sm_ligand_name = forms.CharField(
         required=False,
         widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "placeholder": "e.g. HAX,OAA",
-            }
+            attrs={"placeholder": "e.g. HAX,OAA"}
         ),
         help_text="Ligand residue name(s) from the PDB file.",
     )
@@ -143,7 +128,6 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=10,
         max_value=500,
         initial=50,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Minimum binder length.",
     )
     sm_binder_length_max = forms.IntegerField(
@@ -151,21 +135,19 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=10,
         max_value=500,
         initial=150,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Maximum binder length.",
     )
 
     na_target_pdb = forms.FileField(
         required=False,
         widget=forms.ClearableFileInput(
-            attrs={"class": "form-control", "accept": ".pdb,.cif"}
+            attrs={"accept": ".pdb,.cif"}
         ),
         help_text="Upload the target nucleic acid structure (PDB or CIF).",
     )
     na_target_chain = forms.CharField(
         required=False,
         initial="B",
-        widget=forms.TextInput(attrs={"class": "form-control"}),
         help_text="Chain ID of the nucleic acid target.",
     )
     na_binder_length_min = forms.IntegerField(
@@ -173,7 +155,6 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=10,
         max_value=500,
         initial=50,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Minimum binder length.",
     )
     na_binder_length_max = forms.IntegerField(
@@ -181,34 +162,27 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=10,
         max_value=500,
         initial=150,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Maximum binder length.",
     )
 
     enzyme_target_pdb = forms.FileField(
         required=False,
         widget=forms.ClearableFileInput(
-            attrs={"class": "form-control", "accept": ".pdb,.cif"}
+            attrs={"accept": ".pdb,.cif"}
         ),
         help_text="Upload the target structure with substrate (PDB or CIF).",
     )
     enzyme_ligand_name = forms.CharField(
         required=False,
         widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "placeholder": "e.g. SUB",
-            }
+            attrs={"placeholder": "e.g. SUB"}
         ),
         help_text="Substrate/ligand residue name from the PDB file.",
     )
     enzyme_catalytic_residues = forms.CharField(
         required=False,
         widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "placeholder": "e.g. A244,A274,A320",
-            }
+            attrs={"placeholder": "e.g. A244,A274,A320"}
         ),
         help_text="Catalytic residue positions to fix (chain + residue number).",
     )
@@ -217,7 +191,6 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=10,
         max_value=1000,
         initial=100,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Minimum scaffold length.",
     )
     enzyme_scaffold_length_max = forms.IntegerField(
@@ -225,24 +198,20 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=10,
         max_value=1000,
         initial=300,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Maximum scaffold length.",
     )
 
     motif_input_pdb = forms.FileField(
         required=False,
         widget=forms.ClearableFileInput(
-            attrs={"class": "form-control", "accept": ".pdb,.cif"}
+            attrs={"accept": ".pdb,.cif"}
         ),
         help_text="Upload the input structure containing the motif (PDB or CIF).",
     )
     motif_contig = forms.CharField(
         required=False,
         widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "placeholder": "e.g. A40-60,70,A120-170",
-            }
+            attrs={"placeholder": "e.g. A40-60,70,A120-170"}
         ),
         help_text="Contig string specifying fixed motif and designable regions.",
     )
@@ -250,31 +219,26 @@ class RFdiffusion3SubmitForm(forms.Form):
         required=False,
         min_value=10,
         max_value=1000,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Minimum scaffold length.",
     )
     motif_length_max = forms.IntegerField(
         required=False,
         min_value=10,
         max_value=1000,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Maximum scaffold length.",
     )
 
     partial_input_pdb = forms.FileField(
         required=False,
         widget=forms.ClearableFileInput(
-            attrs={"class": "form-control", "accept": ".pdb,.cif"}
+            attrs={"accept": ".pdb,.cif"}
         ),
         help_text="Upload the input structure (PDB or CIF).",
     )
     partial_contig = forms.CharField(
         required=False,
         widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "placeholder": "e.g. A1-100",
-            }
+            attrs={"placeholder": "e.g. A1-100"}
         ),
         help_text="Contig string specifying regions for partial diffusion.",
     )
@@ -283,27 +247,21 @@ class RFdiffusion3SubmitForm(forms.Form):
         min_value=0.1,
         max_value=100.0,
         initial=10.0,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "any"}),
+        widget=forms.NumberInput(attrs={"step": "any"}),
         help_text="Noise level in angstroms (recommended 5-15).",
     )
 
     sym_contig = forms.CharField(
         required=False,
         widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "placeholder": "e.g. 100-100",
-            }
+            attrs={"placeholder": "e.g. 100-100"}
         ),
         help_text="Contig string for each symmetric subunit.",
     )
     sym_type = forms.CharField(
         required=False,
         widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "placeholder": "e.g. C3, D2",
-            }
+            attrs={"placeholder": "e.g. C3, D2"}
         ),
         help_text="Symmetry type (e.g. C3, C6, D2).",
     )
@@ -311,7 +269,7 @@ class RFdiffusion3SubmitForm(forms.Form):
     input_json = forms.FileField(
         required=False,
         widget=forms.ClearableFileInput(
-            attrs={"class": "form-control", "accept": ".json,.yaml,.yml"}
+            attrs={"accept": ".json,.yaml,.yml"}
         ),
         help_text="Upload a complete RFdiffusion3 JSON or YAML input specification.",
     )

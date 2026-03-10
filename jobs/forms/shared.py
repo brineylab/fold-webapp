@@ -5,13 +5,38 @@ from django import forms
 from console.models import RunnerConfig
 from runners import all_runners
 
+# Widget type → Tailwind CSS class
+_WIDGET_CSS = {
+    forms.TextInput: "ui-input",
+    forms.Textarea: "ui-input",
+    forms.NumberInput: "ui-input",
+    forms.EmailInput: "ui-input",
+    forms.URLInput: "ui-input",
+    forms.PasswordInput: "ui-input",
+    forms.ClearableFileInput: "ui-input",
+    forms.FileInput: "ui-input",
+    forms.Select: "ui-select",
+    forms.SelectMultiple: "ui-select",
+    forms.CheckboxInput: "ui-checkbox",
+}
+
+
+class TailwindFormMixin:
+    """Applies Tailwind CSS classes to form widgets automatically."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            css_class = _WIDGET_CSS.get(type(field.widget))
+            if css_class:
+                field.widget.attrs["class"] = css_class
+
 
 def name_field() -> forms.CharField:
     return forms.CharField(
         required=False,
         widget=forms.TextInput(
             attrs={
-                "class": "form-control",
                 "spellcheck": "false",
             }
         ),

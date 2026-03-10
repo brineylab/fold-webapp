@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from django import forms
 
-from jobs.forms.shared import name_field, validate_pdb_upload
+from jobs.forms.shared import TailwindFormMixin, name_field, validate_pdb_upload
 
 
-class ProteinMPNNSubmitForm(forms.Form):
+class ProteinMPNNSubmitForm(TailwindFormMixin, forms.Form):
     name = name_field()
     pdb_file = forms.FileField(
         required=True,
         widget=forms.ClearableFileInput(
-            attrs={"class": "form-control", "accept": ".pdb"}
+            attrs={"accept": ".pdb"}
         ),
         help_text="Upload a PDB file.",
     )
@@ -22,14 +22,13 @@ class ProteinMPNNSubmitForm(forms.Form):
             ("v_48_030", "0.30 (high noise)"),
         ],
         initial="v_48_020",
-        widget=forms.Select(attrs={"class": "form-select"}),
     )
     temperature = forms.FloatField(
         required=False,
         min_value=0.0,
         max_value=2.0,
         initial=0.1,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+        widget=forms.NumberInput(attrs={"step": "0.01"}),
         help_text="Sampling temperature (0.0 - 2.0).",
     )
     num_sequences = forms.IntegerField(
@@ -37,14 +36,12 @@ class ProteinMPNNSubmitForm(forms.Form):
         min_value=1,
         max_value=100,
         initial=8,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Number of sequences to generate.",
     )
     chains_to_design = forms.CharField(
         required=False,
         widget=forms.TextInput(
             attrs={
-                "class": "form-control",
                 "placeholder": "A, B...",
                 "autocomplete": "off",
                 "spellcheck": "false",
@@ -56,7 +53,6 @@ class ProteinMPNNSubmitForm(forms.Form):
         required=False,
         widget=forms.TextInput(
             attrs={
-                "class": "form-control",
                 "placeholder": "1 2 3 4...",
                 "autocomplete": "off",
                 "spellcheck": "false",
@@ -67,7 +63,6 @@ class ProteinMPNNSubmitForm(forms.Form):
     seed = forms.IntegerField(
         required=False,
         min_value=0,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Random seed for reproducibility.",
     )
 
@@ -77,12 +72,12 @@ class ProteinMPNNSubmitForm(forms.Form):
         return pdb_file
 
 
-class LigandMPNNSubmitForm(forms.Form):
+class LigandMPNNSubmitForm(TailwindFormMixin, forms.Form):
     name = name_field()
     pdb_file = forms.FileField(
         required=True,
         widget=forms.ClearableFileInput(
-            attrs={"class": "form-control", "accept": ".pdb"}
+            attrs={"accept": ".pdb"}
         ),
         help_text="Upload a PDB file.",
     )
@@ -94,14 +89,13 @@ class LigandMPNNSubmitForm(forms.Form):
             ("v_32_030_25", "0.30 (high noise)"),
         ],
         initial="v_32_010_25",
-        widget=forms.Select(attrs={"class": "form-select"}),
     )
     temperature = forms.FloatField(
         required=False,
         min_value=0.0,
         max_value=2.0,
         initial=0.1,
-        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+        widget=forms.NumberInput(attrs={"step": "0.01"}),
         help_text="Sampling temperature (0.0 - 2.0).",
     )
     num_sequences = forms.IntegerField(
@@ -109,14 +103,12 @@ class LigandMPNNSubmitForm(forms.Form):
         min_value=1,
         max_value=100,
         initial=8,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Number of sequences to generate.",
     )
     chains_to_design = forms.CharField(
         required=False,
         widget=forms.TextInput(
             attrs={
-                "class": "form-control",
                 "placeholder": "A, B...",
                 "autocomplete": "off",
                 "spellcheck": "false",
@@ -128,7 +120,6 @@ class LigandMPNNSubmitForm(forms.Form):
         required=False,
         widget=forms.TextInput(
             attrs={
-                "class": "form-control",
                 "placeholder": "1 2 3 4...",
                 "autocomplete": "off",
                 "spellcheck": "false",
@@ -139,7 +130,6 @@ class LigandMPNNSubmitForm(forms.Form):
     seed = forms.IntegerField(
         required=False,
         min_value=0,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
         help_text="Random seed for reproducibility.",
     )
 
