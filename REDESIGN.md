@@ -214,36 +214,53 @@ Phase 1 deviations and notes for future phases:
 - Both `base_public.html` and `base_console.html` include Tailwind CSS. This allows incremental Tailwind adoption in console templates without a later pipeline change.
 - A minimal FOUC-prevention inline script remains in both base templates; the full theme interaction logic lives in `static/js/ui.js`.
 
-## Phase 2: Tailwind Design System and Shared Partials
+## Phase 2: Tailwind Design System and Shared Partials ✅
 
 Estimated effort: 1 to 2 days
 
 Goals:
 
-- define the base visual language
-- reduce one-off styling decisions before page migration begins
+- [x] define the base visual language
+- [x] reduce one-off styling decisions before page migration begins
 
-Files to add:
+Files added:
 
-- `templates/components/ui/*.html`
-- `templates/components/forms/*.html`
+- [x] `templates/components/ui/alert.html`
+- [x] `templates/components/ui/badge.html`
+- [x] `templates/components/ui/card.html`
+- [x] `templates/components/ui/button_link.html`
+- [x] `templates/components/ui/empty_state.html`
+- [x] `templates/components/ui/table_wrapper.html`
+- [x] `templates/components/forms/field.html`
+- [x] `templates/components/forms/checkbox.html`
+- [x] `templates/components/forms/error_list.html`
+- [x] `templates/components/forms/help_text.html`
 
-Files to update:
+Files updated:
 
-- `static_src/app.css`
-- `static/js/ui.js` if component interaction primitives are needed
+- [x] `tailwind.config.js` — added color tokens, border radius tokens, and safelist for dynamic component variants
+- [x] `static_src/app.css` — added `@layer base` with CSS custom property design tokens and `@layer components` with all component classes
 
 Implementation notes:
 
-- Use Tailwind `@layer components` for reusable class groups such as buttons, inputs, cards, alerts, badges, and table wrappers
-- Keep utility classes in page templates where layout is page-specific
-- Keep shared component class names short and obvious, for example `ui-btn-primary`, `ui-input`, `ui-card`, `ui-alert-warning`
+- [x] Use Tailwind `@layer components` for reusable class groups such as buttons, inputs, cards, alerts, badges, and table wrappers
+- [x] Keep utility classes in page templates where layout is page-specific
+- [x] Keep shared component class names short and obvious, for example `ui-btn-primary`, `ui-input`, `ui-card`, `ui-alert-warning`
 
 Exit criteria:
 
-- all basic component primitives exist in one place
-- form fields and cards can be rendered without Bootstrap classes
-- theme tokens support both light and dark modes
+- [x] all basic component primitives exist in one place
+- [x] form fields and cards can be rendered without Bootstrap classes
+- [x] theme tokens support both light and dark modes
+
+Phase 2 deviations and notes for future phases:
+
+- Design tokens use `--ui-*` CSS custom properties with space-separated HSL channels (e.g. `--ui-primary: 240 5.9% 10%`). This format is required for Tailwind's `<alpha-value>` opacity modifier support (e.g. `bg-primary/90`). The existing `--bs-*` variables in `theme.css` remain for Bootstrap coexistence.
+- Tailwind v3 tree-shakes `@layer components` classes based on content scanning. Since template partials use dynamic class names like `ui-alert-{{ variant }}`, a `safelist` was added to `tailwind.config.js` to ensure all component variants are always included in the build. This safelist can be removed after Phase 9 if all classes are directly referenced in templates.
+- Button component uses a two-class pattern: `class="ui-btn ui-btn-primary"` (base + variant), following the same convention as Bootstrap's `btn btn-primary`. The `ui-btn-sm` modifier is additive.
+- The `ui-spinner` class provides a pure-CSS loading spinner for submit busy states, replacing Bootstrap's `spinner-border`. It uses Tailwind's `animate-spin` utility.
+- Template partials for `card.html` and `table_wrapper.html` are limited in usefulness because Django `{% include %}` cannot wrap arbitrary block content. For complex cards and tables, use the `ui-card` / `ui-table` classes directly in templates. The partials serve as reference patterns.
+- `static/js/ui.js` was not modified in this phase — no new interaction primitives were needed for the component definitions. Future phases (particularly Phase 8 for modal behavior) will extend `ui.js`.
 
 ## Phase 3: Form Styling Layer
 

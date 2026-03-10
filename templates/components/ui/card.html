@@ -1,0 +1,13 @@
+{# Card component — simple wrapper
+   Usage: {% include "components/ui/card.html" with header="Title" body_content="..." %}
+   For complex cards with tables or forms inside, use the classes directly:
+     <div class="ui-card">
+       <div class="ui-card-header">Title</div>
+       <div class="ui-card-body">...</div>
+     </div>
+#}
+<div class="ui-card">
+  {% if header %}<div class="ui-card-header">{{ header }}</div>{% endif %}
+  <div class="ui-card-body">{{ body_content }}</div>
+  {% if footer %}<div class="ui-card-footer">{{ footer }}</div>{% endif %}
+</div>

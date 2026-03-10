@@ -1,0 +1,11 @@
+{# Checkbox field component
+   Usage: {% include "components/forms/checkbox.html" with field=form.my_checkbox %}
+#}
+<div class="ui-field-group">
+  <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+    {{ field }}
+    {{ field.label }}
+  </label>
+  {% if field.help_text %}<p class="ui-help-text">{{ field.help_text }}</p>{% endif %}
+  {% for error in field.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+</div>

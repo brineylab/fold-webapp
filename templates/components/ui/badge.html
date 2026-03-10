@@ -1,0 +1,5 @@
+{# Badge component
+   Usage: {% include "components/ui/badge.html" with variant="success" label="Active" %}
+   Variants: secondary (default), success, warning, danger, info
+#}
+<span class="ui-badge ui-badge-{{ variant|default:'secondary' }}">{{ label }}</span>

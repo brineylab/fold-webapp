@@ -1,0 +1,6 @@
+{# Button link component
+   Usage: {% include "components/ui/button_link.html" with href="/path" variant="primary" label="Click" %}
+   Variants: primary (default), secondary, danger, outline, outline-danger, outline-warning, ghost
+   Add "small" variable for small size: {% include ... with small=True %}
+#}
+<a href="{{ href }}" class="ui-btn ui-btn-{{ variant|default:'primary' }}{% if small %} ui-btn-sm{% endif %}">{{ label }}</a>

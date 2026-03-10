@@ -1,0 +1,8 @@
+{# Alert component
+   Usage: {% include "components/ui/alert.html" with variant="warning" %}
+   Variants: info (default), warning, danger, success
+   Content: override the "alert_content" variable or use "message" for simple text
+#}
+<div class="ui-alert ui-alert-{{ variant|default:'info' }}" role="alert">
+  {% if alert_content %}{{ alert_content }}{% else %}{{ message }}{% endif %}
+</div>

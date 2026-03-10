@@ -1,0 +1,12 @@
+{# Table wrapper — responsive scroll container
+   Usage: wrap a <table class="ui-table"> inside this partial
+   Note: since Django {% include %} cannot wrap block content,
+   use the classes directly in templates:
+     <div class="ui-table-wrap">
+       <table class="ui-table">...</table>
+     </div>
+   This partial exists as a reference for the pattern.
+#}
+<div class="ui-table-wrap">
+  {{ table_content }}
+</div>

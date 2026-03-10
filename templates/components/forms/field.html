@@ -1,0 +1,11 @@
+{# Form field component
+   Usage: {% include "components/forms/field.html" with field=form.name %}
+   Renders label, widget, help text, and errors for a single form field.
+   The widget itself must already have ui-input/ui-select classes (set in forms.py).
+#}
+<div class="ui-field-group">
+  <label for="{{ field.id_for_label }}" class="ui-label">{{ field.label }}</label>
+  {{ field }}
+  {% if field.help_text %}<p class="ui-help-text">{{ field.help_text }}</p>{% endif %}
+  {% for error in field.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+</div>

@@ -1,3 +1,369 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ================================================================
+   Design tokens — shadcn/ui-inspired zinc palette
+   ================================================================
+   Values are space-separated HSL channels so Tailwind can append
+   alpha via the  / <alpha-value>  syntax in tailwind.config.js.
+   ================================================================ */
+
+@layer base {
+  :root,
+  [data-bs-theme="light"] {
+    --ui-background: 0 0% 100%;
+    --ui-foreground: 240 10% 3.9%;
+
+    --ui-card: 240 4.8% 95.9%;
+    --ui-card-foreground: 240 10% 3.9%;
+
+    --ui-muted: 240 4.8% 95.9%;
+    --ui-muted-foreground: 240 5.2% 33.9%;
+
+    --ui-accent: 240 4.8% 95.9%;
+    --ui-accent-foreground: 240 5.9% 10%;
+
+    --ui-border: 240 5.9% 90%;
+    --ui-input: 240 5.9% 90%;
+
+    --ui-primary: 240 5.9% 10%;
+    --ui-primary-foreground: 0 0% 98%;
+
+    --ui-secondary: 240 4.8% 95.9%;
+    --ui-secondary-foreground: 240 5.9% 10%;
+
+    --ui-destructive: 0 84.2% 60.2%;
+    --ui-destructive-foreground: 0 0% 98%;
+
+    --ui-success: 142.1 76.2% 36.3%;
+    --ui-success-foreground: 0 0% 98%;
+
+    --ui-warning: 47.9 95.8% 53.1%;
+    --ui-warning-foreground: 240 10% 3.9%;
+
+    --ui-info: 199 89% 48%;
+    --ui-info-foreground: 0 0% 98%;
+
+    --ui-ring: 240 5.9% 10%;
+    --ui-radius: 0.5rem;
+    --ui-radius-sm: 0.375rem;
+  }
+
+  [data-bs-theme="dark"] {
+    --ui-background: 240 10% 3.9%;
+    --ui-foreground: 0 0% 98%;
+
+    --ui-card: 240 3.7% 15.9%;
+    --ui-card-foreground: 0 0% 98%;
+
+    --ui-muted: 240 3.7% 15.9%;
+    --ui-muted-foreground: 240 5% 64.9%;
+
+    --ui-accent: 240 3.7% 15.9%;
+    --ui-accent-foreground: 0 0% 98%;
+
+    --ui-border: 240 3.7% 15.9%;
+    --ui-input: 240 3.7% 15.9%;
+
+    --ui-primary: 0 0% 98%;
+    --ui-primary-foreground: 240 10% 3.9%;
+
+    --ui-secondary: 240 3.7% 15.9%;
+    --ui-secondary-foreground: 0 0% 98%;
+
+    --ui-destructive: 0 84.2% 60.2%;
+    --ui-destructive-foreground: 0 0% 98%;
+
+    --ui-success: 142.1 70.6% 45.3%;
+    --ui-success-foreground: 0 0% 98%;
+
+    --ui-warning: 47.9 95.8% 53.1%;
+    --ui-warning-foreground: 240 10% 3.9%;
+
+    --ui-info: 199 89% 48%;
+    --ui-info-foreground: 0 0% 98%;
+
+    --ui-ring: 0 0% 98%;
+  }
+}
+
+/* ================================================================
+   Component layer
+   ================================================================ */
+
+@layer components {
+
+  /* --------------------------------------------------------------
+     Buttons
+     -------------------------------------------------------------- */
+
+  .ui-btn {
+    @apply inline-flex items-center justify-center whitespace-nowrap
+           font-medium text-sm rounded-sm px-4 py-2 transition-colors
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+           disabled:pointer-events-none disabled:opacity-50;
+    letter-spacing: -0.01em;
+  }
+
+  .ui-btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+
+  .ui-btn-secondary {
+    @apply bg-secondary text-secondary-foreground border border-border
+           hover:bg-accent;
+  }
+
+  .ui-btn-danger {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+  }
+
+  .ui-btn-outline {
+    @apply border border-border bg-transparent text-foreground
+           hover:bg-accent hover:text-accent-foreground;
+  }
+
+  .ui-btn-outline-danger {
+    @apply border border-destructive/50 bg-transparent text-foreground
+           hover:bg-destructive/10;
+  }
+
+  .ui-btn-outline-warning {
+    @apply border border-warning/50 bg-transparent text-foreground
+           hover:bg-warning/10;
+  }
+
+  .ui-btn-ghost {
+    @apply bg-transparent text-foreground
+           hover:bg-accent hover:text-accent-foreground;
+  }
+
+  .ui-btn-sm {
+    @apply text-[0.8125rem] px-3 py-1;
+  }
+
+  /* --------------------------------------------------------------
+     Form inputs
+     -------------------------------------------------------------- */
+
+  .ui-input {
+    @apply block w-full rounded-sm border border-input bg-transparent
+           px-3 py-2 text-sm text-foreground transition-colors
+           placeholder:text-muted-foreground
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .ui-select {
+    @apply block w-full rounded-sm border border-input bg-transparent
+           px-3 py-2 text-sm text-foreground transition-colors
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .ui-checkbox {
+    @apply h-4 w-4 shrink-0 rounded-sm border border-input
+           text-primary accent-primary
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .ui-label {
+    @apply block text-sm font-medium text-foreground;
+    margin-bottom: 0.375rem;
+  }
+
+  .ui-help-text {
+    @apply text-[0.8125rem] text-muted-foreground;
+    margin-top: 0.25rem;
+  }
+
+  .ui-error {
+    @apply text-[0.8125rem] text-destructive;
+    margin-top: 0.25rem;
+  }
+
+  .ui-field-group {
+    margin-bottom: 0.75rem;
+  }
+
+  /* --------------------------------------------------------------
+     Cards
+     -------------------------------------------------------------- */
+
+  .ui-card {
+    @apply rounded-lg border border-border bg-card text-card-foreground;
+    overflow: hidden;
+  }
+
+  .ui-card-header {
+    @apply border-b border-border px-4 py-3 font-semibold;
+  }
+
+  .ui-card-body {
+    @apply p-4;
+  }
+
+  .ui-card-footer {
+    @apply border-t border-border px-4 py-3;
+  }
+
+  .ui-card-title {
+    @apply text-base font-semibold tracking-tight text-foreground;
+  }
+
+  /* --------------------------------------------------------------
+     Alerts — subtle background + left border accent
+     -------------------------------------------------------------- */
+
+  .ui-alert {
+    @apply rounded-lg border border-border text-sm text-foreground;
+    border-left: 4px solid;
+    padding: 0.75rem 1rem;
+  }
+
+  .ui-alert-info {
+    background-color: hsl(var(--ui-info) / 0.05);
+    border-left-color: hsl(var(--ui-info));
+  }
+
+  .ui-alert-warning {
+    background-color: hsl(var(--ui-warning) / 0.08);
+    border-left-color: hsl(var(--ui-warning));
+  }
+
+  .ui-alert-danger {
+    background-color: hsl(var(--ui-destructive) / 0.05);
+    border-left-color: hsl(var(--ui-destructive));
+  }
+
+  .ui-alert-success {
+    background-color: hsl(var(--ui-success) / 0.05);
+    border-left-color: hsl(var(--ui-success));
+  }
+
+  /* --------------------------------------------------------------
+     Badges
+     -------------------------------------------------------------- */
+
+  .ui-badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5
+           text-xs font-medium;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ui-badge-secondary {
+    @apply bg-secondary text-secondary-foreground;
+  }
+
+  .ui-badge-success {
+    background-color: hsl(var(--ui-success) / 0.1);
+    color: hsl(var(--ui-success));
+    border: 1px solid hsl(var(--ui-success) / 0.3);
+  }
+
+  .ui-badge-warning {
+    background-color: hsl(var(--ui-warning) / 0.1);
+    color: hsl(var(--ui-warning));
+    border: 1px solid hsl(var(--ui-warning) / 0.3);
+  }
+
+  .ui-badge-danger {
+    background-color: hsl(var(--ui-destructive) / 0.1);
+    color: hsl(var(--ui-destructive));
+    border: 1px solid hsl(var(--ui-destructive) / 0.3);
+  }
+
+  .ui-badge-info {
+    background-color: hsl(var(--ui-info) / 0.1);
+    color: hsl(var(--ui-info));
+    border: 1px solid hsl(var(--ui-info) / 0.3);
+  }
+
+  /* --------------------------------------------------------------
+     Tables
+     -------------------------------------------------------------- */
+
+  .ui-table-wrap {
+    @apply w-full overflow-x-auto;
+  }
+
+  .ui-table {
+    @apply w-full text-sm;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ui-table thead th {
+    @apply text-left text-[0.8125rem] font-medium text-muted-foreground;
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid hsl(var(--ui-border));
+  }
+
+  .ui-table tbody td {
+    @apply align-middle;
+    padding: 0.625rem 0.75rem;
+    border-bottom: 1px solid hsl(var(--ui-border));
+  }
+
+  .ui-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .ui-table tbody tr:hover {
+    background-color: hsl(var(--ui-accent) / 0.5);
+  }
+
+  /* --------------------------------------------------------------
+     Empty state
+     -------------------------------------------------------------- */
+
+  .ui-empty-state {
+    @apply py-8 text-center text-muted-foreground;
+  }
+
+  /* --------------------------------------------------------------
+     Text utilities
+     -------------------------------------------------------------- */
+
+  .ui-text-muted {
+    @apply text-muted-foreground;
+  }
+
+  /* --------------------------------------------------------------
+     Status colors (job state)
+     -------------------------------------------------------------- */
+
+  .ui-status-pending {
+    color: hsl(var(--ui-warning));
+  }
+
+  .ui-status-running {
+    color: hsl(var(--ui-info));
+  }
+
+  .ui-status-completed {
+    color: hsl(var(--ui-success));
+  }
+
+  .ui-status-failed {
+    color: hsl(var(--ui-destructive));
+  }
+
+  .ui-status-cancelled {
+    color: hsl(24.6 95% 53.1%);
+  }
+
+  /* --------------------------------------------------------------
+     Spinner (for submit busy states)
+     -------------------------------------------------------------- */
+
+  .ui-spinner {
+    @apply inline-block h-4 w-4 animate-spin rounded-full
+           border-2 border-current border-r-transparent;
+  }
+
+  .ui-spinner-sm {
+    @apply h-3 w-3;
+  }
+}

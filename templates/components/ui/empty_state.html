@@ -1,0 +1,10 @@
+{# Empty state component
+   Usage: {% include "components/ui/empty_state.html" with message="No items yet." %}
+   Optional: action_href, action_label for a CTA button
+#}
+<div class="ui-empty-state">
+  <p class="mb-3">{{ message }}</p>
+  {% if action_href and action_label %}
+  <a href="{{ action_href }}" class="ui-btn ui-btn-primary">{{ action_label }}</a>
+  {% endif %}
+</div>

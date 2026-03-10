@@ -1,0 +1,4 @@
+{# Standalone help text
+   Usage: {% include "components/forms/help_text.html" with text="Enter your name" %}
+#}
+{% if text %}<p class="ui-help-text">{{ text }}</p>{% endif %}
