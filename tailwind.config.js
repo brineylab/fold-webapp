@@ -22,6 +22,11 @@ module.exports = {
     "ui-text-muted",
     "ui-spinner",
     "ui-spinner-sm",
+    "ui-note",
+    "ui-note-icon",
+    "ui-note-content",
+    "ui-note-label",
+    "ui-note-body",
   ],
   darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
