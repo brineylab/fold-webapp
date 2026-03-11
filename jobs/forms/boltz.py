@@ -67,17 +67,20 @@ class Boltz2SubmitForm(TailwindFormMixin, forms.Form):
     recycling_steps = forms.IntegerField(
         required=False,
         min_value=1,
-        help_text="Optional number of recycling steps (default: Boltz-2 setting).",
+        initial=3,
+        help_text="Number of recycling steps.",
     )
     sampling_steps = forms.IntegerField(
         required=False,
         min_value=1,
-        help_text="Optional number of sampling steps (default: Boltz-2 setting).",
+        initial=50,
+        help_text="Number of sampling steps.",
     )
     diffusion_samples = forms.IntegerField(
         required=False,
         min_value=1,
-        help_text="Optional number of diffusion samples (default: Boltz-2 setting).",
+        initial=1,
+        help_text="Number of diffusion samples.",
     )
 
     def clean(self):
