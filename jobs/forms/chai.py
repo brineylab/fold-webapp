@@ -41,6 +41,7 @@ class Chai1SubmitForm(TailwindFormMixin, forms.Form):
     )
     use_msa_server = forms.BooleanField(
         required=False,
+        initial=True,
         help_text="Generate MSAs via the ColabFold mmseqs2 server (requires network access).",
         widget=forms.CheckboxInput(
             attrs={"data-toggle-disabled-target": "#id_msa_server_url"}
