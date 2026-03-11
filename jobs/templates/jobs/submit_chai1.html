@@ -29,21 +29,15 @@
           {% for error in form.restraints_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-[auto_minmax(0,1fr)] gap-4">
-          <div class="ui-field-group mb-0">
-            <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
-              {{ form.use_msa_server }}
-              Use MSA server
-            </label>
-            <p class="ui-help-text">{{ form.use_msa_server.help_text }}</p>
-            {% for error in form.use_msa_server.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
-          </div>
-          <div class="ui-field-group mb-0">
-            <label for="{{ form.msa_server_url.id_for_label }}" class="ui-label">MSA Server URL</label>
-            {{ form.msa_server_url }}
-            <p class="ui-help-text">{{ form.msa_server_url.help_text }}</p>
-            {% for error in form.msa_server_url.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
-          </div>
+        <div class="ui-field-group">
+          <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+            {{ form.use_msa_server }}
+            Use MSA server
+          </label>
+          {{ form.msa_server_url }}
+          <p class="ui-help-text">{{ form.use_msa_server.help_text }}</p>
+          {% for error in form.use_msa_server.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+          {% for error in form.msa_server_url.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

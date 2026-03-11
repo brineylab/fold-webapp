@@ -42,6 +42,15 @@ class Chai1SubmitForm(TailwindFormMixin, forms.Form):
     use_msa_server = forms.BooleanField(
         required=False,
         help_text="Generate MSAs via the ColabFold mmseqs2 server (requires network access).",
+        widget=forms.CheckboxInput(
+            attrs={"data-toggle-disabled-target": "#id_msa_server_url"}
+        ),
+    )
+    msa_server_url = forms.URLField(
+        required=False,
+        widget=forms.URLInput(
+            attrs={"placeholder": "api.colabfold.com", "class": "mt-2"}
+        ),
     )
     num_diffn_samples = forms.IntegerField(
         required=False,
