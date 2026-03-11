@@ -70,7 +70,7 @@ def render_help_text_with_note(value, autoescape=True):
         rendered.append(
             str(
                 format_html(
-                    '<div class="ui-note" role="note"><div class="ui-note-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M10.29 3.86l-7.5 13A2 2 0 0 0 4.5 20h15a2 2 0 0 0 1.71-3.14l-7.5-13a2 2 0 0 0-3.42 0Z"/></svg></div><div class="ui-note-content"><div class="ui-note-label">Note</div><div class="ui-note-body">{}</div></div></div>',
+                    '<div class="ui-note" role="note"><div class="ui-note-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 16h.01M12 8v4"/></svg></div><div class="ui-note-content"><div class="ui-note-label">Note</div><div class="ui-note-body">{}</div></div></div>',
                     mark_safe(_render_inline_code(note_text, autoescape)),
                 )
             )

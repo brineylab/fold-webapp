@@ -269,13 +269,13 @@
   .ui-note {
     margin-top: 0.5rem;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: 1rem 1fr;
     column-gap: 0.75rem;
     align-items: start;
     border: 1px solid hsl(var(--ui-border));
-    border-radius: var(--ui-radius);
-    background-color: hsl(var(--ui-muted) / 0.68);
-    padding: 0.875rem 1rem;
+    border-radius: calc(var(--ui-radius) + 0.25rem);
+    background-color: hsl(var(--ui-muted) / 0.5);
+    padding: 1rem 1.125rem;
   }
 
   .ui-note-icon {
@@ -291,18 +291,17 @@
   }
 
   .ui-note-label {
-    margin-bottom: 0.25rem;
-    font-size: 0.6875rem;
+    margin-bottom: 0.125rem;
+    font-size: 0.8125rem;
     font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    letter-spacing: -0.01em;
     color: hsl(var(--ui-foreground));
   }
 
   .ui-note-body {
     font-size: 0.8125rem;
-    color: hsl(var(--ui-foreground));
-    line-height: 1.45;
+    color: hsl(var(--ui-muted-foreground));
+    line-height: 1.5;
   }
 
   .ui-error {
