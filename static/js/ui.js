@@ -244,7 +244,7 @@
       document.querySelectorAll("[data-sidebar-collapsible]").forEach(function (group) {
         var trigger = group.querySelector("[data-sidebar-collapsible-trigger]");
         var groupName = group.getAttribute("data-sidebar-group");
-        var initialCollapsed = false;
+        var initialCollapsed = group.getAttribute("data-sidebar-default-collapsed") === "true";
 
         if (groupName && Object.prototype.hasOwnProperty.call(storedGroups, groupName)) {
           initialCollapsed = !!storedGroups[groupName];
