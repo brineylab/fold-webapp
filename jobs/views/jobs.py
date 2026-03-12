@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from console.models import SiteSettings
 from jobs.forms import get_disabled_runners
+from jobs.models import Job
 from jobs.services import cancel_job, create_and_submit_job, hide_job
 from jobs.views.shared import _fallback_output_context, _job_queryset_for
 from model_types import (
@@ -19,8 +21,43 @@ from model_types import (
 
 @login_required
 def job_list(request):
-    jobs = _job_queryset_for(request.user).order_by("-created_at")[:100]
-    return render(request, "jobs/list.html", {"jobs": jobs})
+    jobs = _job_queryset_for(request.user)
+
+    # Search
+    search = request.GET.get("search", "").strip()
+    if search:
+        jobs = jobs.filter(
+            Q(id__icontains=search) | Q(name__icontains=search)
+        ).distinct()
+
+    # Filter by status
+    status = request.GET.get("status", "")
+    if status and status in [s.value for s in Job.Status]:
+        jobs = jobs.filter(status=status)
+
+    # Filter by runner
+    runner = request.GET.get("runner", "")
+    if runner:
+        jobs = jobs.filter(runner=runner)
+
+    # Unique runners for the dropdown
+    runners = (
+        Job.objects.filter(owner=request.user, hidden_from_owner=False)
+        .values_list("runner", flat=True)
+        .distinct()
+    )
+
+    jobs = jobs.order_by("-created_at")[:200]
+
+    context = {
+        "jobs": jobs,
+        "search": search,
+        "status": status,
+        "runner": runner,
+        "runners": runners,
+        "statuses": Job.Status.choices,
+    }
+    return render(request, "jobs/list.html", context)
 
 
 @login_required

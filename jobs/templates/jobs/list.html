@@ -4,7 +4,45 @@
 {% block topbar_title %}Job History{% endblock %}
 
 {% block content %}
-  <h1 class="mb-6">Job History</h1>
+  <div class="flex justify-between items-center mb-6">
+    <h1>Job History</h1>
+    <span class="ui-badge ui-badge-secondary text-base px-3 py-1">{{ jobs|length }} shown</span>
+  </div>
+
+  <!-- Search and Filters -->
+  <div class="ui-card mb-4">
+    <div class="ui-card-body">
+      <form method="get" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div class="lg:col-span-2">
+          <label for="search" class="ui-label">Search</label>
+          <input type="text" class="ui-input" id="search" name="search" value="{{ search }}"
+                 placeholder="Job ID, name&#x2026;">
+        </div>
+        <div>
+          <label for="status" class="ui-label">Status</label>
+          <select class="ui-select" id="status" name="status">
+            <option value="">All</option>
+            {% for value, label in statuses %}
+            <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="runner" class="ui-label">Runner</label>
+          <select class="ui-select" id="runner" name="runner">
+            <option value="">All</option>
+            {% for r in runners %}
+            <option value="{{ r }}" {% if runner == r %}selected{% endif %}>{{ r }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex items-end">
+          <button type="submit" class="ui-btn ui-btn-primary w-full">Filter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="ui-card">
     <div class="ui-card-body">
       {% if jobs %}
@@ -16,7 +54,6 @@
                 <th>Created</th>
                 <th>Model</th>
                 <th>Status</th>
-                <th>Owner</th>
                 <th></th>
                 <th></th>
               </tr>
@@ -28,7 +65,6 @@
                   <td class="text-muted-foreground">{{ job.created_at|date:"Y-m-d H:i" }}</td>
                   <td>{{ job.runner }}</td>
                   <td><span class="font-semibold ui-status-{{ job.status|lower }}">{{ job.status }}</span></td>
-                  <td class="text-muted-foreground">{{ job.owner.username }}</td>
                   <td>
                     <a class="ui-btn ui-btn-outline ui-btn-sm" href="{% url 'job_detail' job_id=job.id %}">View</a>
                   </td>
@@ -53,8 +89,12 @@
         </div>
       {% else %}
         <div class="ui-empty-state">
-          <p class="mb-4">No jobs yet.</p>
-          <a class="ui-btn ui-btn-primary" href="{% url 'job_submit' %}">Create your first job</a>
+          {% if search or status or runner %}
+            No jobs found matching your criteria.
+          {% else %}
+            <p class="mb-4">No jobs yet.</p>
+            <a class="ui-btn ui-btn-primary" href="{% url 'job_submit' %}">Create your first job</a>
+          {% endif %}
         </div>
       {% endif %}
     </div>
