@@ -36,8 +36,11 @@
             {% endfor %}
           </select>
         </div>
-        <div class="flex items-end">
+        <div class="flex flex-col items-end gap-1.5">
           <button type="submit" class="ui-btn ui-btn-primary w-full">Filter</button>
+          {% if search or status or runner %}
+          <a href="{% url 'job_list' %}" class="ui-btn ui-btn-ghost w-full text-center">Clear</a>
+          {% endif %}
         </div>
       </form>
     </div>
