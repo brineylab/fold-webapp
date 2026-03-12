@@ -1,0 +1,106 @@
+{% extends "jobs/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+
+{% block content %}
+<h1 class="mb-6">Dashboard</h1>
+
+<!-- Status Counters -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="ui-card border-l-4 border-l-warning">
+    <div class="ui-card-body text-center">
+      <div class="text-2xl font-bold text-warning">{{ stats.status_counts_all.pending }}</div>
+      <div class="text-muted-foreground">Pending</div>
+      <div class="text-xs text-muted-foreground">{{ stats.status_counts_24h.pending }} last 24h</div>
+    </div>
+  </div>
+  <div class="ui-card border-l-4 border-l-info">
+    <div class="ui-card-body text-center">
+      <div class="text-2xl font-bold text-info">{{ stats.status_counts_all.running }}</div>
+      <div class="text-muted-foreground">Running</div>
+      <div class="text-xs text-muted-foreground">{{ stats.status_counts_24h.running }} last 24h</div>
+    </div>
+  </div>
+  <div class="ui-card border-l-4 border-l-success">
+    <div class="ui-card-body text-center">
+      <div class="text-2xl font-bold text-success">{{ stats.status_counts_all.completed }}</div>
+      <div class="text-muted-foreground">Completed</div>
+      <div class="text-xs text-muted-foreground">{{ stats.status_counts_24h.completed }} last 24h</div>
+    </div>
+  </div>
+  <div class="ui-card border-l-4 border-l-destructive">
+    <div class="ui-card-body text-center">
+      <div class="text-2xl font-bold text-destructive">{{ stats.status_counts_all.failed }}</div>
+      <div class="text-muted-foreground">Failed</div>
+      <div class="text-xs text-muted-foreground">{{ stats.status_counts_24h.failed }} last 24h</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+  <!-- Status -->
+  <div class="ui-card">
+    <div class="ui-card-header">Status</div>
+    <div class="ui-card-body space-y-4">
+      <div class="flex justify-between items-center pb-4 border-b border-border">
+        <div>
+          <div class="font-medium">Queue Depth</div>
+          <div class="text-xs text-muted-foreground">Jobs waiting to run</div>
+        </div>
+        <span class="ui-badge {% if stats.queue_depth > 10 %}ui-badge-warning{% elif stats.queue_depth > 0 %}ui-badge-info{% else %}ui-badge-secondary{% endif %} text-base px-3 py-1">{{ stats.queue_depth }}</span>
+      </div>
+
+      <div class="flex justify-between items-center pb-4 border-b border-border">
+        <div>
+          <div class="font-medium">Total Jobs</div>
+          <div class="text-xs text-muted-foreground">All time</div>
+        </div>
+        <span class="ui-badge ui-badge-secondary text-base px-3 py-1">{{ stats.total_jobs }}</span>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <div>
+          <div class="font-medium">Jobs (24h)</div>
+          <div class="text-xs text-muted-foreground">Created in last 24 hours</div>
+        </div>
+        <span class="ui-badge ui-badge-info text-base px-3 py-1">{{ stats.jobs_24h }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Failures -->
+  <div class="ui-card">
+    <div class="ui-card-header flex justify-between items-center">
+      <span>Recent Failures</span>
+      <a href="{% url 'job_list' %}?status=FAILED" class="ui-btn ui-btn-outline-danger ui-btn-sm">View All</a>
+    </div>
+    <div class="ui-card-body">
+      {% if stats.recent_failures %}
+        <div class="divide-y divide-border">
+          {% for failure in stats.recent_failures %}
+          <div class="py-2.5 first:pt-0 last:pb-0">
+            <div class="flex justify-between items-start">
+              <div>
+                <a href="{% url 'job_detail' job_id=failure.id %}">
+                  <code class="text-destructive">{{ failure.id|truncatechars:13 }}</code>
+                </a>
+                {% if failure.name %}
+                <span class="ml-2">{{ failure.name }}</span>
+                {% endif %}
+              </div>
+              <span class="text-xs text-muted-foreground">{{ failure.completed_at|timesince }} ago</span>
+            </div>
+            {% if failure.error_message %}
+            <div class="text-xs text-destructive mt-1">{{ failure.error_message|truncatechars:80 }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="ui-empty-state">No recent failures</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

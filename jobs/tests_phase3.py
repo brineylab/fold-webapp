@@ -86,19 +86,19 @@ class Phase3SidebarMigrationTests(TestCase):
         self.assertContains(response, 'data-sidebar', html=False)
         self.assertContains(
             response,
-            'href="/" class="ui-sidebar-item ui-sidebar-item-active"',
+            'href="/jobs/" class="ui-sidebar-item ui-sidebar-item-active"',
             html=False,
         )
 
-    def test_model_selection_uses_sidebar_layout_and_active_new_job_nav(self):
-        response = self.client.get(reverse("job_submit"))
+    def test_dashboard_page(self):
+        response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "jobs/select_model.html")
-        self.assertTemplateUsed(response, "base_sidebar.html")
+        self.assertTemplateUsed(response, "jobs/dashboard.html")
+        self.assertIn("stats", response.context)
         self.assertContains(
             response,
-            'href="/jobs/new/" class="ui-sidebar-item ui-sidebar-item-active"',
+            'href="/" class="ui-sidebar-item ui-sidebar-item-active"',
             html=False,
         )
 
