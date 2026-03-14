@@ -95,10 +95,12 @@ LIGANDMPNN_IMAGE="${LIGANDMPNN_IMAGE:-brineylab/ligandmpnn:latest}"
 BINDCRAFT_IMAGE="${BINDCRAFT_IMAGE:-brineylab/bindcraft:latest}"
 RFDIFFUSION3_IMAGE="${RFDIFFUSION3_IMAGE:-brineylab/rfdiffusion3:latest}"
 BOLTZGEN_IMAGE="${BOLTZGEN_IMAGE:-brineylab/boltzgen:latest}"
+OPENFOLD3_IMAGE="${OPENFOLD3_IMAGE:-brineylab/openfold3:latest}"
 DATA_DIR="${DATA_DIR:-./data}"
 BOLTZ_CACHE_DIR="${BOLTZ_CACHE_DIR:-$DATA_DIR/jobs/boltz_cache}"
 CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-$DATA_DIR/jobs/chai_cache}"
 BOLTZGEN_CACHE_DIR="${BOLTZGEN_CACHE_DIR:-$DATA_DIR/jobs/boltzgen_cache}"
+OPENFOLD3_CACHE_DIR="${OPENFOLD3_CACHE_DIR:-$DATA_DIR/jobs/openfold3_cache}"
 
 # Add registry prefix if specified
 if [ -n "$REGISTRY" ]; then
@@ -108,6 +110,7 @@ if [ -n "$REGISTRY" ]; then
     BINDCRAFT_IMAGE="${REGISTRY}/${BINDCRAFT_IMAGE}"
     RFDIFFUSION3_IMAGE="${REGISTRY}/${RFDIFFUSION3_IMAGE}"
     BOLTZGEN_IMAGE="${REGISTRY}/${BOLTZGEN_IMAGE}"
+    OPENFOLD3_IMAGE="${REGISTRY}/${OPENFOLD3_IMAGE}"
 fi
 
 # ---------- prerequisite checks ----------
@@ -181,6 +184,13 @@ if [ "$SKIP_IMAGES" = false ]; then
         docker build -t "$BOLTZGEN_IMAGE" containers/boltzgen/
     fi
 
+    step "Pulling OpenFold3 image: $OPENFOLD3_IMAGE"
+    if ! docker pull "$OPENFOLD3_IMAGE" 2>/dev/null; then
+        warn "Failed to pull $OPENFOLD3_IMAGE from registry."
+        step "Building OpenFold3 image locally..."
+        docker build -t "$OPENFOLD3_IMAGE" containers/openfold3/
+    fi
+
     step "Building main web application image..."
     docker compose build
 
@@ -208,6 +218,7 @@ echo "  - Docker images: ready"
 echo "  - Boltz-2 cache: $BOLTZ_CACHE_DIR"
 echo "  - Chai-1 cache: $CHAI_CACHE_DIR"
 echo "  - BoltzGen cache: $BOLTZGEN_CACHE_DIR"
+echo "  - OpenFold3 cache: $OPENFOLD3_CACHE_DIR"
 echo "  - LigandMPNN: ready (weights in image)"
 echo "  - BindCraft: ready (weights in image)"
 echo "  - RFdiffusion3: ready (weights in image)"

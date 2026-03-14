@@ -2,6 +2,7 @@ from jobs.forms.bindcraft import BindCraftSubmitForm
 from jobs.forms.boltz import Boltz2SubmitForm, BoltzGenSubmitForm
 from jobs.forms.chai import Chai1SubmitForm
 from jobs.forms.mpnn import LigandMPNNSubmitForm, ProteinMPNNSubmitForm
+from jobs.forms.openfold3 import OpenFold3SubmitForm
 from jobs.forms.rfdiffusion import RFdiffusion3SubmitForm
 from jobs.forms.shared import get_disabled_runners
 
@@ -11,6 +12,7 @@ __all__ = [
     "BoltzGenSubmitForm",
     "Chai1SubmitForm",
     "LigandMPNNSubmitForm",
+    "OpenFold3SubmitForm",
     "ProteinMPNNSubmitForm",
     "RFdiffusion3SubmitForm",
     "get_disabled_runners",

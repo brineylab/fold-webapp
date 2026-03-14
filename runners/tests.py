@@ -127,6 +127,7 @@ class TestRunnerShellScripts(TestCase):
             "ligandmpnn": _FakeJob(
                 params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"}
             ),
+            "openfold3": _FakeJob(),
             "rfdiffusion3": _FakeJob(),
         }
         for runner_key, job in cases.items():
@@ -142,6 +143,7 @@ class TestRunnerShellScripts(TestCase):
             "ligandmpnn": _FakeJob(
                 params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"}
             ),
+            "openfold3": _FakeJob(),
             "rfdiffusion3": _FakeJob(),
         }
         for runner_key, job in cases.items():
@@ -163,6 +165,7 @@ class TestRunnerShellScripts(TestCase):
                 "--shm-size 8g",
                 _FakeJob(params={"model_variant": "protein_mpnn", "noise_level": "v_48_020"}),
             ),
+            "openfold3": ("--shm-size 16g", _FakeJob()),
             "rfdiffusion3": ("--shm-size 8g", _FakeJob()),
         }
         for runner_key, (expected_flag, job) in cases.items():
@@ -203,3 +206,77 @@ class TestBindCraftRunnerBuildScript(TestCase):
         script = self.runner.build_script(_FakeJob(), config=config)
 
         self.assertIn("custom-bindcraft:v1", script)
+
+
+class TestOpenFold3RunnerBuildScript(TestCase):
+    def setUp(self):
+        self.runner = get_runner("openfold3")
+
+    def test_without_config(self):
+        script = self.runner.build_script(_FakeJob())
+
+        self.assertIn("#!/bin/bash", script)
+        self.assertIn("docker run --rm --gpus all", script)
+        self.assertIn("--shm-size 16g", script)
+        self.assertIn("run_openfold predict", script)
+        self.assertIn("--query-json /work/input/query.json", script)
+        self.assertIn("--output-dir /work/output", script)
+
+    def test_config_image_override(self):
+        config = RunnerConfig(runner_key="openfold3", image_uri="custom-openfold3:v1")
+
+        script = self.runner.build_script(_FakeJob(), config=config)
+
+        self.assertIn("custom-openfold3:v1", script)
+
+    def test_msa_server_enabled(self):
+        job = _FakeJob(params={"use_msa_server": True})
+        script = self.runner.build_script(job)
+        self.assertIn("--use-msa-server", script)
+        self.assertNotIn("--no-use-msa-server", script)
+
+    def test_msa_server_disabled(self):
+        job = _FakeJob(params={"use_msa_server": False})
+        script = self.runner.build_script(job)
+        self.assertIn("--no-use-msa-server", script)
+
+    def test_templates_enabled(self):
+        job = _FakeJob(params={"use_templates": True})
+        script = self.runner.build_script(job)
+        self.assertIn("--use-templates", script)
+        self.assertNotIn("--no-use-templates", script)
+
+    def test_templates_disabled(self):
+        job = _FakeJob(params={"use_templates": False})
+        script = self.runner.build_script(job)
+        self.assertIn("--no-use-templates", script)
+
+    def test_diffusion_samples_flag(self):
+        job = _FakeJob(params={"num_diffusion_samples": 10})
+        script = self.runner.build_script(job)
+        self.assertIn("--num-diffusion-samples 10", script)
+
+    def test_model_seeds_flag(self):
+        job = _FakeJob(params={"num_model_seeds": 3})
+        script = self.runner.build_script(job)
+        self.assertIn("--num-model-seeds 3", script)
+
+    def test_seed_flag(self):
+        job = _FakeJob(params={"seed": 42})
+        script = self.runner.build_script(job)
+        self.assertIn("--seed 42", script)
+
+    def test_pdb_output_format_generates_runner_yaml(self):
+        job = _FakeJob(params={"output_format": "pdb"})
+        script = self.runner.build_script(job)
+        self.assertIn("structure_format: pdb", script)
+        self.assertIn("--runner-yaml /work/input/output_settings.yaml", script)
+
+    def test_cif_output_format_no_runner_yaml(self):
+        job = _FakeJob(params={"output_format": "cif"})
+        script = self.runner.build_script(job)
+        self.assertNotIn("--runner-yaml", script)
+
+    def test_openfold_cache_env(self):
+        script = self.runner.build_script(_FakeJob())
+        self.assertIn("-e OPENFOLD_CACHE=/cache", script)

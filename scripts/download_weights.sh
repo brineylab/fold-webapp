@@ -28,6 +28,7 @@ Models:
   boltz2        Boltz-2 weights (~2-3 GB)
   chai1         Chai-1 weights (~2-3 GB)
   boltzgen      BoltzGen weights (~6 GB)
+  openfold3     OpenFold3 weights (~2-3 GB)
 
 If no model is specified, downloads weights for all supported models.
 
@@ -97,6 +98,9 @@ CHAI_CACHE_DIR="${CHAI_CACHE_DIR:-$DATA_DIR/jobs/chai_cache}"
 
 BOLTZGEN_IMAGE="${BOLTZGEN_IMAGE:-brineylab/boltzgen:latest}"
 BOLTZGEN_CACHE_DIR="${BOLTZGEN_CACHE_DIR:-$DATA_DIR/jobs/boltzgen_cache}"
+
+OPENFOLD3_IMAGE="${OPENFOLD3_IMAGE:-brineylab/openfold3:latest}"
+OPENFOLD3_CACHE_DIR="${OPENFOLD3_CACHE_DIR:-$DATA_DIR/jobs/openfold3_cache}"
 
 # ---------- prerequisite checks ----------
 
@@ -216,6 +220,36 @@ download_boltzgen_weights() {
     step "BoltzGen weights cached to $BOLTZGEN_CACHE_DIR"
 }
 
+download_openfold3_weights() {
+    info "OpenFold3 weights"
+
+    if [ "$OVERWRITE" = true ] && [ -d "$OPENFOLD3_CACHE_DIR" ]; then
+        step "Removing existing OpenFold3 cache (--overwrite)..."
+        rm -rf "$OPENFOLD3_CACHE_DIR"
+    fi
+
+    if [ -f "$OPENFOLD3_CACHE_DIR/of3-p2-155k.pt" ]; then
+        step "Weights already cached at $OPENFOLD3_CACHE_DIR (skipping)"
+        return 0
+    fi
+
+    check_docker
+    ensure_writable_dir "$OPENFOLD3_CACHE_DIR" "OpenFold3 cache" || return 1
+
+    step "Downloading OpenFold3 weights via direct API (no GPU required)..."
+    docker run --rm \
+        --entrypoint python3 \
+        -e OPENFOLD_CACHE=/cache \
+        -v "$OPENFOLD3_CACHE_DIR:/cache" \
+        "$OPENFOLD3_IMAGE" \
+        -c "from openfold3.openfold.data.parameters import download_model_parameters; download_model_parameters(skip_confirmation=True)" || {
+            warn "OpenFold3 weight download failed."
+            return 1
+        }
+
+    step "OpenFold3 weights cached to $OPENFOLD3_CACHE_DIR"
+}
+
 # ---------- main ----------
 
 run_all() {
@@ -225,6 +259,8 @@ run_all() {
     echo
     download_boltzgen_weights
     echo
+    download_openfold3_weights
+    echo
 }
 
 if [ -n "$MODEL" ]; then
@@ -232,9 +268,10 @@ if [ -n "$MODEL" ]; then
         boltz2)       download_boltz2_weights ;;
         chai1)        download_chai1_weights ;;
         boltzgen)     download_boltzgen_weights ;;
+        openfold3)    download_openfold3_weights ;;
         *)
             echo "ERROR: Unknown model: $MODEL"
-            echo "Supported models: boltz2, chai1, boltzgen"
+            echo "Supported models: boltz2, chai1, boltzgen, openfold3"
             exit 1
             ;;
     esac

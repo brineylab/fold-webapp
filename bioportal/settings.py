@@ -216,6 +216,15 @@ BOLTZGEN_DOCKER_IPC_MODE = _parse_optional_runtime_value(
     DOCKER_DEFAULT_IPC_MODE,
 )
 
+# OpenFold3 configuration
+OPENFOLD3_IMAGE = os.environ.get("OPENFOLD3_IMAGE", "brineylab/openfold3:latest")
+OPENFOLD3_CACHE_DIR = Path(os.environ.get("OPENFOLD3_CACHE_DIR", str(JOB_BASE_DIR / "openfold3_cache")))
+OPENFOLD3_DOCKER_SHM_SIZE = _parse_optional_runtime_value("OPENFOLD3_DOCKER_SHM_SIZE", "16g")
+OPENFOLD3_DOCKER_IPC_MODE = _parse_optional_runtime_value(
+    "OPENFOLD3_DOCKER_IPC_MODE",
+    DOCKER_DEFAULT_IPC_MODE,
+)
+
 
 #
 # Default quota settings for new users.

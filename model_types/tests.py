@@ -1241,3 +1241,228 @@ class TestBindCraftValidation(TestCase):
     def test_validate_passes_empty(self):
         mt = get_model_type("bindcraft")
         mt.validate({})
+
+
+# ---------------------------------------------------------------------------
+# OpenFold3 model type
+# ---------------------------------------------------------------------------
+
+
+class TestOpenFold3SequenceValidation(TestCase):
+    def setUp(self):
+        self.mt = get_model_type("openfold3")
+
+    def test_accepts_protein_header(self):
+        self.mt.validate({"sequences": ">A|protein\nMKTAYI"})
+
+    def test_accepts_rna_header(self):
+        self.mt.validate({"sequences": ">B|rna\nACGU"})
+
+    def test_accepts_dna_header(self):
+        self.mt.validate({"sequences": ">C|dna\nACGT"})
+
+    def test_accepts_smiles_header(self):
+        self.mt.validate({"sequences": ">D|smiles\nCCO"})
+
+    def test_accepts_ccd_header(self):
+        self.mt.validate({"sequences": ">E|ccd\nATP"})
+
+    def test_accepts_multichain(self):
+        self.mt.validate(
+            {"sequences": ">A|protein\nMKTAYI\n>B|protein\nACDEFG"}
+        )
+
+    def test_rejects_generic_fasta_headers(self):
+        with self.assertRaises(ValidationError) as ctx:
+            self.mt.validate({"sequences": ">seq1\nMKTAYI"})
+        self.assertIn(">A|protein", str(ctx.exception))
+
+    def test_rejects_unknown_entity_type(self):
+        with self.assertRaises(ValidationError) as ctx:
+            self.mt.validate({"sequences": ">A|ligand\nMKTAYI"})
+        self.assertIn("Use one of:", str(ctx.exception))
+
+    def test_json_file_skips_validation(self):
+        self.mt.validate(
+            {
+                "sequences": ">seq1\nMKTAYI",
+                "json_file": object(),
+            }
+        )
+
+    def test_empty_sequences_skips_validation(self):
+        self.mt.validate({"sequences": ""})
+
+
+class TestOpenFold3NormalizeInputs(TestCase):
+    def setUp(self):
+        self.mt = get_model_type("openfold3")
+
+    def _make_upload(self, name: str, content: bytes):
+        upload = io.BytesIO(content)
+        upload.name = name
+        return upload
+
+    def test_textarea_sets_fasta_mode(self):
+        payload = self.mt.normalize_inputs({
+            "sequences": ">A|protein\nMKTAYI",
+            "use_msa_server": True,
+            "use_templates": True,
+        })
+        self.assertEqual(payload["params"]["input_mode"], "fasta")
+        self.assertEqual(payload["sequences"], ">A|protein\nMKTAYI")
+
+    def test_fasta_file_overrides_textarea(self):
+        upload = self._make_upload("input.fasta", b">B|rna\nACGU")
+        payload = self.mt.normalize_inputs({
+            "sequences": ">A|protein\nMKTAYI",
+            "fasta_file": upload,
+        })
+        self.assertEqual(payload["params"]["input_mode"], "fasta")
+        self.assertEqual(payload["sequences"], ">B|rna\nACGU")
+
+    def test_json_file_overrides_all(self):
+        json_content = b'{"queries": {"test": {"chains": []}}}'
+        upload = self._make_upload("query.json", json_content)
+        payload = self.mt.normalize_inputs({
+            "sequences": ">A|protein\nMKTAYI",
+            "json_file": upload,
+        })
+        self.assertEqual(payload["params"]["input_mode"], "json")
+        self.assertEqual(payload["sequences"], "")
+        self.assertIn("query.json", payload["files"])
+        self.assertEqual(payload["files"]["query.json"], json_content)
+
+    def test_boolean_flags_preserved(self):
+        payload = self.mt.normalize_inputs({
+            "sequences": ">A|protein\nMKTAYI",
+            "use_msa_server": False,
+            "use_templates": False,
+        })
+        self.assertFalse(payload["params"]["use_msa_server"])
+        self.assertFalse(payload["params"]["use_templates"])
+
+    def test_optional_params(self):
+        payload = self.mt.normalize_inputs({
+            "sequences": ">A|protein\nMKTAYI",
+            "num_diffusion_samples": 10,
+            "num_model_seeds": 3,
+            "output_format": "pdb",
+            "seed": 42,
+        })
+        self.assertEqual(payload["params"]["num_diffusion_samples"], 10)
+        self.assertEqual(payload["params"]["num_model_seeds"], 3)
+        self.assertEqual(payload["params"]["output_format"], "pdb")
+        self.assertEqual(payload["params"]["seed"], 42)
+
+
+class TestOpenFold3PrepareWorkdir(TestCase):
+    def setUp(self):
+        self.mt = get_model_type("openfold3")
+        self.tmpdir = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_fasta_creates_query_json(self):
+        class FakeJob:
+            workdir = self.tmpdir / "job"
+            name = "test_prediction"
+
+        payload: InputPayload = {
+            "sequences": ">A|protein\nMKTAYI\n>B|rna\nACGU",
+            "params": {"input_mode": "fasta"},
+            "files": {},
+        }
+        self.mt.prepare_workdir(FakeJob(), payload)
+
+        query_path = self.tmpdir / "job" / "input" / "query.json"
+        self.assertTrue(query_path.exists())
+
+        import json
+        query = json.loads(query_path.read_text())
+        self.assertIn("queries", query)
+        self.assertIn("test_prediction", query["queries"])
+        chains = query["queries"]["test_prediction"]["chains"]
+        self.assertEqual(len(chains), 2)
+        self.assertEqual(chains[0]["molecule_type"], "protein")
+        self.assertEqual(chains[0]["chain_ids"], ["A"])
+        self.assertEqual(chains[0]["sequence"], "MKTAYI")
+        self.assertEqual(chains[1]["molecule_type"], "rna")
+        self.assertEqual(chains[1]["chain_ids"], ["B"])
+        self.assertEqual(chains[1]["sequence"], "ACGU")
+
+    def test_smiles_maps_to_ligand(self):
+        class FakeJob:
+            workdir = self.tmpdir / "job"
+            name = "ligand_test"
+
+        payload: InputPayload = {
+            "sequences": ">D|smiles\nCCO",
+            "params": {"input_mode": "fasta"},
+            "files": {},
+        }
+        self.mt.prepare_workdir(FakeJob(), payload)
+
+        import json
+        query = json.loads((self.tmpdir / "job" / "input" / "query.json").read_text())
+        chain = query["queries"]["ligand_test"]["chains"][0]
+        self.assertEqual(chain["molecule_type"], "ligand")
+        self.assertEqual(chain["smiles"], "CCO")
+
+    def test_ccd_maps_to_ligand(self):
+        class FakeJob:
+            workdir = self.tmpdir / "job"
+            name = "ccd_test"
+
+        payload: InputPayload = {
+            "sequences": ">E|ccd\nATP",
+            "params": {"input_mode": "fasta"},
+            "files": {},
+        }
+        self.mt.prepare_workdir(FakeJob(), payload)
+
+        import json
+        query = json.loads((self.tmpdir / "job" / "input" / "query.json").read_text())
+        chain = query["queries"]["ccd_test"]["chains"][0]
+        self.assertEqual(chain["molecule_type"], "ligand")
+        self.assertEqual(chain["ccd_codes"], ["ATP"])
+
+    def test_json_mode_skips_conversion(self):
+        class FakeJob:
+            workdir = self.tmpdir / "job"
+            name = "json_test"
+
+        json_content = b'{"queries": {"custom": {"chains": []}}}'
+        payload: InputPayload = {
+            "sequences": "",
+            "params": {"input_mode": "json"},
+            "files": {"query.json": json_content},
+        }
+        self.mt.prepare_workdir(FakeJob(), payload)
+
+        query_path = self.tmpdir / "job" / "input" / "query.json"
+        self.assertTrue(query_path.exists())
+        self.assertEqual(query_path.read_bytes(), json_content)
+
+
+class TestOpenFold3OutputContext(TestCase):
+    def test_classifies_structure_files_as_primary(self):
+        tmpdir = Path(tempfile.mkdtemp())
+        try:
+            class FakeJob:
+                workdir = tmpdir / "job"
+
+            outdir = FakeJob.workdir / "output"
+            (outdir / "query" / "seed_0").mkdir(parents=True)
+            (outdir / "query" / "seed_0" / "pred.cif").write_text("data_")
+            (outdir / "query" / "seed_0" / "scores.json").write_text("{}")
+
+            mt = get_model_type("openfold3")
+            result = mt.get_output_context(FakeJob())
+            primary_names = [f["name"] for f in result["primary_files"]]
+            aux_names = [f["name"] for f in result["aux_files"]]
+            self.assertIn("query/seed_0/pred.cif", primary_names)
+            self.assertIn("query/seed_0/scores.json", aux_names)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)

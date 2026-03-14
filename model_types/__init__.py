@@ -7,6 +7,7 @@ from model_types.boltzgen import BoltzGenModelType
 from model_types.rfdiffusion3 import RFdiffusion3ModelType
 from model_types.chai1 import Chai1ModelType
 from model_types.ligand_mpnn import LigandMPNNModelType
+from model_types.openfold3 import OpenFold3ModelType
 from model_types.protein_mpnn import ProteinMPNNModelType
 from model_types.registry import (
     get_model_type,
@@ -18,6 +19,7 @@ from model_types.registry import (
 
 register_model_type(Boltz2ModelType())
 register_model_type(Chai1ModelType())
+register_model_type(OpenFold3ModelType())
 register_model_type(ProteinMPNNModelType())
 register_model_type(LigandMPNNModelType())
 register_model_type(BindCraftModelType())

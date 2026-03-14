@@ -1,0 +1,73 @@
+{% extends "jobs/submit_base.html" %}
+{% load help_text %}
+
+{% block form_fields %}
+        <div class="ui-field-group">
+          <label for="{{ form.name.id_for_label }}" class="ui-label">Name</label>
+          {{ form.name }}
+          {% for error in form.name.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="ui-field-group">
+          <label for="{{ form.sequences.id_for_label }}" class="ui-label">Sequences</label>
+          {{ form.sequences }}
+          {{ form.sequences.help_text|render_help_text_with_note }}
+          {% for error in form.sequences.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="ui-field-group">
+          <label for="{{ form.fasta_file.id_for_label }}" class="ui-label">FASTA file</label>
+          {{ form.fasta_file }}
+          <p class="ui-help-text">{{ form.fasta_file.help_text }}</p>
+          {% for error in form.fasta_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="ui-field-group">
+          <label for="{{ form.json_file.id_for_label }}" class="ui-label">JSON query file</label>
+          {{ form.json_file }}
+          <p class="ui-help-text">{{ form.json_file.help_text }}</p>
+          {% for error in form.json_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="ui-field-group flex flex-wrap gap-x-6 gap-y-2">
+          <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+            {{ form.use_msa_server }}
+            Use MSA server
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+            {{ form.use_templates }}
+            Use templates
+          </label>
+          <p class="ui-help-text w-full">{{ form.use_msa_server.help_text }}</p>
+          {% for error in form.use_msa_server.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+          {% for error in form.use_templates.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="ui-field-group">
+            <label for="{{ form.num_diffusion_samples.id_for_label }}" class="ui-label">Diffusion samples</label>
+            {{ form.num_diffusion_samples }}
+            <p class="ui-help-text">{{ form.num_diffusion_samples.help_text }}</p>
+            {% for error in form.num_diffusion_samples.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="ui-field-group">
+            <label for="{{ form.num_model_seeds.id_for_label }}" class="ui-label">Model seeds</label>
+            {{ form.num_model_seeds }}
+            <p class="ui-help-text">{{ form.num_model_seeds.help_text }}</p>
+            {% for error in form.num_model_seeds.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="ui-field-group">
+            <label for="{{ form.output_format.id_for_label }}" class="ui-label">Output format</label>
+            {{ form.output_format }}
+            <p class="ui-help-text">{{ form.output_format.help_text }}</p>
+            {% for error in form.output_format.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+          </div>
+          <div class="ui-field-group">
+            <label for="{{ form.seed.id_for_label }}" class="ui-label">Seed</label>
+            {{ form.seed }}
+            <p class="ui-help-text">{{ form.seed.help_text }}</p>
+            {% for error in form.seed.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+          </div>
+        </div>
+
+{% endblock %}

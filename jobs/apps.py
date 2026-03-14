@@ -11,9 +11,10 @@ class JobsConfig(AppConfig):
         import runners.alphafold  # noqa: F401
         import runners.bindcraft  # noqa: F401
         import runners.boltz  # noqa: F401
+        import runners.boltzgen  # noqa: F401
         import runners.chai  # noqa: F401
         import runners.ligandmpnn  # noqa: F401
-        import runners.boltzgen  # noqa: F401
+        import runners.openfold3  # noqa: F401
         import runners.rfdiffusion3  # noqa: F401
 
 
