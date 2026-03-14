@@ -1355,6 +1355,22 @@ class TestOpenFold3NormalizeInputs(TestCase):
         self.assertEqual(payload["params"]["output_format"], "pdb")
         self.assertEqual(payload["params"]["seed"], 42)
 
+    def test_msa_server_url_extracted_when_provided(self):
+        payload = self.mt.normalize_inputs({
+            "sequences": ">A|protein\nMKTAYI",
+            "use_msa_server": True,
+            "msa_server_url": "https://msa.example.com",
+        })
+        self.assertEqual(payload["params"]["msa_server_url"], "https://msa.example.com")
+
+    def test_msa_server_url_absent_when_empty(self):
+        payload = self.mt.normalize_inputs({
+            "sequences": ">A|protein\nMKTAYI",
+            "use_msa_server": True,
+            "msa_server_url": "",
+        })
+        self.assertNotIn("msa_server_url", payload["params"])
+
 
 class TestOpenFold3PrepareWorkdir(TestCase):
     def setUp(self):

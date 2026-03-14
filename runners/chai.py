@@ -32,6 +32,8 @@ class ChaiRunner(Runner):
         flags: list[str] = []
         if params.get("use_msa_server"):
             flags.append("--use-msa-server")
+        if params.get("msa_server_url"):
+            flags.extend(["--msa-server-url", str(params["msa_server_url"])])
         if params.get("num_diffn_samples"):
             flags.extend(["--num-diffn-samples", str(params["num_diffn_samples"])])
         if params.get("seed") is not None:

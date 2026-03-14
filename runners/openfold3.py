@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from django.conf import settings
@@ -49,15 +50,24 @@ class OpenFold3Runner(Runner):
         if params.get("seed") is not None:
             flags.extend(["--seed", str(params["seed"])])
 
-        # Output format via runner YAML preset
+        # Runner YAML: merges output format and MSA server URL settings
         runner_yaml_setup = ""
         runner_yaml_flag = ""
+        runner_config: dict = {}
         output_format = params.get("output_format", "cif")
         if output_format == "pdb":
+            runner_config["structure_format"] = "pdb"
+        msa_server_url = params.get("msa_server_url")
+        if msa_server_url:
+            runner_config["msa_computation_settings"] = {"server_url": msa_server_url}
+        if runner_config:
+            yaml_path = workdir / "input" / "runner_settings.yaml"
             runner_yaml_setup = (
-                f'echo "structure_format: pdb" > {workdir / "input" / "output_settings.yaml"}'
+                f"cat > {yaml_path} <<'YAML'\n"
+                f"{json.dumps(runner_config, indent=2)}\n"
+                f"YAML"
             )
-            runner_yaml_flag = "--runner-yaml /work/input/output_settings.yaml"
+            runner_yaml_flag = f"--runner-yaml /work/input/runner_settings.yaml"
 
         flag_str = " ".join(flags)
 

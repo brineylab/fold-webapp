@@ -51,6 +51,16 @@ class TestBoltzRunnerBuildScript(TestCase):
         self.assertIn("--output_format pdb", script)
         self.assertIn("--recycling_steps 5", script)
 
+    def test_msa_server_url_flag(self):
+        job = _FakeJob(
+            params={
+                "use_msa_server": True,
+                "msa_server_url": "https://msa.example.com",
+            }
+        )
+        script = self.runner.build_script(job)
+        self.assertIn("--msa_server_url https://msa.example.com", script)
+
 
 class TestLigandMPNNRunnerBuildScript(TestCase):
     def setUp(self):
@@ -105,6 +115,21 @@ class TestLigandMPNNRunnerBuildScript(TestCase):
 
         self.assertIn("python3 - <<'PY'", script)
         self.assertNotIn("zip -r results.zip", script)
+
+
+class TestChaiRunnerBuildScript(TestCase):
+    def setUp(self):
+        self.runner = get_runner("chai-1")
+
+    def test_msa_server_url_flag(self):
+        job = _FakeJob(
+            params={
+                "use_msa_server": True,
+                "msa_server_url": "https://msa.example.com",
+            }
+        )
+        script = self.runner.build_script(job)
+        self.assertIn("--msa-server-url https://msa.example.com", script)
 
 
 class TestRunnerShellScripts(TestCase):
@@ -269,13 +294,37 @@ class TestOpenFold3RunnerBuildScript(TestCase):
     def test_pdb_output_format_generates_runner_yaml(self):
         job = _FakeJob(params={"output_format": "pdb"})
         script = self.runner.build_script(job)
-        self.assertIn("structure_format: pdb", script)
-        self.assertIn("--runner-yaml /work/input/output_settings.yaml", script)
+        self.assertIn('"structure_format": "pdb"', script)
+        self.assertIn("--runner-yaml /work/input/runner_settings.yaml", script)
 
     def test_cif_output_format_no_runner_yaml(self):
         job = _FakeJob(params={"output_format": "cif"})
         script = self.runner.build_script(job)
         self.assertNotIn("--runner-yaml", script)
+
+    def test_msa_server_url_generates_runner_yaml(self):
+        job = _FakeJob(params={"msa_server_url": "https://msa.example.com"})
+        script = self.runner.build_script(job)
+        self.assertIn("msa_computation_settings", script)
+        self.assertIn("https://msa.example.com", script)
+        self.assertIn("--runner-yaml /work/input/runner_settings.yaml", script)
+
+    def test_msa_server_url_and_pdb_merged_into_single_yaml(self):
+        job = _FakeJob(params={
+            "output_format": "pdb",
+            "msa_server_url": "https://msa.example.com",
+        })
+        script = self.runner.build_script(job)
+        self.assertIn('"structure_format": "pdb"', script)
+        self.assertIn("msa_computation_settings", script)
+        self.assertIn("https://msa.example.com", script)
+        # Only one --runner-yaml flag
+        self.assertEqual(script.count("--runner-yaml"), 1)
+
+    def test_no_msa_server_url_no_msa_settings(self):
+        job = _FakeJob(params={"use_msa_server": True})
+        script = self.runner.build_script(job)
+        self.assertNotIn("msa_computation_settings", script)
 
     def test_openfold_cache_env(self):
         script = self.runner.build_script(_FakeJob())

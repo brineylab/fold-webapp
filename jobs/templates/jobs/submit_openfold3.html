@@ -29,17 +29,23 @@
           {% for error in form.json_file.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 
-        <div class="ui-field-group flex flex-wrap gap-x-6 gap-y-2">
+        <div class="ui-field-group">
           <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
             {{ form.use_msa_server }}
             Use MSA server
           </label>
+          {{ form.msa_server_url }}
+          <p class="ui-help-text">{{ form.use_msa_server.help_text }}</p>
+          {% for error in form.use_msa_server.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+          {% for error in form.msa_server_url.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+        </div>
+
+        <div class="ui-field-group">
           <label class="inline-flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
             {{ form.use_templates }}
             Use templates
           </label>
-          <p class="ui-help-text w-full">{{ form.use_msa_server.help_text }}</p>
-          {% for error in form.use_msa_server.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
+          <p class="ui-help-text">{{ form.use_templates.help_text }}</p>
           {% for error in form.use_templates.errors %}<p class="ui-error">{{ error }}</p>{% endfor %}
         </div>
 

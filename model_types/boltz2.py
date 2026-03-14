@@ -61,6 +61,7 @@ class Boltz2ModelType(BaseModelType):
         sequences = (cleaned_data.get("sequences") or "").strip()
         params = {
             "use_msa_server": bool(cleaned_data.get("use_msa_server")),
+            "msa_server_url": cleaned_data.get("msa_server_url") or "",
             "use_potentials": bool(cleaned_data.get("use_potentials")),
             "no_kernels": bool(cleaned_data.get("no_kernels")),
             "output_format": cleaned_data.get("output_format"),

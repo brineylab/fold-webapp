@@ -98,6 +98,7 @@ class OpenFold3ModelType(BaseModelType):
         sequences = (cleaned_data.get("sequences") or "").strip()
         params: dict = {
             "use_msa_server": bool(cleaned_data.get("use_msa_server")),
+            "msa_server_url": cleaned_data.get("msa_server_url") or "",
             "use_templates": bool(cleaned_data.get("use_templates")),
             "num_diffusion_samples": cleaned_data.get("num_diffusion_samples"),
             "num_model_seeds": cleaned_data.get("num_model_seeds"),

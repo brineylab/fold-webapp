@@ -25,6 +25,7 @@ class Chai1ModelType(BaseModelType):
         sequences = (cleaned_data.get("sequences") or "").strip()
         params = {
             "use_msa_server": bool(cleaned_data.get("use_msa_server")),
+            "msa_server_url": cleaned_data.get("msa_server_url") or "",
             "num_diffn_samples": cleaned_data.get("num_diffn_samples"),
             "seed": cleaned_data.get("seed"),
         }

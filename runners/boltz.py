@@ -33,6 +33,8 @@ class BoltzRunner(Runner):
         flags: list[str] = []
         if params.get("use_msa_server"):
             flags.append("--use_msa_server")
+        if params.get("msa_server_url"):
+            flags.extend(["--msa_server_url", str(params["msa_server_url"])])
         if params.get("use_potentials"):
             flags.append("--use_potentials")
         if params.get("no_kernels"):
