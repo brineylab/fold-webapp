@@ -31,7 +31,7 @@
 
   <div class="ui-card ui-card-plain">
     <div class="ui-card-body">
-      <form method="post" enctype="multipart/form-data" novalidate>
+      <form id="submit-form" method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
         <input type="hidden" name="model" value="{{ model_key }}">
         {% if form.non_field_errors %}
@@ -62,7 +62,7 @@
   </div>
 <script>
 (function() {
-  var form = document.querySelector('form');
+  var form = document.getElementById('submit-form');
   var dirty = false;
   form.querySelectorAll('[data-toggle-disabled-target]').forEach(function(toggle) {
     var target = form.querySelector(toggle.getAttribute('data-toggle-disabled-target'));
