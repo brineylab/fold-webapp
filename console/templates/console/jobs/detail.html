@@ -74,13 +74,13 @@
           {% endif %}
 
           {% if job.current_attempt.stdout_path or job.current_attempt.stderr_path %}
-          <dt class="font-medium">Attempt Logs</dt>
+          <dt class="font-medium">Log Paths</dt>
           <dd>
             {% if job.current_attempt.stdout_path %}
-            <div><code class="break-all">{{ job.current_attempt.stdout_path }}</code></div>
+            <div><code class="break-all text-xs">{{ job.current_attempt.stdout_path }}</code></div>
             {% endif %}
             {% if job.current_attempt.stderr_path %}
-            <div><code class="break-all">{{ job.current_attempt.stderr_path }}</code></div>
+            <div><code class="break-all text-xs">{{ job.current_attempt.stderr_path }}</code></div>
             {% endif %}
           </dd>
           {% endif %}
@@ -94,6 +94,34 @@
         </dl>
       </div>
     </div>
+
+    <!-- Attempt Logs -->
+    {% if stderr_log.file_exists or stdout_log.file_exists %}
+    <div class="ui-card">
+      <div class="ui-card-header">Attempt Logs</div>
+      <div class="ui-card-body space-y-4">
+        {% if stderr_log.file_exists %}
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm font-medium">stderr</span>
+            {% if stderr_log.truncated %}<span class="text-xs text-warning">(truncated — {{ stderr_log.total_size|filesizeformat }} total)</span>{% endif %}
+          </div>
+          <pre class="rounded-md bg-muted p-3 text-xs overflow-x-auto max-h-[400px] overflow-y-auto">{{ stderr_log.content }}</pre>
+        </div>
+        {% endif %}
+
+        {% if stdout_log.file_exists %}
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm font-medium">stdout</span>
+            {% if stdout_log.truncated %}<span class="text-xs text-warning">(truncated — {{ stdout_log.total_size|filesizeformat }} total)</span>{% endif %}
+          </div>
+          <pre class="rounded-md bg-muted p-3 text-xs overflow-x-auto max-h-[400px] overflow-y-auto">{{ stdout_log.content }}</pre>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Timestamps -->
     <div class="ui-card">

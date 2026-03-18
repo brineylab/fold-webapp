@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
@@ -10,7 +12,7 @@ from django.views.decorators.http import require_POST
 from console.models import SiteSettings
 from jobs.forms import get_disabled_runners
 from jobs.models import Job
-from jobs.services import cancel_job, create_and_submit_job, hide_job
+from jobs.services import cancel_job, create_and_submit_job, hide_job, read_log_tail
 from jobs.views.shared import _fallback_output_context, _job_queryset_for
 from model_types import (
     get_model_type,
@@ -127,6 +129,9 @@ def job_submit(request):
     )
 
 
+TERMINAL_STATUSES = {Job.Status.COMPLETED, Job.Status.FAILED, Job.Status.CANCELLED}
+
+
 @login_required
 def job_detail(request, job_id):
     job = get_object_or_404(_job_queryset_for(request.user), id=job_id)
@@ -141,7 +146,15 @@ def job_detail(request, job_id):
         if model_type
         else _fallback_output_context(job)
     )
-    return render(request, "jobs/detail.html", {"job": job, **output_context})
+
+    log_context = {}
+    if job.status in TERMINAL_STATUSES:
+        log_context["stdout_log"] = read_log_tail(job, "stdout")
+        log_context["stderr_log"] = read_log_tail(job, "stderr")
+
+    return render(
+        request, "jobs/detail.html", {"job": job, **output_context, **log_context}
+    )
 
 
 @login_required
@@ -160,6 +173,34 @@ def download_file(request, job_id, filename):
         file_path.open("rb"),
         as_attachment=True,
         filename=file_path.name,
+    )
+
+
+@login_required
+def download_log(request, job_id, log_type):
+    if log_type not in ("stdout", "stderr"):
+        raise Http404
+
+    job = get_object_or_404(_job_queryset_for(request.user), id=job_id)
+    attempt = job.attempts.order_by("-attempt_number").first()
+    if attempt is None:
+        raise Http404
+
+    raw_path = attempt.stdout_path if log_type == "stdout" else attempt.stderr_path
+    if not raw_path:
+        raise Http404
+
+    log_path = Path(raw_path).resolve()
+    workdir = job.workdir.resolve()
+    if not log_path.is_relative_to(workdir):
+        raise Http404
+    if not log_path.exists() or not log_path.is_file():
+        raise Http404
+
+    return FileResponse(
+        log_path.open("rb"),
+        as_attachment=True,
+        filename=log_path.name,
     )
 
 

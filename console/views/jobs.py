@@ -10,7 +10,7 @@ from console.decorators import console_required
 from console.models import ActionLog
 from console.services.jobs import cancel_job, bulk_cancel_jobs, bulk_hide_jobs
 from jobs.models import Job, JobAttempt
-from jobs.services import list_output_files
+from jobs.services import list_output_files, read_log_tail
 
 
 @console_required
@@ -92,12 +92,17 @@ def job_detail(request, job_id):
             if p.is_file():
                 input_files.append(p.name)
     
+    stdout_log = read_log_tail(job, "stdout")
+    stderr_log = read_log_tail(job, "stderr")
+
     context = {
         "action_logs": ActionLog.objects.filter(job=job)[:20],
         "attempts": job.attempts.order_by("-attempt_number"),
         "job": job,
         "files": files,
         "input_files": input_files,
+        "stdout_log": stdout_log,
+        "stderr_log": stderr_log,
     }
     return render(request, "console/jobs/detail.html", context)
 

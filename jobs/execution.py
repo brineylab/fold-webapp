@@ -376,17 +376,33 @@ exit "$rc"
         return attempt
 
 
-def _build_failure_summary(exit_code: int, stderr_path: Path) -> str:
-    stderr_tail = ""
-    if stderr_path.exists():
-        lines = stderr_path.read_text(encoding="utf-8", errors="replace").splitlines()
-        if lines:
-            stderr_tail = lines[-1].strip()
+_UNHELPFUL_STDERR_PATTERNS = (
+    "Run 'docker run --help'",
+    "See 'docker run --help'",
+    "Run 'docker --help'",
+    "See 'docker --help'",
+)
 
+
+def _build_failure_summary(exit_code: int, stderr_path: Path) -> str:
     message = f"Local executor exited with code {exit_code}"
-    if stderr_tail:
-        return f"{message}: {stderr_tail[:300]}"
-    return message
+    if not stderr_path.exists():
+        return message
+
+    lines = stderr_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    non_blank = [ln.strip() for ln in lines if ln.strip()]
+    if not non_blank:
+        return message
+
+    # Walk backward, skipping known-unhelpful lines.
+    for line in reversed(non_blank):
+        if any(pat in line for pat in _UNHELPFUL_STDERR_PATTERNS):
+            continue
+        return f"{message}: {line[:500]}"
+
+    # All lines were unhelpful — join last 5 non-blank lines.
+    tail = "\n".join(non_blank[-5:])
+    return f"{message}: {tail[:500]}"
 
 
 def _inspect_container(container_id: str) -> ContainerState | None:

@@ -9,6 +9,7 @@ urlpatterns = [
     path("jobs/new/", views.job_submit, name="job_submit"),
     path("jobs/<uuid:job_id>/", views.job_detail, name="job_detail"),
     path("jobs/<uuid:job_id>/download/<path:filename>", views.download_file, name="download_file"),
+    path("jobs/<uuid:job_id>/logs/<str:log_type>/download/", views.download_log, name="download_log"),
     path("jobs/<uuid:job_id>/cancel/", views.job_cancel, name="job_cancel"),
     path("jobs/<uuid:job_id>/delete/", views.job_delete, name="job_delete"),
     path("account/", views.account_view, name="account"),

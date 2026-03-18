@@ -6,6 +6,7 @@ from jobs.views.account import (
 from jobs.views.dashboard import dashboard
 from jobs.views.jobs import (
     download_file,
+    download_log,
     job_cancel,
     job_delete,
     job_detail,
@@ -19,6 +20,7 @@ __all__ = [
     "account_view",
     "dashboard",
     "download_file",
+    "download_log",
     "job_cancel",
     "job_delete",
     "job_detail",

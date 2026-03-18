@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -338,6 +340,78 @@ def list_output_files(job: Job) -> list[dict]:
                 rel = path.relative_to(outdir)
                 files.append({"name": str(rel), "size": path.stat().st_size})
     return files
+
+
+def read_log_tail(
+    job: Job,
+    log_type: str,
+    *,
+    attempt_number: int | None = None,
+    max_lines: int = 200,
+    max_bytes: int = 64_000,
+) -> dict:
+    """Read the tail of an attempt's stdout or stderr log file.
+
+    Returns a dict with keys: content, truncated, total_size, log_type,
+    attempt_number, file_exists.
+    """
+    result = {
+        "content": "",
+        "truncated": False,
+        "total_size": 0,
+        "log_type": log_type,
+        "attempt_number": None,
+        "file_exists": False,
+    }
+
+    if log_type not in ("stdout", "stderr"):
+        return result
+
+    if attempt_number is not None:
+        attempt = job.attempts.filter(attempt_number=attempt_number).first()
+    else:
+        attempt = job.attempts.order_by("-attempt_number").first()
+
+    if attempt is None:
+        return result
+
+    result["attempt_number"] = attempt.attempt_number
+
+    raw_path = attempt.stdout_path if log_type == "stdout" else attempt.stderr_path
+    if not raw_path:
+        return result
+
+    log_path = Path(raw_path).resolve()
+    workdir = job.workdir.resolve()
+    if not log_path.is_relative_to(workdir):
+        return result
+
+    if not log_path.exists() or not log_path.is_file():
+        return result
+
+    result["file_exists"] = True
+    file_size = log_path.stat().st_size
+    result["total_size"] = file_size
+
+    if file_size == 0:
+        return result
+
+    truncated = False
+    with log_path.open("r", encoding="utf-8", errors="replace") as fh:
+        if file_size > max_bytes:
+            fh.seek(file_size - max_bytes)
+            fh.readline()  # discard partial first line
+            truncated = True
+        raw = fh.read()
+
+    lines = raw.splitlines()
+    if len(lines) > max_lines:
+        lines = lines[-max_lines:]
+        truncated = True
+
+    result["content"] = "\n".join(lines)
+    result["truncated"] = truncated
+    return result
 
 
 def serialize_job(

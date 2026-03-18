@@ -76,6 +76,41 @@
     </div>
   </div>
 
+  {# ── Logs ───────────────────────────────────────────────────── #}
+  {% if stderr_log.file_exists or stdout_log.file_exists %}
+  <div class="ui-card mb-6">
+    <div class="ui-card-body">
+      <h2 class="mb-3">Logs</h2>
+
+      {% if stderr_log.file_exists %}
+        <details{% if job.status == "FAILED" %} open{% endif %} class="mb-4">
+          <summary class="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+            stderr
+            {% if stderr_log.truncated %}<span class="text-xs text-warning ml-1">(truncated — {{ stderr_log.total_size|filesizeformat }} total)</span>{% endif %}
+          </summary>
+          <pre class="mt-2 rounded-md bg-muted p-3 text-sm overflow-x-auto max-h-[400px] overflow-y-auto">{{ stderr_log.content }}</pre>
+          {% if stderr_log.truncated %}
+            <a class="text-xs ui-link mt-1 inline-block" href="{% url 'download_log' job_id=job.id log_type='stderr' %}">Download full stderr log</a>
+          {% endif %}
+        </details>
+      {% endif %}
+
+      {% if stdout_log.file_exists %}
+        <details class="mb-2">
+          <summary class="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+            stdout
+            {% if stdout_log.truncated %}<span class="text-xs text-warning ml-1">(truncated — {{ stdout_log.total_size|filesizeformat }} total)</span>{% endif %}
+          </summary>
+          <pre class="mt-2 rounded-md bg-muted p-3 text-sm overflow-x-auto max-h-[400px] overflow-y-auto">{{ stdout_log.content }}</pre>
+          {% if stdout_log.truncated %}
+            <a class="text-xs ui-link mt-1 inline-block" href="{% url 'download_log' job_id=job.id log_type='stdout' %}">Download full stdout log</a>
+          {% endif %}
+        </details>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   {# ── Output files ────────────────────────────────────────────── #}
   <h2 class="mb-3">Output Files</h2>
   <div class="ui-card">
